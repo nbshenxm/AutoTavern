@@ -32,6 +32,7 @@ namespace TavernAdvisor.HdtPlugin
         DateTime _lastPoll = DateTime.MinValue;
         DateTime _lastStart = DateTime.MinValue;
         DateTime _flaggedAt = DateTime.MinValue;
+        DateTime _settingsRead = DateTime.MinValue;
         bool _loaded;      // HDT keeps a registered hotkey after unloading: its action checks this
         bool _hidden;      // the advice says combat is on
         bool _artBroken;   // HDT's asset API isn't what this was built against: names only
@@ -48,6 +49,7 @@ namespace TavernAdvisor.HdtPlugin
         public void OnLoad()
         {
             _settings = Settings.Load(Path.GetDirectoryName(typeof(Plugin).Assembly.Location));
+            _settingsRead = SettingsWritten();
             CreateOverlay();
             if (_settings.StartAdvisor)
                 StartAdvisor();
@@ -115,6 +117,7 @@ namespace TavernAdvisor.HdtPlugin
             if (_box == null || (DateTime.Now - _lastPoll).TotalMilliseconds < 250)
                 return;
             _lastPoll = DateTime.Now;
+            ReloadSettingsIfChanged();
             PositionOverlay();
             KeepAdvisorRunning();
 
@@ -365,6 +368,24 @@ namespace TavernAdvisor.HdtPlugin
             PositionOverlay();
         }
 
+        static string SettingsPath => Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location) ?? "",
+            "taverngym.plugin.json");
+
+        static DateTime SettingsWritten() => File.Exists(SettingsPath) ? File.GetLastWriteTime(SettingsPath) : DateTime.MinValue;
+
+        /// <summary>Overlay position, scale and the rest follow taverngym.plugin.json while HDT runs
+        /// (the advisor's own options apply at its next start).</summary>
+        void ReloadSettingsIfChanged()
+        {
+            DateTime written = SettingsWritten();
+            if (written == _settingsRead)
+                return;
+            _settingsRead = written;
+            _settings = Settings.Load(Path.GetDirectoryName(typeof(Plugin).Assembly.Location));
+            _box.LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale);
+            _lastRead = DateTime.MinValue;   // redraw with the new settings
+        }
+
         void PositionOverlay()
         {
             Canvas canvas = Core.OverlayCanvas;
@@ -437,7 +458,7 @@ namespace TavernAdvisor.HdtPlugin
         public bool StartAdvisor = true;
         public string Locale = "enUS";
         public double OverlayLeft = 0.02;
-        public double OverlayTop = 0.12;
+        public double OverlayTop = 0.42;
         public double StaleSeconds = 90;
         public int MaxSteps = 6;
         public double Scale = 1.0;
