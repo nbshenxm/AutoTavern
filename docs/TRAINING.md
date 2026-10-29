@@ -40,11 +40,18 @@ clearly under 4.5; the first target is under 3.0) on 1,000 fresh games.
 | --- | --- | --- | ---: | --- |
 | smoke1 | home, RTX 5090, 8 threads | 10 min, 211 iterations | 7.0M (about 4,100 games) | 7.97 untrained → 5.52, top 4 in 27.5%; still falling |
 | smoke1 (resumed) | home | +50 min, to iteration 1535 | 50.7M in all (about 21,700 games) | best at iteration 1170: **3.53 ± 0.06 on 1,000 unseen games** (top 4 in 71%); flat around 3.5-3.7 after iteration 800 |
-| office1 | office, RTX 4080 (shared), 8 threads | 6 h from 16:45, league from iteration 600 | running | |
+| office1 | office, RTX 4080 (shared), 8 threads | 6 h from 16:45, league from iteration 600 | running | about 4.0 vs bots and 4.3-4.4 in the league by iteration 800 |
+| entity1 | home, `--arch entity` | 30 min, 160 iterations | about 5M | best at iteration 70: **3.30 ± 0.05 on 1,000 unseen games** (top 4 in 76%) after 10 minutes; then worse (4.9 at 30 min) while the entropy rose 2.4 → 3.0 |
+| entity2 | home, `--arch entity --lr 1e-4 --ent 0.0025` | 30 min | running | |
 
-**Promoted** (2026-10-29): smoke1 iteration 1170 as `data/models/best.pt`, the first network the
-overlay shows ("early network ... place 3.529 vs bots, 1000 games"). It beats the scripted
-bots, which is all it has been measured against: an early network, not yet advice to rely on.
+The entity network learns far faster for the time: at equal minutes the MLP was at 5.8 (10
+min), 4.8 (15), 4.4 (20) and 3.8 (30). Its update costs more (3.8 s against 0.6 s per
+iteration), its collection the same.
+
+**Promoted** (2026-10-29): first smoke1 iteration 1170 (MLP, 3.53), then entity1 iteration 70
+(entity network, 3.30; live advice 109 ms median) as `data/models/best.pt`; the MLP is kept as
+`best_mlp_smoke1_it1170.pt`. Both beat the scripted bots, which is all they have been measured
+against: early networks, not yet advice to rely on.
 
 Throughput at home: about 22,000-34,000 decisions per second collecting, 2.8 s per iteration
 of 33,000 decisions.

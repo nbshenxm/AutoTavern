@@ -252,6 +252,7 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--gamma", type=float, default=0.995)
     ap.add_argument("--lam", type=float, default=0.95)
+    ap.add_argument("--ent", type=float, default=0.01, help="entropy bonus")
     ap.add_argument("--eval-every", type=int, default=10)
     ap.add_argument("--eval-episodes", type=int, default=200)
     ap.add_argument("--resume")
@@ -312,7 +313,7 @@ def main():
         batch = advantages(seats, a.gamma, a.lam)
         tc = time.time()
         net.train()
-        stats = update(net, opt, batch, a.device)
+        stats = update(net, opt, batch, a.device, ent=a.ent)
         net.eval()
         row = {"iteration": it, "batch": len(batch), "episodes": len(placements),
                "collect_s": round(tc - ts, 1), "update_s": round(time.time() - tc, 1),
