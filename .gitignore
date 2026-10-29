@@ -48,3 +48,6 @@ guard-*.json
 *.npz
 *.npy
 *.pkl
+
+# client card data and Power.logs (downloaded / copied locally, not redistributed)
+/data/

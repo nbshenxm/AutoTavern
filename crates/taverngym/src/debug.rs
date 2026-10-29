@@ -1652,6 +1652,8 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                     trials.push(json!({
                         "winner": out.winner,
                         "truncated": out.truncated,
+                        // Before the damage cap and armor (a ghost's too)
+                        "damage": out.damage,
                         "damage_dealt": dealt,
                         "damage_taken": taken,
                         "lethal_win": out.winner == 0 && !ghost_b && c.players[b].health <= 0,
