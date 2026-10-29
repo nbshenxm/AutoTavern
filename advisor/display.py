@@ -11,7 +11,9 @@ TEXT = {
         "buy": "Buy", "sell": "Sell", "play": "Play", "magnetize": "Magnetize",
         "hero_power": "Hero Power", "activate": "Activate", "choose": "Choose",
         "target": "Target", "upgrade": "Level up", "refresh": "Refresh", "freeze": "Freeze",
-        "end": "End turn", "dark_gift": "Dark Gift", "arrange": "Arrange", "cancel": "Back",
+        "end": "End turn", "dark_gift": "Dark Discovery", "arrange": "Arrange", "cancel": "Back",
+        "then_choose": "Then choose from what you're offered (the advice updates)",
+        "then_tavern": "Then buy from the new Tavern (the advice updates)",
         "badge_tavern": "T{n}", "badge_hand": "H{n}", "badge_board": "B{n}",
         "badge_hero_power": "HP", "badge_choose": "Pick",
         "title": "Turn {turn}", "odds": "{label}: win {win:.0%} · tie {tie:.0%} · lose {loss:.0%}",
@@ -23,7 +25,9 @@ TEXT = {
         "buy": "购买", "sell": "出售", "play": "打出", "magnetize": "磁力吸附",
         "hero_power": "英雄技能", "activate": "激活", "choose": "选择", "target": "目标",
         "upgrade": "升级酒馆", "refresh": "刷新", "freeze": "冻结", "end": "结束回合",
-        "dark_gift": "Dark Gift", "arrange": "调整站位", "cancel": "取消",
+        "dark_gift": "黑暗发现", "arrange": "调整站位", "cancel": "取消",
+        "then_choose": "然后从出现的选项中选择（建议会更新）",
+        "then_tavern": "然后从刷新后的酒馆中购买（建议会更新）",
         "badge_tavern": "酒馆{n}", "badge_hand": "手{n}", "badge_board": "场{n}",
         "badge_hero_power": "技能", "badge_choose": "选择",
         "title": "第{turn}回合", "odds": "{label}：胜 {win:.0%} · 平 {tie:.0%} · 负 {loss:.0%}",
@@ -78,8 +82,13 @@ def row_for(view, a, locale, name_of):
             return None
         opts = pending.get("options") or []
         o = opts[i] if i < len(opts) and isinstance(opts[i], dict) else {}
+        name = name_of(_card(o), locale) if _card(o) else f"#{i + 1}"
+        # A Dark Discovery offer carries its Dark Gift: say which
+        gifts = [a for a in o.get("attached") or [] if isinstance(a, dict) and a.get("kind") == "dark_gift"]
+        if gifts:
+            name += " + " + ", ".join(name_of(g["id"], locale) for g in gifts)
         row.update(verb=t(locale, "choose"), badge=t(locale, "badge_choose"), badge_kind="choose",
-                   card_id=_card(o), name=name_of(_card(o), locale) if _card(o) else f"#{i + 1}")
+                   card_id=_card(o), name=name)
     elif 46 <= a <= 125:
         h, pos = divmod(a - 46, 8)
         row["verb"] = t(locale, "play")
@@ -164,3 +173,9 @@ def collapse(rows, locale):
     for n, r in enumerate(final, 1):
         r["n"] = n
     return final
+
+
+def chance_row(kind, locale):
+    """The last row of a plan that reaches a random step: what to do once it resolves."""
+    return {"verb": t(locale, "then_tavern" if kind == "tavern" else "then_choose"), "badge": "",
+            "badge_kind": "", "card_id": None, "name": None}

@@ -97,11 +97,27 @@ def build(d, combats=(), seed=7):
     debug(g, cmd="set_player", p=0, gold=me.get("gold", 0),
           upgrade_cost=costs.get("upgrade", 0),
           free_refreshes=1 if costs.get("refresh", 1) == 0 else 0)
+    # A Discover the player is choosing in (Dark Discovery, a Discover card): its logged
+    # options are created on an empty seat's hand, then moved into the player's pending choice
+    offer = discover_options(d)
+    spare = max(seat_of.values()) + 1 if len(seat_of) < 8 else None
+    if offer and spare is None:
+        spare = 7  # a full lobby: the last seat's hand (cleared above) holds them for a moment
+    if offer:
+        debug(g, cmd="clear_zone", p=spare, zone="hand")
+        for m in offer:
+            add_minion(g, spare, "hand", m, gaps, "offer")
     # Fields no debug command reaches: patched in the saved state
     st = json.loads(g.state_json())
     p0 = st["players"][0]
     # At an Options packet the player is not in a choice: drop what the stand-in hero opened
     p0["pending"] = []
+    if offer:
+        holder = st["players"][spare]
+        options = [h["item"] for h in holder["hand"]]
+        holder["hand"] = []
+        gift = next((a for o in options for a in o.get("Minion", {}).get("attached", [])), 0)
+        p0["pending"] = [{"Discover": {"source": gift, "options": options}}]
     scouted = [{"board": [], "turn": 0} for _ in st["players"]]
     for pid, seat in seat_of.items():
         if seat == 0:
@@ -142,6 +158,17 @@ def build(d, combats=(), seed=7):
             card["locked"] = max(1, card.get("locked", 0))
     g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
+
+
+def discover_options(d):
+    """The minions offered at a choice decision (a Discover), or [] (an Options decision, or a
+    choice that isn't between minions: trinkets, heroes)."""
+    if d.get("kind") != "choices":
+        return []
+    opts = d.get("options") or []
+    if not opts or any("minion" not in o for o in opts):
+        return []
+    return [o["minion"] for o in opts]
 
 
 def hand_cards(me):

@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+from hearthstone.enums import CardType, GameTag as T
 from hslog import LogParser, packets
 
 from advisor import bridge, decisions, display, logs
@@ -34,6 +35,7 @@ LIVE_DIR = Path(os.environ.get("LOCALAPPDATA", ".")) / "TavernAdvisor"
 MODEL = Path(__file__).resolve().parents[1] / "data" / "models" / "best.pt"
 CREATE_GAME = "GameState.DebugPrintPower() - CREATE_GAME"
 OPTIONS = "GameState.DebugPrintOptions()"
+CHOICES = "GameState.DebugPrintEntityChoices()"
 MAX_PLAN = 80  # above the largest turn action cap (GAME_CONFIG), so a plan reaches End Turn
 A_MOVE = 196  # taverngym.layout(): the first move action
 
@@ -57,6 +59,7 @@ class Tracker:
         self.player_id = 0
         self.history = {}  # player_id -> combats of that game so far (across reconnects)
         self.combat = False  # the combat phase is on (the overlay hides the advice)
+        self.reported_choice = None  # (segment, choice id) of the last open choice advised
 
     def feed(self, line):
         """Parse one line; returns a decision ready for advice, or None."""
@@ -75,7 +78,7 @@ class Tracker:
             self.player_id = int(m.group(1))
         if "GameState.DebugPrintPower()" in line and "GameEntity tag=BOARD_VISUAL_STATE value=" in line:
             self.combat = line.rstrip().endswith("value=2")
-        options = OPTIONS in line
+        options = OPTIONS in line or CHOICES in line  # a block of either ends with the next line
         if self.in_options and not options:
             out = self._advance()
         self.parser.read_line(line)
@@ -99,11 +102,58 @@ class Tracker:
                 break
             self.exporter.export_packet(p)
             self.exported += 1
+        if self.exported < len(pk):  # a Discover waits inside the block of what caused it
+            d = self.open_choice(pk[self.exported])
+            if d is not None:
+                return d
         d = self.exporter.pending
-        if d is None or d["kind"] != "options" or d["turn"] % 2 == 0 or d is self.reported:
+        if d is None or d["turn"] % 2 == 0 or d is self.reported:
+            return None
+        # Recruit Options, or a Discover between minions (Dark Discovery...): both get advice
+        if d["kind"] != "options" and not bridge.discover_options(d):
             return None
         self.reported = d
         return d
+
+    def open_choice(self, block):
+        """The player's unanswered choice between minions inside an unfinished block (Dark
+        Discovery, a Discover card), as a choice decision: the options as the block created
+        them, the state as it was before the block. None when there is none."""
+        if self.exporter.combat is not None:
+            return None
+        info, choice = {}, None
+        for p in _walk(block):
+            if isinstance(p, (packets.FullEntity, packets.ShowEntity)):
+                e = info.setdefault(p.entity, {})
+                e["card"] = p.card_id or e.get("card")
+                e.update({int(t): v for t, v in (p.tags or [])})
+            elif isinstance(p, packets.TagChange) and isinstance(p.entity, int):
+                info.setdefault(p.entity, {})[int(p.tag)] = p.value
+            elif isinstance(p, packets.Choices):
+                choice = p
+            elif isinstance(p, (packets.SendChoices, packets.ChosenEntities)) and choice is not None \
+                    and getattr(p, "id", None) == choice.id:
+                choice = None  # answered
+        if choice is None or (self.reported_choice == (self.segment, choice.id)):
+            return None
+        options = []
+        for eid in choice.choices:
+            e = info.get(eid, {})
+            if not e.get("card") or e.get(int(T.CARDTYPE)) != int(CardType.MINION):
+                return None  # not a choice between minions (trinkets, heroes...)
+            ench = [{"card": x["card"], "data": [x.get(int(t), 0) for t in logs.SCRIPT_TAGS]}
+                    for x in info.values() if x.get(int(T.ATTACHED)) == eid and x.get("card")]
+            options.append({"card": e["card"], "minion": {
+                "card": e["card"], "eid": eid, "pos": 0, "atk": e.get(int(T.ATK), 0),
+                "hp": e.get(int(T.HEALTH), 0) - e.get(int(T.DAMAGE), 0), "max_hp": e.get(int(T.HEALTH), 0),
+                "golden": e.get(int(T.PREMIUM), 0) == 1, "tier": e.get(int(T.TECH_LEVEL), 0),
+                "keywords": [k for k, tag in logs.KEYWORD_TAGS.items() if e.get(int(tag))],
+                "data": [e.get(int(t), 0) for t in logs.SCRIPT_TAGS], "ench": ench}})
+        self.reported_choice = (self.segment, choice.id)
+        g = self.exporter.game
+        return {**self.exporter.meta, "kind": "choices", "turn": g.tags.get(T.TURN, 0),
+                "choice_type": getattr(choice.type, "name", choice.type), "options": options,
+                "state": self.exporter._recruit_state(), "chosen": None}
 
     def combats(self):
         done = self.history.get(self.player_id, [])
@@ -114,6 +164,13 @@ class Tracker:
         if self.exporter is not None:
             self.history.setdefault(self.player_id, []).extend(self.exporter.combats)
             self.exporter.combats = []
+
+
+def _walk(block):
+    for p in block.packets:
+        yield p
+        if isinstance(p, packets.Block):
+            yield from _walk(p)
 
 
 def newest_log(log_dir):
@@ -199,6 +256,15 @@ def plan_turn(g, locale, net=None, allowed=None):
         if row is None:
             display.merge_target(rows, view, a, locale, name_of)
         c.step(0, a)
+        chance = random_outcome(view, a, json.loads(c.view(0)))
+        if chance:
+            # What comes next is the simulator's own roll (a new Tavern, offered cards), not
+            # what the game will offer: the plan stops here and the advice updates then
+            out.append((a, text))
+            if row is not None:
+                rows.append(row)
+            rows.append(display.chance_row(chance, locale))
+            break
         if a >= A_MOVE:
             after = json.loads(c.view(0))
             text = "Arrange: " + ", ".join(name_of(m["id"], locale) for m in after["me"]["board"])
@@ -213,6 +279,17 @@ def plan_turn(g, locale, net=None, allowed=None):
         if a == 0:
             break
     return out, display.collapse(rows, locale), c
+
+
+def random_outcome(before, a, after):
+    """Whether action `a` leads to something random the plan can't know: "tavern" (a Refresh),
+    "choice" (it opened an offer: Dark Discovery, a Discover card, trinkets), else None."""
+    if a == 1:
+        return "tavern"
+    pending = after["me"].get("pending") or {}
+    if pending and pending.get("kind") != "target" and not (30 <= a <= 45 and before["me"].get("pending")):
+        return "choice"
+    return None
 
 
 def combat_odds(g, n=300):
@@ -232,8 +309,12 @@ def combat_odds(g, n=300):
 def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)"):
     t0 = time.perf_counter()
     g, gaps = bridge.build(d, bridge.game_combats(combats, d) if combats else ())
-    client = bridge.client_actions(d)
-    allowed = bridge.allowed_mask(json.loads(g.view(0))["mask"], d)
+    mask = json.loads(g.view(0))["mask"]
+    if d["kind"] == "choices":  # a Discover: the real options are the pending choice
+        client, allowed = set(), [bool(x) for x in mask]
+    else:
+        client = bridge.client_actions(d)
+        allowed = bridge.allowed_mask(mask, d)
     plan, rows, after = plan_turn(g, locale, net, allowed)
     warnings = sorted(set(gaps))
     first = plan[0] if plan else None

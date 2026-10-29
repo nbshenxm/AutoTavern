@@ -141,8 +141,17 @@ class DecisionExporter(bg_logs.CombatExporter):
         self.pending = {**self.meta, "kind": "choices", "turn": self.game.tags.get(T.TURN, 0),
                         "choice_type": _name_opt(packet.type),
                         "source": self._entity_view(packet.source) if getattr(packet, "source", None) else None,
-                        "options": [self._entity_view(c) for c in packet.choices],
+                        "options": [self._choice_option(c) for c in packet.choices],
                         "state": self._recruit_state(), "chosen": None}
+
+    def _choice_option(self, eid):
+        """A choice option; a minion with its stats and enchantments (a Dark Discovery offer
+        carries its Dark Gift as one)."""
+        view = self._entity_view(eid)
+        e = self.game.find_entity_by_id(eid) if isinstance(eid, int) else None
+        if e is not None and getattr(e, "card_id", None) and _type(e) == CardType.MINION:
+            view["minion"] = self._minion(e)
+        return view
 
     def handle_send_choices(self, packet):
         super().handle_send_choices(packet)
