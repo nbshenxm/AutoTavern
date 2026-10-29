@@ -2,7 +2,9 @@
 
 Seat 0 is the player: hero, Hero Powers (used or not), trinkets, counters, Tier, health, armor,
 Gold, upgrade cost, free refreshes, warband, hand (minions and spells in logged order) and the
-Tavern (frozen flags). The other seats are the rest of the lobby.
+Tavern (frozen flags). Seats 1-7 are the other players in PLAYER_ID order: hero, health,
+armor, Tier, eliminated with their place, and the warband the player last saw them with
+(from the game's earlier combats), which is also what the player has scouted of them.
 
 `parity` compares TavernGym's legal actions at that state with the options the client offered,
 by action kind and slot (docs/ROADMAP.md, M2):
@@ -14,6 +16,7 @@ import argparse
 import collections
 import json
 import sys
+from pathlib import Path
 
 import taverngym
 
@@ -22,13 +25,51 @@ from advisor.state import CAT, add_minion, debug, normal_form, recruit_game, set
 SPELL_TYPES = ("SPELL", "BATTLEGROUND_SPELL")
 
 
-def build(d, seed=7):
-    """(game, gaps) for decision `d`."""
+def seats(d):
+    """PLAYER_ID -> seat: the player on 0, the others in PLAYER_ID order on 1-7."""
+    me = d.get("player_id") or d["state"]["friendly"].get("player_id")
+    others = sorted(int(k) for k in d["state"].get("leaderboard", {}) if int(k) != me)
+    return {me: 0} | {pid: i + 1 for i, pid in enumerate(others[:7])}
+
+
+def game_combats(combats, d):
+    """The player's combats of decision `d`'s game before it (advisor.logs records)."""
+    return [c for c in combats if c["log"] == d["log"] and c["player_id"] == d["player_id"]
+            and c["turn"] < d["turn"]]
+
+
+def build(d, combats=(), seed=7):
+    """(game, gaps) for decision `d`; `combats` are the game's earlier combats
+    (`game_combats`), which give the opponents' last seen warbands."""
     s = d["state"]
     me = s["friendly"]
     gaps = []
     g = recruit_game(seed)
-    debug(g, cmd="set_turn", turn=max(1, (d["turn"] + 1) // 2))
+    turn = max(1, (d["turn"] + 1) // 2)
+    debug(g, cmd="set_turn", turn=turn)
+    seat_of = seats(d)
+    # Opponents: leaderboard values, and the warband last seen against each (it also stands in
+    # for their current one, which the player can't see)
+    last_seen = {}
+    for c in sorted(combats, key=lambda c: c["turn"]):
+        pid = c["start"]["opponent"].get("player_id")
+        if pid in seat_of and seat_of[pid] != 0:
+            last_seen[pid] = c
+    for pid, seat in seat_of.items():
+        if seat == 0:
+            continue
+        row = s["leaderboard"][str(pid)]
+        if row["hero"] in CAT and CAT[row["hero"]]["kind"] == "hero":
+            debug(g, cmd="set_hero", p=seat, hero=row["hero"])
+        else:
+            gaps.append(f"opponent hero {row['hero']}")
+        debug(g, cmd="clear_zone", p=seat, zone="board")
+        debug(g, cmd="clear_zone", p=seat, zone="hand")
+        debug(g, cmd="set_player", p=seat, health=max(row["health"], 1), armor=row["armor"],
+              tier=max(1, row["tier"]))
+        if pid in last_seen:
+            for m in last_seen[pid]["start"]["opponent"]["board"][:7]:
+                add_minion(g, seat, "board", m, [], "seen")
     set_side(g, 0, {**me, "hand": []}, gaps, "me")
     minions = {m["eid"]: m for m in me.get("hand", [])}
     for h in hand_cards(me):
@@ -53,6 +94,21 @@ def build(d, seed=7):
     p0 = st["players"][0]
     # At an Options packet the player is not in a choice: drop what the stand-in hero opened
     p0["pending"] = []
+    scouted = [{"board": [], "turn": 0} for _ in st["players"]]
+    for pid, seat in seat_of.items():
+        if seat == 0:
+            continue
+        o = st["players"][seat]
+        o["pending"] = []
+        row = s["leaderboard"][str(pid)]
+        if row["health"] <= 0:
+            o["alive"], o["placement"], o["health"] = False, row["place"], row["health"]
+        if pid in last_seen:
+            scouted[seat] = {"board": o["board"], "turn": (last_seen[pid]["turn"] + 1) // 2}
+    p0["scouted"] = scouted
+    combat_pids = [c["start"]["opponent"].get("player_id") for c in sorted(combats, key=lambda c: c["turn"])]
+    p0["last_opponent"] = seat_of.get(combat_pids[-1]) if combat_pids else None
+    p0["next_opponent"] = seat_of.get(me.get("next_opponent"))
     if costs.get("dark_gift_exhausted"):
         p0["dark_gift_used_turn"] = True
     for slot, x in zip(p0["shop"], s["shop"]):
@@ -166,7 +222,7 @@ def movable_slots(d):
             and o["entity"].get("zone") == "PLAY" and not o["targets"]}
 
 
-def parity(decisions, limit=None):
+def parity(decisions, limit=None, combats=()):
     """Per action kind: (both, client only, TavernGym only) over the decisions."""
     by_kind = collections.defaultdict(lambda: [0, 0, 0])
     examples = collections.defaultdict(list)
@@ -174,7 +230,7 @@ def parity(decisions, limit=None):
     for d in decisions:
         if d["kind"] != "options" or d["turn"] % 2 == 0:
             continue
-        g, gaps = build(d)
+        g, gaps = build(d, game_combats(combats, d))
         tg = tavern_actions(json.loads(g.view(0))["mask"])
         cl = client_actions(d)
         # An Activate without a target looks like a move in the log: unverifiable, not a miss
@@ -205,7 +261,10 @@ def main():
     ap.add_argument("--limit", type=int)
     a = ap.parse_args()
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
-    n, exact, by_kind, examples = parity(decisions, a.limit)
+    combats_file = Path(a.decisions).with_name("combats.jsonl")
+    combats = ([json.loads(l) for l in open(combats_file, encoding="utf-8")]
+               if combats_file.is_file() else [])
+    n, exact, by_kind, examples = parity(decisions, a.limit, combats)
     print(f"{n} recruit decisions; legal sets identical in {exact} ({exact / max(1, n):.1%})")
     print(f"{'kind':12s} {'both':>6s} {'client only':>12s} {'TavernGym only':>15s}")
     for kind, (both, c_only, t_only) in sorted(by_kind.items()):

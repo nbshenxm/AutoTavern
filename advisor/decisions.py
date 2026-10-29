@@ -55,6 +55,7 @@ class DecisionExporter(bg_logs.CombatExporter):
         me["gold"] = (pt.get(T.RESOURCES, 0) + pt.get(T.TEMP_RESOURCES, 0)
                       - pt.get(T.RESOURCES_USED, 0))
         me["max_gold"] = pt.get(T.RESOURCES, 0)
+        me["next_opponent"] = pt.get(T.NEXT_OPPONENT_PLAYER_ID, 0)
         # Unplayable: a card locked in hand (a Lockbox's minion until the box opens)
         me["hand_all"] = [self._entity_view(e.id) | {"data": bg_logs._data(e),
                                                      "unplayable": bool(e.tags.get(T.LITERALLY_UNPLAYABLE))}

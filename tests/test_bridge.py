@@ -29,7 +29,10 @@ def result():
 
     lines = DECISIONS.read_text(encoding="utf-8").splitlines()
     decisions = [json.loads(line) for line in lines[::3]]  # a third keeps the test quick
-    return bridge.parity(decisions)
+    combats_file = DECISIONS.with_name("combats.jsonl")
+    combats = ([json.loads(line) for line in combats_file.read_text(encoding="utf-8").splitlines()]
+               if combats_file.is_file() else [])
+    return bridge.parity(decisions, combats=combats)
 
 
 def test_legal_sets_mostly_identical(result):

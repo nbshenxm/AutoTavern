@@ -92,7 +92,10 @@ pytest tests/test_bridge.py      # skips when there are no extracted decisions
 `advisor.bridge.build` turns a logged recruit decision into a TavernGym game with the player on
 seat 0: hero, Hero Powers (used this turn, or a spent once-per-game one), trinkets, counters,
 Tier, health, armor, Gold, upgrade cost, free refreshes, warband, hand in logged order (a
-Lockbox's locked card stays locked) and the Tavern with its frozen flags. `parity` compares
+Lockbox's locked card stays locked) and the Tavern with its frozen flags. Seats 1-7 are the
+other players from the leaderboard (hero, health, armor, Tier, eliminated with their place),
+each with the warband the player last saw in combat, which is also the player's scouting
+of them in the observation; the last and next opponents are marked. `parity` compares
 TavernGym's legal actions there with the options the client offered, by kind and slot.
 
 On the 10 logged games (1,870 recruit decisions), the legal sets are identical in 89%. End

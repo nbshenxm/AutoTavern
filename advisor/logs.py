@@ -133,6 +133,7 @@ class CombatExporter(EntityTreeExporter):
             side["player_ench"] = self._enchantments(player.id)
         if hero is not None:
             side.update(hero=self.skins.get(hero.card_id, hero.card_id), hero_skin=hero.card_id,
+                        player_id=hero.tags.get(T.PLAYER_ID, 0),
                         health=_hp(hero), armor=hero.tags.get(T.ARMOR, 0),
                         tier=hero.tags.get(T.PLAYER_TECH_LEVEL, 0),
                         hero_ench=self._enchantments(hero.id))
