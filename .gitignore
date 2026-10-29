@@ -51,3 +51,7 @@ guard-*.json
 
 # client card data and Power.logs (downloaded / copied locally, not redistributed)
 /data/
+
+# HDT plugin build output
+plugin/**/bin/
+plugin/**/obj/

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- HDT is a .NET Framework 4.7.2 WPF app; plugins load into its process -->
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>TavernAdvisor.HdtPlugin</AssemblyName>
+    <RootNamespace>TavernAdvisor.HdtPlugin</RootNamespace>
+    <!-- Override with -p:HdtDir=... after an HDT update -->
+    <HdtDir Condition="'$(HdtDir)' == ''">$(LOCALAPPDATA)\HearthstoneDeckTracker\app-1.59.6</HdtDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="HearthstoneDeckTracker">
+      <HintPath>$(HdtDir)\HearthstoneDeckTracker.exe</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(HdtDir)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="taverngym.plugin.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

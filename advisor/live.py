@@ -53,6 +53,7 @@ class Tracker:
         self.reported = None
         self.player_id = 0
         self.history = {}  # player_id -> combats of that game so far (across reconnects)
+        self.combat = False  # the combat phase is on (the overlay hides the advice)
 
     def feed(self, line):
         """Parse one line; returns a decision ready for advice, or None."""
@@ -69,6 +70,8 @@ class Tracker:
         m = re.search(r"DebugPrintGame\(\) - PlayerID=(\d+), PlayerName=(.*)$", line)
         if m and "#" in m.group(2):
             self.player_id = int(m.group(1))
+        if "GameState.DebugPrintPower()" in line and "GameEntity tag=BOARD_VISUAL_STATE value=" in line:
+            self.combat = line.rstrip().endswith("value=2")
         options = OPTIONS in line
         if self.in_options and not options:
             out = self._advance()
@@ -214,6 +217,7 @@ def advise(d, combats, locale="enUS"):
     advice = {
         "turn": (d["turn"] + 1) // 2,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "phase": "recruit",
         "policy": "scripted bot (v0)",
         "action": first[1] if first else None,
         "plan": [t for _, t in plan],
@@ -280,12 +284,15 @@ def follow(log_dir, skins, locale, live_dir, poll=0.1):
             continue
         offset += len(data)
         *lines, rest = (rest + data).split(b"\n")
-        latest = None
+        latest, was_combat = None, tr.combat
         for raw in lines:
             d = tr.feed(raw.decode("utf-8", errors="replace") + "\n")
             if d is not None:
                 latest = d
-        if latest is not None:  # only the newest decision matters after a burst of lines
+        if tr.combat and not was_combat:
+            publish({"phase": "combat", "generated_at": datetime.now().isoformat(timespec="seconds")},
+                    live_dir)
+        if latest is not None and not tr.combat:  # only the newest decision matters after a burst
             try:
                 publish(advise(latest, tr.combats(), locale), live_dir)
             except Exception as e:  # keep following; the next decision tries again
@@ -300,7 +307,11 @@ def main():
     ap.add_argument("--cards", default=str(CARDS), help="client dir with CardDefs.xml")
     ap.add_argument("--live-dir", default=str(LIVE_DIR))
     ap.add_argument("--locale", default="enUS", choices=["enUS", "zhCN"])
+    ap.add_argument("--log-file", help="write output here (the plugin runs pythonw, no console)")
     a = ap.parse_args()
+    if a.log_file:
+        Path(a.log_file).parent.mkdir(parents=True, exist_ok=True)
+        sys.stdout = sys.stderr = open(a.log_file, "a", encoding="utf-8", buffering=1)
     skins = logs.skin_parents(a.cards)
     if a.replay:
         replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit)
