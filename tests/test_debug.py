@@ -187,3 +187,16 @@ def test_view_shows_patch_state_and_subsystem_commands():
     pend = json.loads(g.view(0))["me"]["pending"]
     assert pend["kind"] == "trinket"
     assert all({"cost", "base_cost", "weight"} <= set(o) for o in pend["options"])
+
+
+def test_methodical_madness_needs_a_tavern_minion():
+    g = recruit_game(6)
+    dbg = lambda **c: json.loads(g.debug(json.dumps(c)))
+    dbg(cmd="clear_zone", p=0, zone="hand")
+    dbg(cmd="add_minion", p=0, zone="board", card="BG36_731")  # Imp-lusionist, a Demon
+    dbg(cmd="add_spell", p=0, zone="hand", card="BG36_880")  # Methodical Madness
+    playable = lambda: any(json.loads(g.view(0))["mask"][46:54])
+    dbg(cmd="clear_zone", p=0, zone="shop")
+    assert not playable()  # the client: REQ_MINIMUM_ENEMY_MINIONS
+    dbg(cmd="add_minion", p=0, zone="shop", card="BG28_300")
+    assert playable()

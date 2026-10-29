@@ -22,6 +22,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 from hslog import LogParser, packets
 
 from advisor import bridge, decisions, logs
@@ -30,6 +31,7 @@ from advisor.state import CAT, debug
 HS_LOGS = Path(r"D:\Program Files (x86)\Hearthstone\Logs")
 CARDS = Path(r"D:\GitHub\Hearthstone_AI_Advisor\data\cards\255790")
 LIVE_DIR = Path(os.environ.get("LOCALAPPDATA", ".")) / "TavernAdvisor"
+MODEL = Path(__file__).resolve().parents[1] / "data" / "models" / "best.pt"
 CREATE_GAME = "GameState.DebugPrintPower() - CREATE_GAME"
 OPTIONS = "GameState.DebugPrintOptions()"
 MAX_PLAN = 20
@@ -174,14 +176,20 @@ def describe(view, a, locale):
     return f"action {a}"
 
 
-def plan_turn(g, locale):
-    """The policy's actions on a copy until it ends the turn: [(action, text)]."""
+def plan_turn(g, locale, net=None, allowed=None):
+    """The policy's actions on a copy until it ends the turn: [(action, text)]. With a network,
+    its most likely action at each step; the first step only among `allowed` (what the client
+    offers too). Without one, TavernGym's scripted bot."""
     c = g.copy()
     out = []
-    for _ in range(MAX_PLAN):
+    for step in range(MAX_PLAN):
         if not c.needs_action(0):
             break
-        a = c.bot_action(0)
+        if net is None:
+            a = c.bot_action(0)
+        else:
+            from advisor.policy import act
+            a, _, _ = act(net, c, 0, np.array(allowed) if step == 0 and allowed is not None else None)
         out.append((a, describe(json.loads(c.view(0)), a, locale)))
         c.step(0, a)
         if a == 0:
@@ -203,22 +211,23 @@ def combat_odds(g, n=300):
             "seen_turn": nxt.get("seen_turn")}
 
 
-def advise(d, combats, locale="enUS"):
+def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)"):
     t0 = time.perf_counter()
     g, gaps = bridge.build(d, bridge.game_combats(combats, d) if combats else ())
     client = bridge.client_actions(d)
-    plan, after = plan_turn(g, locale)
+    allowed = bridge.allowed_mask(json.loads(g.view(0))["mask"], d)
+    plan, after = plan_turn(g, locale, net, allowed)
     warnings = sorted(set(gaps))
     first = plan[0] if plan else None
-    if first is not None:
-        kinds = bridge.tavern_actions([i == first[0] for i in range(len(json.loads(g.view(0))["mask"]))])
-        if kinds and not kinds <= client and first[0] < 196:
+    if first is not None and net is None:
+        k = bridge.action_kind(first[0])
+        if k is not None and k not in client:
             warnings.append("the first step is not offered by the client")
     advice = {
         "turn": (d["turn"] + 1) // 2,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "phase": "recruit",
-        "policy": "scripted bot (v0)",
+        "policy": policy_name,
         "action": first[1] if first else None,
         "plan": [t for _, t in plan],
         "odds_now": combat_odds(g),
@@ -239,7 +248,7 @@ def publish(advice, live_dir):
 
 # ---------------------------------------------------------------------- modes
 
-def replay(path, skins, locale, live_dir=None, limit=None):
+def replay(path, skins, locale, live_dir=None, limit=None, policy=(None, "scripted bot (v0)")):
     """Feed a recorded log as if live; advice at every recruit decision, timed."""
     tr = Tracker(skins, name=Path(path).parent.name)
     times, n = [], 0
@@ -248,7 +257,7 @@ def replay(path, skins, locale, live_dir=None, limit=None):
             d = tr.feed(line)
             if d is None:
                 continue
-            a = advise(d, tr.combats(), locale)
+            a = advise(d, tr.combats(), locale, *policy)
             times.append(a["ms"])
             n += 1
             if live_dir:
@@ -263,7 +272,7 @@ def replay(path, skins, locale, live_dir=None, limit=None):
     return n, times
 
 
-def follow(log_dir, skins, locale, live_dir, poll=0.1):
+def follow(log_dir, skins, locale, live_dir, poll=0.1, policy=(None, "scripted bot (v0)")):
     path, tr, offset, rest = None, None, 0, b""
     while True:
         newest = newest_log(log_dir)
@@ -294,7 +303,7 @@ def follow(log_dir, skins, locale, live_dir, poll=0.1):
                     live_dir)
         if latest is not None and not tr.combat:  # only the newest decision matters after a burst
             try:
-                publish(advise(latest, tr.combats(), locale), live_dir)
+                publish(advise(latest, tr.combats(), locale, *policy), live_dir)
             except Exception as e:  # keep following; the next decision tries again
                 print(f"advice failed: {type(e).__name__}: {e}", flush=True)
 
@@ -308,15 +317,32 @@ def main():
     ap.add_argument("--live-dir", default=str(LIVE_DIR))
     ap.add_argument("--locale", default="enUS", choices=["enUS", "zhCN"])
     ap.add_argument("--log-file", help="write output here (the plugin runs pythonw, no console)")
+    ap.add_argument("--model", default=str(MODEL),
+                    help="policy network (advisor.train checkpoint); the scripted bot without one")
     a = ap.parse_args()
     if a.log_file:
         Path(a.log_file).parent.mkdir(parents=True, exist_ok=True)
         sys.stdout = sys.stderr = open(a.log_file, "a", encoding="utf-8", buffering=1)
     skins = logs.skin_parents(a.cards)
+    policy = load_policy(a.model)
     if a.replay:
-        replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit)
+        replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit, policy)
     else:
-        follow(a.log_dir, skins, a.locale, Path(a.live_dir))
+        follow(a.log_dir, skins, a.locale, Path(a.live_dir), policy=policy)
+
+
+def load_policy(path):
+    """(network, name) from a checkpoint, or (None, the scripted bot's name)."""
+    if not path or not Path(path).is_file():
+        return None, "scripted bot (v0)"
+    from advisor.policy import load
+    net, ck = load(path)
+    ev = ck.get("eval") or {}
+    name = f"network {Path(path).parent.name} it {ck.get('iteration', '?')}"
+    if ev:
+        name += f" (vs bots: place {ev.get('mean_place')})"
+    print(f"policy: {name}", flush=True)
+    return net, name
 
 
 if __name__ == "__main__":

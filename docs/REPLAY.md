@@ -98,17 +98,14 @@ each with the warband the player last saw in combat, which is also the player's 
 of them in the observation; the last and next opponents are marked. `parity` compares
 TavernGym's legal actions there with the options the client offered, by kind and slot.
 
-On the 10 logged games (1,870 recruit decisions), the legal sets are identical in 89%. End
-Turn, Freeze, Upgrade, Sell, Buy, Dark Gift and targeted Activates agree everywhere except
-one game's purchases. An Activate without a target can't be checked: the log shows it like a
-move. Left over:
-
-| Where | Count | What |
-| --- | ---: | --- |
-| Bile Spitter in hand, full warband | 103 | the client offers it with no target, in one game; unexplained |
-| Methodical Madness | 32 | TavernGym offers it where the client doesn't |
-| Spirit Swap (Hero Power) | 18 | the client offers it where TavernGym doesn't |
-| One game's buys and refreshes (Malchezaar on the warband) | 87 | TavernGym allows them with 0-1 Gold, paying Health |
+On the 10 logged games (1,870 recruit decisions), the legal sets are identical in 94%. Every
+action kind agrees everywhere except one: in one game the client offers Bile Spitter from the
+hand onto a full warband, with no target (104 decisions, unexplained). An Activate without a
+target can't be checked: the log shows it like a move. Card state the bridge carries for this:
+Malchezaar's Refreshes paid with Health left, Bazaar Sticker's use this turn, a Lockbox's lock,
+a spent once-per-game Hero Power, the Dark Gift button, and a two-step Hero Power mid-use
+(Vol'jin's Spirit Swap, restarted). Methodical Madness needs a Tavern minion (fixed in
+TavernGym from these logs).
 
 The live advisor only suggests actions that both TavernGym and the client allow.
 

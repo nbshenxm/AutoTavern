@@ -314,6 +314,16 @@ impl Game {
         if s.choose_one && crate::cards::db().get(card).id == "BG31_886" {
             return true;
         }
+        // Methodical Madness consumes Tavern minions: the client refuses it with none there
+        // (REQ_MINIMUM_ENEMY_MINIONS in 37.0 logs).
+        if crate::cards::db().get(card).id == "BG36_880"
+            && !self.players[p]
+                .shop
+                .iter()
+                .any(|x| x.item.as_minion().is_some())
+        {
+            return false;
+        }
         self.has_targets(p, s.spell_target)
     }
 

@@ -65,8 +65,8 @@ built. M6 runs at every patch.
 | --- | --- |
 | M0 | done |
 | M1 | done: every recruit rule checked agrees ([REPLAY.md](REPLAY.md#recruit-rules)); train with `hero_choices: 4` for the player's seat |
-| M2 | done: the whole lobby is built from the log; the player's legal actions match the client's in 89% of decisions ([REPLAY.md](REPLAY.md#live-bridge)) |
+| M2 | done: the whole lobby is built from the log; the player's legal actions match the client's in 94% of decisions ([REPLAY.md](REPLAY.md#live-bridge)) |
 | M3 | done: `advisor.live` advises at every recruit decision of a replayed log, under 160 ms ([REPLAY.md](REPLAY.md#live-advisor)); policy = scripted bot |
 | M4 | installed (`scripts/install_hdt_plugin.ps1`); waiting for a real game with the user |
-| M5 | in progress: training code at home; long runs wait for the go-ahead on the office machine |
+| M5 | in progress: PPO self-play works ([TRAINING.md](TRAINING.md)): 10 minutes at home took the network from 7.97 to 5.52 mean placement vs the bots; long runs wait for the go-ahead on the office machine |
 | M6 | not started |

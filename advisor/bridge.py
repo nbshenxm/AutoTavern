@@ -23,6 +23,14 @@ import taverngym
 from advisor.state import CAT, add_minion, debug, normal_form, recruit_game, set_side
 
 SPELL_TYPES = ("SPELL", "BATTLEGROUND_SPELL")
+# Trinket -> its uses per turn; its TAG_SCRIPT_DATA_NUM_1 is the uses left this turn
+TRINKET_USES_LEFT = {
+    "BG32_MagicItem_822": 1,  # Bazaar Sticker: one Tavern spell a turn costs Health
+}
+# Minion -> the TAG_SCRIPT_DATA_NUM index holding TavernGym's `counter` for it
+COUNTER_FROM_DATA = {
+    "BG26_524": 0,  # Malchezaar, Prince of Dance: Refreshes paid with Health left this turn
+}
 
 
 def seats(d):
@@ -119,6 +127,16 @@ def build(d, combats=(), seed=7):
         if logged.get("disabled"):  # a once-per-game power after its use
             power["uses_game"] = max(1, power.get("uses_game", 0))
             power["uses_turn"] = max(1, power.get("uses_turn", 0))
+    # Per-minion counters the log shows in the card's script data
+    if len(p0["board"]) == len(me["board"]):
+        for m, logged in zip(p0["board"], me["board"]):
+            k = COUNTER_FROM_DATA.get(normal_form(logged["card"])[0])
+            if k is not None:
+                m["counter"] = logged["data"][k]
+    # Trinkets with a per-turn use the log counts down ("(1 left!)"): spent ones marked used
+    for t in me["trinkets"]:
+        if t["card"] in TRINKET_USES_LEFT and t["data"][0] == 0 and t["card"] in CAT:
+            p0["turn_data"].append([CAT[t["card"]]["cid"], TRINKET_USES_LEFT[t["card"]]])
     for card, logged in zip(p0["hand"], hand_cards(me)):
         if logged.get("unplayable"):
             card["locked"] = max(1, card.get("locked", 0))
@@ -147,28 +165,43 @@ def add_spell(g, where, card, data, gaps):
 
 # ---------------------------------------------------------------------- legal actions
 
+def action_kind(a):
+    """(kind, slot) of TavernGym action `a` as the client's options name it, or None for the
+    actions the client doesn't list (moves, choices, backing out)."""
+    if a <= 3:
+        return (("end", "refresh", "freeze", "upgrade")[a], 0)
+    if a <= 5:
+        return ("hero_power", a - 4)
+    if a == 6:
+        return ("dark_gift", 0)
+    if 8 <= a <= 15:
+        return ("buy", a - 8)
+    if 16 <= a <= 22:
+        return ("sell", a - 16)
+    if 23 <= a <= 29:
+        return ("activate", a - 23)
+    if 46 <= a <= 125:
+        return ("play", (a - 46) // 8)
+    if 126 <= a <= 195:
+        return ("play", (a - 126) // 7)  # magnetize: a way to play the hand card
+    return None
+
+
 def tavern_actions(mask):
     """Action kinds TavernGym allows: {(kind, slot)} from a legal mask (docs/TAVERNGYM.md)."""
-    out = set()
+    return {k for a, ok in enumerate(mask) if ok and (k := action_kind(a)) is not None}
+
+
+def allowed_mask(mask, d):
+    """TavernGym's legal mask restricted to what the client offers at decision `d` (moves,
+    choices and Activates without a target can't be checked and stay allowed)."""
+    client = client_actions(d)
+    movable = movable_slots(d)
+    out = []
     for a, ok in enumerate(mask):
-        if not ok:
-            continue
-        if a <= 3:
-            out.add((("end", "refresh", "freeze", "upgrade")[a], 0))
-        elif a <= 5:
-            out.add(("hero_power", a - 4))
-        elif a == 6:
-            out.add(("dark_gift", 0))
-        elif 8 <= a <= 15:
-            out.add(("buy", a - 8))
-        elif 16 <= a <= 22:
-            out.add(("sell", a - 16))
-        elif 23 <= a <= 29:
-            out.add(("activate", a - 23))
-        elif 46 <= a <= 125:
-            out.add(("play", (a - 46) // 8))
-        elif 126 <= a <= 195:
-            out.add(("play", (a - 126) // 7))  # magnetize: a way to play the hand card
+        k = action_kind(a)
+        out.append(bool(ok) and (k is None or k in client
+                                 or (k[0] == "activate" and k[1] in movable)))
     return out
 
 

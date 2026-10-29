@@ -29,6 +29,11 @@ PLAYER_ENCHANTMENTS = {
     "BG31_808pe": ("beetle_atk", "beetle_hp"),  # Runed Progenitor and other Beetle buffs
 }
 TASTY_LOBSTER = "BG36_202"
+# A two-step Hero Power shows its second step as another card; TavernGym asks both steps
+# within one use, so the setup restarts the use
+HERO_POWER_STEPS = {
+    "BG20_HERO_201p2": "BG20_HERO_201p",  # Vol'jin's Spirit Swap after its first minion
+}
 
 
 def damage_cap(turn, alive):
@@ -137,8 +142,11 @@ def set_side(g, p, s, gaps, label):
     else:
         gaps.append(f"{label} hero {hero}")
     for i, hp in enumerate(s["hero_powers"]):
-        if hp["card"] in CAT and CAT[hp["card"]]["kind"] == "hero_power":
-            debug(g, cmd="set_hero_power", p=p, slot=i, card=hp["card"])
+        card = HERO_POWER_STEPS.get(hp["card"], hp["card"])
+        if card != hp["card"]:
+            gaps.append(f"{label} hero power {hp['card']} mid-use: restarted")
+        if card in CAT and CAT[card]["kind"] == "hero_power":
+            debug(g, cmd="set_hero_power", p=p, slot=i, card=card)
         else:
             gaps.append(f"{label} hero power {hp['card']}")
     # Trinkets before the warband: an on-attach buff must not hit the logged stats, and the
