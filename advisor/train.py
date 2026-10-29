@@ -10,6 +10,7 @@ seeds (bots against bots average 4.5). Pause-aware: waits while Hearthstone runs
 
     python -X utf8 -m advisor.train --run smoke --minutes 10
     python -X utf8 -m advisor.train --run office1 --hours 4 --resume data/train/office1/last.pt
+    python -X utf8 -m advisor.train --evaluate data/train/office1/best.pt --eval-episodes 1000
 """
 
 import argparse
@@ -177,7 +178,9 @@ def evaluate(net, device, episodes=200, games=32, seed=10_000_000, threads=8):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run", required=True)
+    ap.add_argument("--run", help="run name (data/train/RUN)")
+    ap.add_argument("--evaluate", metavar="CKPT",
+                    help="only the gate: CKPT against seven bots on --eval-episodes fresh games")
     ap.add_argument("--out", default="data/train")
     ap.add_argument("--minutes", type=float, default=0)
     ap.add_argument("--hours", type=float, default=0)
@@ -193,6 +196,14 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args()
+    if a.evaluate:
+        net, ck = load(a.evaluate, a.device)
+        # Seeds apart from the training gate's, so a promotion is judged on unseen games
+        ev = evaluate(net, a.device, a.eval_episodes, seed=20_000_000, threads=a.threads)
+        print(json.dumps({"checkpoint": a.evaluate, "iteration": ck.get("iteration"), **ev}))
+        return
+    if not a.run:
+        ap.error("--run is required for training")
     budget = a.minutes * 60 + a.hours * 3600
     out = Path(a.out) / a.run
     out.mkdir(parents=True, exist_ok=True)
