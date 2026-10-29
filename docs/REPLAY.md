@@ -57,3 +57,27 @@ Over both builds, the most likely simulated result is the logged one in 92.5% (s
 counters were set it was 90% / 91% and 0.073 / 0.069: Tasty Lobster builds were the main
 misses. Still not carried: Hero Power and trinket counters, Blood Gem bonuses, and other
 player tags with no public names (the counters are numbered player tags such as 4639).
+
+## Recruit rules
+
+```bash
+python -X utf8 tools/bg_decisions.py <logs>... --cards <client dir> --out data/replay
+python -X utf8 tools/recruit_checks.py data/replay/decisions.jsonl
+```
+
+`bg_decisions.py` records every recruit decision: the state (as for combats, plus Gold, the
+upgrade and refresh costs, the Tavern with frozen flags, the leaderboard), the options the client
+offered with their targets and errors, and the option or choice the player sent.
+`recruit_checks.py` compares the turn starts with TavernGym's rules.
+
+On the 10 logged games (110 recruit turns, 2,031 decisions), against TavernGym's defaults:
+
+| Rule | Logged |
+| --- | --- |
+| Max Gold 3, +1 a turn, up to 10 | 96 of 110 exact; the rest are above, from effects (Goblin Wallet...) except one turn-1 reading |
+| Upgrade cost: base `[5,7,8,11,11,10]` minus 1 a turn | 100 of 101 exact |
+| Refresh cost 1 | 100 of 110; the others free refreshes |
+| Fresh Tavern `[3,4,4,5,5,6,6]` minions + 1 spell | all, except Sindragosa (one fewer) and Innkeeper's Stein (one more, a Tier higher), both as in TavernGym; one unexplained 5 instead of 6 |
+| Tier mix of the minions offered at each Tavern Tier | within 2-3 points of TavernGym's own Taverns at every Tier |
+| Trinkets: Lesser at turn 6, Greater at turn 9, 4 options | all; extra 2-option offers come from effects |
+| Hero options | 4 (the player's season-pass offer); TavernGym's default `hero_choices` is 2 |
