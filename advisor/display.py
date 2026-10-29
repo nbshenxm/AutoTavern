@@ -17,6 +17,7 @@ TEXT = {
         "title": "Turn {turn}", "odds": "{label}: win {win:.0%} · tie {tie:.0%} · lose {loss:.0%}",
         "odds_seen": " (their warband from turn {turn})", "now": "Now", "after": "After the plan",
         "more": "… {n} more",
+        "odds_stale": "Next opponent's warband last seen on turn {turn}: no odds",
     },
     "zhCN": {
         "buy": "购买", "sell": "出售", "play": "打出", "magnetize": "磁力吸附",
@@ -28,6 +29,7 @@ TEXT = {
         "title": "第{turn}回合", "odds": "{label}：胜 {win:.0%} · 平 {tie:.0%} · 负 {loss:.0%}",
         "odds_seen": "（对手阵容来自第{turn}回合）", "now": "现在", "after": "按计划之后",
         "more": "… 还有{n}步",
+        "odds_stale": "下一个对手的阵容最后见于第{turn}回合：不计算胜率",
     },
 }
 
@@ -125,9 +127,14 @@ def arrange_row(view, locale, name_of):
                                     for m in board]}
 
 
-def odds_note(label, odds, locale):
+MAX_ODDS_AGE = 3  # turns: odds against an older warband would mislead
+
+
+def odds_note(label, odds, locale, turn=None):
     if not odds:
         return None
+    if turn is not None and odds.get("seen_turn") and turn - odds["seen_turn"] > MAX_ODDS_AGE:
+        return t(locale, "odds_stale", turn=odds["seen_turn"]) if label == "now" else None
     s = t(locale, "odds", label=t(locale, label), win=odds["win"], tie=odds["tie"],
           loss=odds["loss"])
     if odds.get("seen_turn"):

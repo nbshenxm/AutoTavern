@@ -243,8 +243,8 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
             warnings.append("the first step is not offered by the client")
     odds_now, odds_after = combat_odds(g), combat_odds(after)
     turn = (d["turn"] + 1) // 2
-    notes = [x for x in (display.odds_note("now", odds_now, locale),
-                         display.odds_note("after", odds_after, locale)) if x]
+    notes = [x for x in (display.odds_note("now", odds_now, locale, turn),
+                         display.odds_note("after", odds_after, locale, turn)) if x]
     advice = {
         "display": {"title": display.t(locale, "title", turn=turn), "subtitle": policy_name,
                     "style": "normal", "rows": rows, "notes": notes, "warnings": warnings},
