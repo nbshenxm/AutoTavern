@@ -9,7 +9,7 @@ torch = pytest.importorskip("torch")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from advisor import train  # noqa: E402
-from advisor.policy import PolicyNet  # noqa: E402
+from advisor.policy import EntityNet, PolicyNet  # noqa: E402
 
 
 def item(v, r=0.0, done=False):
@@ -56,3 +56,16 @@ def test_league_gate_and_opponent_seats():
     seats = [train.Seat() for _ in range(env.n_slots)]
     train.collect(env, small(), env.observe(), seats, 128, "cpu", opp)
     assert all(not seats[i].items for i in opp)  # frozen seats aren't learned from
+
+
+def test_entity_network_trains_a_step():
+    from taverngym import BatchEnv
+
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    env = BatchEnv(2, seed=5, controlled=list(range(8)), config=train.CONFIG)
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    train.collect(env, net, env.observe(), seats, 256, "cpu")
+    batch = train.advantages(seats, 0.995, 0.95)
+    opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+    stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128)
+    assert all(abs(v) < 1e6 for v in stats.values())

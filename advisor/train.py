@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from advisor.policy import PolicyNet, load, save
+from advisor.policy import load, make, save
 from advisor.state import GAME_CONFIG
 from taverngym import BatchEnv
 
@@ -255,6 +255,7 @@ def main():
     ap.add_argument("--eval-every", type=int, default=10)
     ap.add_argument("--eval-episodes", type=int, default=200)
     ap.add_argument("--resume")
+    ap.add_argument("--arch", default="mlp", choices=["mlp", "entity"], help="a new run's network")
     ap.add_argument("--snapshot-every", type=int, default=50,
                     help="iterations between pool snapshots (opponents and the league gate)")
     ap.add_argument("--seed", type=int, default=1)
@@ -286,7 +287,7 @@ def main():
         net.train()
         it0, best = ck.get("iteration", 0), ck.get("best", 9.0)
     else:
-        net, it0, best = PolicyNet().to(a.device), 0, 9.0
+        net, it0, best = make({"arch": a.arch}).to(a.device), 0, 9.0
     opt = torch.optim.Adam(net.parameters(), lr=a.lr)
     if a.resume and "opt" in ck:
         opt.load_state_dict(ck["opt"])
@@ -318,7 +319,7 @@ def main():
                "decisions_per_s": round(len(batch) / max(1e-6, tc - ts)), **stats}
         if it % a.snapshot_every == 0:
             save(net, out / "pool" / f"it_{it}.pt", {"iteration": it})
-            frozen = PolicyNet(**net.config).to(a.device)
+            frozen = make(net.config).to(a.device)
             frozen.load_state_dict(net.state_dict())
             frozen.eval()
             pool = (pool + [frozen])[-POOL_SIZE:]
