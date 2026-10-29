@@ -242,6 +242,7 @@ def plan_turn(g, locale, net=None, allowed=None):
     moves is one "Arrange" step with the warband's order after it."""
     c = g.copy()
     out, rows = [], []
+    after = json.loads(c.view(0))
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
             break
@@ -250,13 +251,14 @@ def plan_turn(g, locale, net=None, allowed=None):
         else:
             from advisor.policy import act
             a, _, _ = act(net, c, 0, np.array(allowed) if step == 0 and allowed is not None else None)
-        view = json.loads(c.view(0))
+        view = after  # one view per step: the last step's result is this one's start
         text = describe(view, a, locale)
         row = display.row_for(view, a, locale, name_of)
         if row is None:
             display.merge_target(rows, view, a, locale, name_of)
         c.step(0, a)
-        chance = random_outcome(view, a, json.loads(c.view(0)))
+        after = json.loads(c.view(0))
+        chance = random_outcome(view, a, after)
         if chance:
             # What comes next is the simulator's own roll (a new Tavern, offered cards), not
             # what the game will offer: the plan stops here and the advice updates then
@@ -266,7 +268,6 @@ def plan_turn(g, locale, net=None, allowed=None):
             rows.append(display.chance_row(chance, locale))
             break
         if a >= A_MOVE:
-            after = json.loads(c.view(0))
             text = "Arrange: " + ", ".join(name_of(m["id"], locale) for m in after["me"]["board"])
             row = display.arrange_row(after, locale, name_of)
             if out and out[-1][0] >= A_MOVE:
