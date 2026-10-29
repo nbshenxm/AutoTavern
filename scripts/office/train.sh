@@ -8,12 +8,16 @@ REPO=${REPO:-$HOME/autotavern}
 RUN=${RUN:-office1}
 HOURS=${HOURS:-4}
 THREADS=${THREADS:-8}
-CONDA=$(command -v conda || echo "$HOME/miniforge3/bin/conda")
+CONDA=$(command -v conda || true)
+for c in "$HOME/anaconda3/bin/conda" "$HOME/miniforge3/bin/conda"; do
+    [ -z "$CONDA" ] && [ -x "$c" ] && CONDA=$c
+done
 PY=$("$CONDA" run -n taverngym which python)
 cd "$REPO"
 RESUME=""
 [ -f "data/train/$RUN/last.pt" ] && RESUME="--resume data/train/$RUN/last.pt"
 mkdir -p "data/train/$RUN"
-setsid nohup "$PY" -X utf8 -m advisor.train --run "$RUN" --hours "$HOURS" --threads "$THREADS" $RESUME \
+# nice: the constructed track's PPO service keeps priority on the shared CPU
+setsid nohup nice -n 10 "$PY" -X utf8 -m advisor.train --run "$RUN" --hours "$HOURS" --threads "$THREADS" $RESUME \
     >> "data/train/$RUN/stdout.log" 2>&1 < /dev/null &
 echo "started $RUN (pid $!)"

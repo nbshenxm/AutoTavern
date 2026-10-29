@@ -18,13 +18,16 @@ if ! command -v cargo >/dev/null 2>&1 && [ ! -x "$HOME/.cargo/bin/cargo" ]; then
 fi
 export PATH="$HOME/.cargo/bin:$PATH"
 
-CONDA=$(command -v conda || echo "$HOME/miniforge3/bin/conda")
-if ! "$CONDA" env list | grep -q '^taverngym '; then
+CONDA=$(command -v conda || true)
+for c in "$HOME/anaconda3/bin/conda" "$HOME/miniforge3/bin/conda"; do
+    [ -z "$CONDA" ] && [ -x "$c" ] && CONDA=$c
+done
+if [ ! -d "$(dirname "$(dirname "$CONDA")")/envs/taverngym" ]; then
     "$CONDA" create -y -n taverngym --override-channels -c conda-forge python=3.12 numpy pytest maturin
 fi
 PY=$("$CONDA" run -n taverngym which python)
 "$PY" -m pip install -q torch hslog hearthstone
 cd "$REPO"
-VIRTUAL_ENV= CONDA_PREFIX=$("$CONDA" run -n taverngym python -c 'import sys; print(sys.prefix)') \
+env -u VIRTUAL_ENV CONDA_PREFIX=$("$CONDA" run -n taverngym python -c 'import sys; print(sys.prefix)') \
     "$CONDA" run -n taverngym maturin develop --release
 "$PY" -c "import taverngym, torch; print('taverngym', taverngym.__version__ if hasattr(taverngym, '__version__') else 'ok', 'cuda', torch.cuda.is_available())"
