@@ -327,7 +327,8 @@ def follow(log_dir, skins, locale, live_dir, poll=0.1, policy=(None, "scripted b
                     live_dir)
         if latest is not None and not tr.combat:  # only the newest decision matters after a burst
             try:
-                publish(advise(latest, tr.combats(), locale, *policy), live_dir)
+                current = policy.get() if isinstance(policy, Policy) else policy
+                publish(advise(latest, tr.combats(), locale, *current), live_dir)
             except Exception as e:  # keep following; the next decision tries again
                 print(f"advice failed: {type(e).__name__}: {e}", flush=True)
 
@@ -348,11 +349,36 @@ def main():
         Path(a.log_file).parent.mkdir(parents=True, exist_ok=True)
         sys.stdout = sys.stderr = open(a.log_file, "a", encoding="utf-8", buffering=1)
     skins = logs.skin_parents(a.cards)
-    policy = load_policy(a.model)
+    policy = Policy(a.model)
     if a.replay:
-        replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit, policy)
+        replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit,
+               policy.get())
     else:
         follow(a.log_dir, skins, a.locale, Path(a.live_dir), policy=policy)
+
+
+class Policy:
+    """The network at `path`, reloaded when the file changes (the model sync replaces it while
+    the advisor runs); the scripted bot while there is none."""
+
+    def __init__(self, path):
+        self.path = Path(path) if path else None
+        self.version = None
+        self.current = (None, "scripted bot (v0)")
+
+    def get(self):
+        try:
+            version = self.path.stat().st_mtime_ns if self.path else None
+        except OSError:
+            version = None
+        if version != self.version:
+            self.version = version
+            try:
+                self.current = load_policy(self.path)
+            except Exception as e:  # a half-copied file: keep the previous network, retry later
+                print(f"could not load {self.path}: {type(e).__name__}: {e}", flush=True)
+                self.version = None
+        return self.current
 
 
 def load_policy(path):
