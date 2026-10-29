@@ -200,3 +200,25 @@ def test_methodical_madness_needs_a_tavern_minion():
     assert not playable()  # the client: REQ_MINIMUM_ENEMY_MINIONS
     dbg(cmd="add_minion", p=0, zone="shop", card="BG28_300")
     assert playable()
+
+
+def test_observation_flags_tavern_pairs_and_triples():
+    g = recruit_game(7)
+    dbg = lambda **c: json.loads(g.debug(json.dumps(c)))
+    for zone in ("board", "hand", "shop"):
+        dbg(cmd="clear_zone", p=0, zone=zone)
+    dbg(cmd="add_minion", p=0, zone="board", card="BG28_300")
+    dbg(cmd="add_minion", p=0, zone="hand", card="BG28_300")
+    dbg(cmd="add_minion", p=0, zone="shop", card="BG28_300")  # would complete a triple
+    dbg(cmd="add_minion", p=0, zone="shop", card="BG36_345")  # a first copy
+    L = dict(taverngym.layout())
+    base = (L["GLOBAL_F"] + L["N_QUESTS"] * L["QUEST_F"] + L["PENDING_KINDS"]
+            + L["N_BOARD"] * L["MINION_F"] + L["N_HAND"] * L["ITEM_F"])
+    f = __import__("numpy").frombuffer(g.observe(0)[0], dtype="<f4")
+    pair = lambda i: f[base + i * L["ITEM_F"] + 4]
+    triple = lambda i: f[base + i * L["ITEM_F"] + 5]
+    assert (pair(0), triple(0)) == (0.0, 1.0)
+    assert (pair(1), triple(1)) == (0.0, 0.0)
+    dbg(cmd="remove", p=0, zone="hand", index=0)
+    f = __import__("numpy").frombuffer(g.observe(0)[0], dtype="<f4")
+    assert (pair(0), triple(0)) == (1.0, 0.0)

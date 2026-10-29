@@ -276,14 +276,35 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
     // ---- shop (Silas Darkmoon's tickets are kept on his power)
     let silas = crate::cardid!("TB_BaconShop_HP_101");
     let tickets: &[i32] = pl.power_of(silas).map_or(&[], |h| &h.values);
+    // Non-golden copies of each card the player owns (warband and hand): a Tavern minion that
+    // makes a pair or completes a triple says so (the two item flags a Tavern card leaves unused).
+    let d = db();
+    let owned = |card: CardId| {
+        let normal = d.normal_of(card);
+        let board = pl
+            .board
+            .iter()
+            .filter(|m| !m.golden && d.normal_of(m.card) == normal);
+        let hand = pl.hand.iter().filter(|h| {
+            h.item
+                .as_minion()
+                .is_some_and(|m| !m.golden && d.normal_of(m.card) == normal)
+        });
+        board.count() + hand.count()
+    };
     for i in 0..N_SHOP {
         let s = pl.shop.get(i);
         // The price this card would cost now (per-card overrides and discounts included).
         let cost = g.slot_price(p, i).map_or(0, |x| x.0);
         let flags = s.map_or([false; 5], |s| {
+            let copies = s
+                .item
+                .as_minion()
+                .filter(|m| !m.golden)
+                .map_or(0, |m| owned(m.card));
             [
-                false,
-                false,
+                copies == 1,
+                copies >= 2,
                 s.frozen,
                 s.kept,
                 tickets.contains(&(s.sid as i32)),
