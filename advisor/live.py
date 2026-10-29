@@ -345,6 +345,23 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     return advice
 
 
+def record(advice, d, live_dir):
+    """Append the advice with what it was based on (the slots as the log showed them) to
+    history.jsonl, so a reported problem ("turn 6, row 2 said H3") can be traced."""
+    me = d["state"]["friendly"]
+    seen = {"log": d.get("log"), "segment": d.get("segment"), "game_turn": d.get("turn"),
+            "kind": d.get("kind"), "gold": me.get("gold"),
+            "tavern": [x["card"] for x in d["state"].get("shop", [])],
+            "hand": [h.get("card") for h in bridge.hand_cards(me)],
+            "board": [m["card"] for m in me["board"]],
+            "offer": [o.get("card") for o in d.get("options", [])] if d.get("kind") == "choices" else None}
+    try:
+        with open(live_dir / "history.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps({"advice": advice, "seen": seen}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # the history is for diagnosis only
+
+
 def publish(advice, live_dir):
     live_dir.mkdir(parents=True, exist_ok=True)
     tmp = live_dir / "advice.json.tmp"
@@ -410,7 +427,9 @@ def follow(log_dir, skins, locale, live_dir, poll=0.1, policy=(None, "scripted b
         if latest is not None and not tr.combat:  # only the newest decision matters after a burst
             try:
                 current = policy.get() if isinstance(policy, Policy) else policy
-                publish(advise(latest, tr.combats(), locale, *current), live_dir)
+                advice = advise(latest, tr.combats(), locale, *current)
+                publish(advice, live_dir)
+                record(advice, latest, live_dir)
             except Exception as e:  # keep following; the next decision tries again
                 print(f"advice failed: {type(e).__name__}: {e}", flush=True)
 
