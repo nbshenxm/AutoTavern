@@ -136,7 +136,10 @@ def advantages(seats, gamma, lam):
     return batch
 
 
-def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01):
+def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
+           amp=False):
+    """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
+    probabilities and losses stay float32)."""
     f = torch.from_numpy(np.stack([b[0][0] for b in batch]))
     c = torch.from_numpy(np.stack([b[0][1] for b in batch]))
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
@@ -150,7 +153,9 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     steps = 0
     for _ in range(epochs):
         for idx in torch.randperm(n).split(minibatch):
-            logits, v = net(f[idx].to(device), c[idx].to(device), m[idx].to(device))
+            with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
+                logits, v = net(f[idx].to(device), c[idx].to(device), m[idx].to(device))
+            logits, v = logits.float(), v.float()
             dist = torch.distributions.Categorical(logits=logits)
             lp = dist.log_prob(a[idx].to(device))
             ratio = (lp - old_lp[idx].to(device)).exp()
@@ -253,6 +258,7 @@ def main():
     ap.add_argument("--gamma", type=float, default=0.995)
     ap.add_argument("--lam", type=float, default=0.95)
     ap.add_argument("--ent", type=float, default=0.01, help="entropy bonus")
+    ap.add_argument("--amp", action="store_true", help="bfloat16 forward pass in the updates")
     ap.add_argument("--eval-every", type=int, default=10)
     ap.add_argument("--eval-episodes", type=int, default=200)
     ap.add_argument("--resume")
@@ -313,7 +319,7 @@ def main():
         batch = advantages(seats, a.gamma, a.lam)
         tc = time.time()
         net.train()
-        stats = update(net, opt, batch, a.device, ent=a.ent)
+        stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp)
         net.eval()
         row = {"iteration": it, "batch": len(batch), "episodes": len(placements),
                "collect_s": round(tc - ts, 1), "update_s": round(time.time() - tc, 1),
