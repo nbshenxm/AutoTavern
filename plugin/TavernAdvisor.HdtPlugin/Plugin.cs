@@ -2,12 +2,17 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using Hearthstone_Deck_Tracker.API;
 using Hearthstone_Deck_Tracker.Plugins;
+using Hearthstone_Deck_Tracker.Utility.Assets;
 using Newtonsoft.Json.Linq;
+using HdtDatabase = Hearthstone_Deck_Tracker.Hearthstone.Database;
 
 namespace TavernAdvisor.HdtPlugin
 {
@@ -29,6 +34,7 @@ namespace TavernAdvisor.HdtPlugin
         DateTime _flaggedAt = DateTime.MinValue;
         bool _loaded;      // HDT keeps a registered hotkey after unloading: its action checks this
         bool _hidden;      // the advice says combat is on
+        bool _artBroken;   // HDT's asset API isn't what this was built against: names only
 
         public string Name => "Tavern Advisor (Battlegrounds)";
         public string Description => "Recruit-phase suggestions for Battlegrounds from a local TavernGym simulator. Reads Power.log only; never plays for you.";
@@ -142,22 +148,10 @@ namespace TavernAdvisor.HdtPlugin
                 if (_hidden)
                     return;
                 _panel.Children.Clear();
-                _panel.Children.Add(Text($"Turn {a.Value<int>("turn")} · {a.Value<string>("policy")}", 11,
-                    color: Color.FromRgb(170, 170, 170)));
-                _panel.Children.Add(Text(a.Value<string>("action") ?? "(no suggestion)", 16, FontWeights.SemiBold));
-                if (a["plan"] is JArray plan)
-                {
-                    int shown = 0;
-                    for (int i = 1; i < plan.Count && shown < _settings.MaxSteps; i++, shown++)
-                        _panel.Children.Add(Text($"{i + 1}. {(string)plan[i]}", 13));
-                    if (plan.Count - 1 > shown)
-                        _panel.Children.Add(Text($"… {plan.Count - 1 - shown} more", 12, color: Color.FromRgb(190, 190, 190)));
-                }
-                AddOdds("Now", a["odds_now"] as JObject);
-                AddOdds("After the plan", a["odds_after_plan"] as JObject);
-                if (a["warnings"] is JArray warnings)
-                    foreach (JToken w in warnings)
-                        _panel.Children.Add(Text("⚠ " + (string)w, 11, color: Color.FromRgb(240, 190, 90)));
+                if (a["display"] is JObject d)
+                    ShowDisplay(d);
+                else
+                    _panel.Children.Add(Text(a.Value<string>("action") ?? "(no suggestion)", 16, FontWeights.SemiBold));
                 if ((DateTime.Now - _flaggedAt).TotalSeconds < 30 && File.GetLastWriteTime(path) < _flaggedAt)
                     _panel.Children.Add(Text("Marked as wrong (saved)", 12, color: Colors.Orange));
             }
@@ -173,20 +167,173 @@ namespace TavernAdvisor.HdtPlugin
             }
         }
 
-        /// <summary>"After the plan: win 62% · tie 8% · lose 30% (their warband from turn 7)".</summary>
-        void AddOdds(string label, JObject odds)
+        /// <summary>The constructed advisor's layout: a title, one row per step, notes (combat odds),
+        /// warnings.</summary>
+        void ShowDisplay(JObject d)
         {
-            if (odds == null)
-                return;
-            int age = odds.Value<int?>("seen_turn") ?? 0;
-            string text = $"{label}: win {odds.Value<double>("win"):P0} · tie {odds.Value<double>("tie"):P0} · lose {odds.Value<double>("loss"):P0}"
-                          + (age > 0 ? $" (their warband from turn {age})" : "");
-            var t = Text(text, 12, color: Color.FromRgb(160, 210, 255));
-            t.Margin = new Thickness(0, 4, 0, 0);
-            _panel.Children.Add(t);
+            var title = new StackPanel { Orientation = Orientation.Horizontal };
+            title.Children.Add(Text(d.Value<string>("title") ?? "", 15, FontWeights.SemiBold));
+            var sub = Text("  " + (d.Value<string>("subtitle") ?? ""), 11, color: Color.FromRgb(170, 170, 170));
+            sub.VerticalAlignment = VerticalAlignment.Bottom;
+            title.Children.Add(sub);
+            _panel.Children.Add(title);
+            if (d["rows"] is JArray rows)
+            {
+                int shown = 0;
+                foreach (JObject row in rows)
+                {
+                    if (shown++ >= _settings.MaxSteps)
+                        break;
+                    _panel.Children.Add(Row(row));
+                }
+                if (rows.Count > _settings.MaxSteps)
+                    _panel.Children.Add(Text($"… +{rows.Count - _settings.MaxSteps}", 12, color: Color.FromRgb(190, 190, 190)));
+            }
+            if (d["notes"] is JArray notes)
+                foreach (JToken note in notes)
+                {
+                    var t = Text((string)note, 12, color: Color.FromRgb(160, 210, 255));
+                    t.Margin = new Thickness(0, 3, 0, 0);
+                    _panel.Children.Add(t);
+                }
+            if (d["warnings"] is JArray warnings)
+                foreach (JToken w in warnings)
+                    _panel.Children.Add(Text("⚠ " + (string)w, 11, color: Color.FromRgb(240, 190, 90)));
         }
 
-        static TextBlock Text(string text, double size, FontWeight? weight = null, Color? color = null) => new TextBlock
+        /// <summary>One step: "3. Play [H2] [tile: name] → [B4]", "1. Buy [T3] [tile]",
+        /// "2. Magnetize [H1] [tile] → [B2] [tile]", "5. Arrange [tile] [tile] ...".</summary>
+        FrameworkElement Row(JObject row)
+        {
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+            line.Children.Add(Text(row.Value<int>("n") + ".", 13, margin: new Thickness(0, 0, 4, 0), width: 18));
+            line.Children.Add(Text(row.Value<string>("verb") ?? "", 13, FontWeights.SemiBold,
+                margin: new Thickness(0, 0, 6, 0)));
+            AddBadge(line, row.Value<string>("badge"), row.Value<string>("badge_kind"));
+            if (row["card_id"] != null && row["card_id"].Type != JTokenType.Null)
+                line.Children.Add(Tile(row.Value<string>("card_id"), row.Value<string>("name"), 150, 30));
+            if (row["target_card_id"] != null && row["target_card_id"].Type != JTokenType.Null)
+            {
+                if (row["card_id"] != null && row["card_id"].Type != JTokenType.Null)
+                    line.Children.Add(Glyph("→"));
+                AddBadge(line, row.Value<string>("target_badge"), row.Value<string>("target_badge_kind"));
+                line.Children.Add(Tile(row.Value<string>("target_card_id"), row.Value<string>("target_name"), 118, 30));
+            }
+            if (!string.IsNullOrEmpty(row.Value<string>("place")))
+            {
+                line.Children.Add(Glyph("→"));
+                AddBadge(line, row.Value<string>("place"), "board");
+            }
+            if (row["cards"] is JArray cards)   // Arrange: the warband left to right
+                foreach (JObject c in cards)
+                    line.Children.Add(Tile(c.Value<string>("card_id"), c.Value<string>("name"), 66, 24, 1));
+            return line;
+        }
+
+        static void AddBadge(Panel line, string text, string kind)
+        {
+            if (string.IsNullOrEmpty(text))
+                return;
+            Color c;
+            switch (kind)
+            {
+                case "hand": c = Color.FromRgb(45, 105, 190); break;
+                case "board": c = Color.FromRgb(40, 140, 80); break;
+                case "tavern": c = Color.FromRgb(175, 120, 30); break;
+                case "power": c = Color.FromRgb(125, 70, 170); break;
+                case "choose": c = Color.FromRgb(90, 90, 90); break;
+                default: c = Color.FromRgb(90, 90, 90); break;
+            }
+            line.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(c),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 0, 5, 0),
+                Margin = new Thickness(0, 0, 4, 0),
+                MinWidth = 34,
+                Height = 24,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = text, Foreground = Brushes.White, FontFamily = Font, FontWeight = FontWeights.Bold,
+                    FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+            });
+        }
+
+        static TextBlock Glyph(string glyph) => new TextBlock
+        {
+            Text = glyph, Foreground = Brushes.White, FontSize = 16, FontFamily = new FontFamily("Segoe UI Symbol, Segoe UI"),
+            Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        /// <summary>The card's tile art (as in HDT's deck list) with its name over it.</summary>
+        FrameworkElement Tile(string cardId, string name, double width, double height, double gap = 0)
+        {
+            var grid = new Grid
+            {
+                Width = width, Height = height, ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidColorBrush(Color.FromRgb(45, 45, 50)), Margin = new Thickness(0, 0, gap, 0),
+            };
+            if (_settings.CardArt && !_artBroken && !string.IsNullOrEmpty(cardId))
+            {
+                var image = new Image { Stretch = Stretch.UniformToFill, HorizontalAlignment = HorizontalAlignment.Right };
+                try
+                {
+                    LoadTile(cardId, image);
+                    grid.Children.Add(image);
+                }
+                catch (Exception e) when (e is MissingMemberException || e is TypeLoadException || e is FileNotFoundException)
+                {
+                    _artBroken = true;   // a newer HDT changed the API: show names only from now on
+                }
+                catch (Exception)
+                {
+                    // this card's art isn't available: its name alone
+                }
+            }
+            // Darker on the left, where the name is
+            grid.Children.Add(new Border
+            {
+                Background = new LinearGradientBrush(Color.FromArgb(235, 20, 20, 22), Color.FromArgb(20, 20, 20, 22), 0),
+            });
+            grid.Children.Add(new TextBlock
+            {
+                Text = name ?? cardId ?? "?", Foreground = Brushes.White, FontFamily = Font, FontWeight = FontWeights.SemiBold,
+                FontSize = 13 * height / 30, Margin = new Thickness(6, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Effect = new DropShadowEffect { ShadowDepth = 1, BlurRadius = 3, Opacity = 1, Color = Colors.Black },
+            });
+            return grid;
+        }
+
+        /// <summary>HDT's own tile cache and downloader; a tile not cached yet appears when it arrives.
+        /// Kept apart so a missing HDT type fails here (when this method is compiled), not in Tile.</summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void LoadTile(string cardId, Image image)
+        {
+            var card = HdtDatabase.GetCardFromId(cardId);
+            if (card == null)
+                return;
+            var downloader = AssetDownloaders.cardTileDownloader;
+            if (downloader == null)
+                return;
+            BitmapImage cached = downloader.TryGetAssetData(card, false);
+            if (cached != null && cached != downloader.PlaceholderAsset)
+            {
+                image.Source = cached;
+                return;
+            }
+            downloader.GetAssetData(card, false).ContinueWith(t =>
+            {
+                if (t.Status == TaskStatus.RanToCompletion && t.Result != null)
+                    image.Dispatcher.BeginInvoke(new Action(() => image.Source = t.Result));
+            });
+        }
+
+        static TextBlock Text(string text, double size, FontWeight? weight = null, Color? color = null,
+            Thickness? margin = null, double width = double.NaN) => new TextBlock
         {
             Text = text,
             Foreground = new SolidColorBrush(color ?? Colors.White),
@@ -195,7 +342,10 @@ namespace TavernAdvisor.HdtPlugin
             // Chinese card names fall back to Microsoft YaHei UI
             FontFamily = Font,
             TextWrapping = TextWrapping.Wrap,
-            MaxWidth = 420,
+            MaxWidth = 520,
+            Width = width,
+            Margin = margin ?? new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
         };
 
         void CreateOverlay()
@@ -291,6 +441,7 @@ namespace TavernAdvisor.HdtPlugin
         public double StaleSeconds = 90;
         public int MaxSteps = 6;
         public double Scale = 1.0;
+        public bool CardArt = true;
 
         public string LiveDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TavernAdvisor");
         public string AdviceFile => Path.Combine(LiveDir, "advice.json");
@@ -313,6 +464,7 @@ namespace TavernAdvisor.HdtPlugin
                     s.StaleSeconds = (double?)j["stale_seconds"] ?? s.StaleSeconds;
                     s.MaxSteps = (int?)j["max_steps"] ?? s.MaxSteps;
                     s.Scale = (double?)j["scale"] ?? s.Scale;
+                    s.CardArt = (bool?)j["card_art"] ?? s.CardArt;
                 }
                 catch (Exception)
                 {

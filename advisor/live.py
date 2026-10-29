@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 from hslog import LogParser, packets
 
-from advisor import bridge, decisions, logs
+from advisor import bridge, decisions, display, logs
 from advisor.state import CAT, debug
 
 HS_LOGS = Path(r"D:\Program Files (x86)\Hearthstone\Logs")
@@ -178,11 +178,13 @@ def describe(view, a, locale):
 
 
 def plan_turn(g, locale, net=None, allowed=None):
-    """The policy's actions on a copy until it ends the turn: [(action, text)]. With a network,
-    its most likely action at each step; the first step only among `allowed` (what the client
-    offers too). Without one, TavernGym's scripted bot."""
+    """The policy's actions on a copy until it ends the turn: ([(action, text)], rows, the copy
+    at the end). With a network, its most likely action at each step; the first step only among
+    `allowed` (what the client offers too). Without one, TavernGym's scripted bot. `rows` are
+    the overlay's (advisor.display): a target joins the step that asked for it, and a run of
+    moves is one "Arrange" step with the warband's order after it."""
     c = g.copy()
-    out = []
+    out, rows = [], []
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
             break
@@ -191,19 +193,26 @@ def plan_turn(g, locale, net=None, allowed=None):
         else:
             from advisor.policy import act
             a, _, _ = act(net, c, 0, np.array(allowed) if step == 0 and allowed is not None else None)
-        text = describe(json.loads(c.view(0)), a, locale)
+        view = json.loads(c.view(0))
+        text = describe(view, a, locale)
+        row = display.row_for(view, a, locale, name_of)
+        if row is None:
+            display.merge_target(rows, view, a, locale, name_of)
         c.step(0, a)
         if a >= A_MOVE:
-            # A run of moves is one step to the player: the warband's order after it
-            board = json.loads(c.view(0))["me"]["board"]
-            text = "Arrange: " + ", ".join(name_of(m["id"], locale) for m in board)
+            after = json.loads(c.view(0))
+            text = "Arrange: " + ", ".join(name_of(m["id"], locale) for m in after["me"]["board"])
+            row = display.arrange_row(after, locale, name_of)
             if out and out[-1][0] >= A_MOVE:
                 out[-1] = (a, text)
+                rows[-1] = row
                 continue
         out.append((a, text))
+        if row is not None:
+            rows.append(row)
         if a == 0:
             break
-    return out, c
+    return out, display.collapse(rows, locale), c
 
 
 def combat_odds(g, n=300):
@@ -225,22 +234,28 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     g, gaps = bridge.build(d, bridge.game_combats(combats, d) if combats else ())
     client = bridge.client_actions(d)
     allowed = bridge.allowed_mask(json.loads(g.view(0))["mask"], d)
-    plan, after = plan_turn(g, locale, net, allowed)
+    plan, rows, after = plan_turn(g, locale, net, allowed)
     warnings = sorted(set(gaps))
     first = plan[0] if plan else None
     if first is not None and net is None:
         k = bridge.action_kind(first[0])
         if k is not None and k not in client:
             warnings.append("the first step is not offered by the client")
+    odds_now, odds_after = combat_odds(g), combat_odds(after)
+    turn = (d["turn"] + 1) // 2
+    notes = [x for x in (display.odds_note("now", odds_now, locale),
+                         display.odds_note("after", odds_after, locale)) if x]
     advice = {
-        "turn": (d["turn"] + 1) // 2,
+        "display": {"title": display.t(locale, "title", turn=turn), "subtitle": policy_name,
+                    "style": "normal", "rows": rows, "notes": notes, "warnings": warnings},
+        "turn": turn,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "phase": "recruit",
         "policy": policy_name,
         "action": first[1] if first else None,
         "plan": [t for _, t in plan],
-        "odds_now": combat_odds(g),
-        "odds_after_plan": combat_odds(after),
+        "odds_now": odds_now,
+        "odds_after_plan": odds_after,
         "gold": d["state"]["friendly"].get("gold"),
         "warnings": warnings,
     }

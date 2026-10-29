@@ -16,6 +16,10 @@
       <HintPath>$(HdtDir)\HearthstoneDeckTracker.exe</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="HearthDb">
+      <HintPath>$(HdtDir)\HearthDb.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>$(HdtDir)\Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>

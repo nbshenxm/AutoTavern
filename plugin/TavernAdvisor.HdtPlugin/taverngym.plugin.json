@@ -7,5 +7,6 @@
   "overlay_top": 0.12,
   "stale_seconds": 90,
   "max_steps": 6,
-  "scale": 1.0
+  "scale": 1.0,
+  "card_art": true
 }
