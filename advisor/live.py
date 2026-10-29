@@ -34,7 +34,8 @@ LIVE_DIR = Path(os.environ.get("LOCALAPPDATA", ".")) / "TavernAdvisor"
 MODEL = Path(__file__).resolve().parents[1] / "data" / "models" / "best.pt"
 CREATE_GAME = "GameState.DebugPrintPower() - CREATE_GAME"
 OPTIONS = "GameState.DebugPrintOptions()"
-MAX_PLAN = 20
+MAX_PLAN = 80  # above the largest turn action cap (GAME_CONFIG), so a plan reaches End Turn
+A_MOVE = 196  # taverngym.layout(): the first move action
 
 
 # ---------------------------------------------------------------------- following the log
@@ -190,8 +191,16 @@ def plan_turn(g, locale, net=None, allowed=None):
         else:
             from advisor.policy import act
             a, _, _ = act(net, c, 0, np.array(allowed) if step == 0 and allowed is not None else None)
-        out.append((a, describe(json.loads(c.view(0)), a, locale)))
+        text = describe(json.loads(c.view(0)), a, locale)
         c.step(0, a)
+        if a >= A_MOVE:
+            # A run of moves is one step to the player: the warband's order after it
+            board = json.loads(c.view(0))["me"]["board"]
+            text = "Arrange: " + ", ".join(name_of(m["id"], locale) for m in board)
+            if out and out[-1][0] >= A_MOVE:
+                out[-1] = (a, text)
+                continue
+        out.append((a, text))
         if a == 0:
             break
     return out, c
@@ -337,10 +346,10 @@ def load_policy(path):
         return None, "scripted bot (v0)"
     from advisor.policy import load
     net, ck = load(path)
-    ev = ck.get("eval") or {}
-    name = f"network {Path(path).parent.name} it {ck.get('iteration', '?')}"
+    ev = ck.get("gate") or ck.get("eval") or {}
+    name = f"early network, it {ck.get('iteration', '?')}"
     if ev:
-        name += f" (vs bots: place {ev.get('mean_place')})"
+        name += f" (place {ev.get('mean_place')} vs bots, {ev.get('n')} games)"
     print(f"policy: {name}", flush=True)
     return net, name
 

@@ -20,7 +20,7 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import CAT, add_minion, debug, normal_form, recruit_game, set_side
+from advisor.state import CAT, GAME_CONFIG, add_minion, debug, normal_form, recruit_game, set_side
 
 SPELL_TYPES = ("SPELL", "BATTLEGROUND_SPELL")
 # Trinket -> its uses per turn; its TAG_SCRIPT_DATA_NUM_1 is the uses left this turn
@@ -52,7 +52,7 @@ def build(d, combats=(), seed=7):
     s = d["state"]
     me = s["friendly"]
     gaps = []
-    g = recruit_game(seed)
+    g = recruit_game(seed, GAME_CONFIG)
     turn = max(1, (d["turn"] + 1) // 2)
     debug(g, cmd="set_turn", turn=turn)
     seat_of = seats(d)

@@ -23,14 +23,10 @@ import numpy as np
 import torch
 
 from advisor.policy import PolicyNet, load, save
+from advisor.state import GAME_CONFIG
 from taverngym import BatchEnv
 
-CONFIG = {
-    "hero_choices": 4,  # the player's season-pass offer (docs/REPLAY.md, recruit rules)
-    # Moves and Freeze never advance the game: a turn ends after this many actions, a little
-    # above the most the player took in a logged turn (6, 5, 10, 10, 18, 38, 28, 49, 58...)
-    "turn_action_caps": [8, 8, 12, 12, 20, 40, 40, 60],
-}
+CONFIG = GAME_CONFIG  # advisor.state: shared with the live advisor
 
 
 def hearthstone_running():

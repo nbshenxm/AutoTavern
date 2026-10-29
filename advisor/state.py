@@ -12,6 +12,14 @@ import taverngym
 
 CAT = {c["id"]: c for c in json.loads(taverngym._core.catalog_json())}
 RULES = json.loads(taverngym._core.default_config_json())
+# The rules the network trains under (advisor.train) and the live advisor plans under: the same,
+# or the network plays a game it never learned
+GAME_CONFIG = {
+    "hero_choices": 4,  # the player's season-pass offer (docs/REPLAY.md, recruit rules)
+    # Moves and Freeze never advance the game: a turn ends after this many actions, a little
+    # above the most the player took in a logged turn (6, 5, 10, 10, 18, 38, 28, 49, 58...)
+    "turn_action_caps": [8, 8, 12, 12, 20, 40, 40, 60],
+}
 CARDS = Path(__file__).resolve().parents[1] / "crates" / "taverngym" / "data" / "cards.json"
 KEYWORDS = {c["id"]: c["keywords"]
             for c in json.loads(CARDS.read_text(encoding="utf-8"))["cards"]}
