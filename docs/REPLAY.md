@@ -111,3 +111,20 @@ move. Left over:
 | One game's buys and refreshes (Malchezaar on the warband) | 87 | TavernGym allows them with 0-1 Gold, paying Health |
 
 The live advisor only suggests actions that both TavernGym and the client allow.
+
+## Live advisor
+
+```bash
+python -X utf8 -m advisor.live                         # follow the newest Power.log
+python -X utf8 -m advisor.live --replay PATH --limit 40  # a recorded log, timed
+pytest tests/test_live.py                              # skips without a recorded log
+```
+
+`advisor.live` parses the log incrementally (a parser per `CREATE_GAME` segment, finished
+top-level packets exported as they arrive, combats kept across reconnects). At each recruit
+Options packet it builds the lobby (`advisor.bridge`), plays the policy's turn on a copy, and
+writes `advice.json` to `%LOCALAPPDATA%\TavernAdvisor`: the first step, the turn's plan, combat
+odds against the next opponent's last seen warband now and after the plan (with the turn it
+was seen), and warnings (setup gaps, a first step the client does not offer). On two recorded
+37.0 logs it advised at all 370 recruit decisions, 42-92 ms median, 153 ms at most. The policy
+is still TavernGym's scripted bot (v0): the plumbing is real, the advice is weak until M5.
