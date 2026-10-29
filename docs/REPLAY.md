@@ -1,8 +1,8 @@
 # Client diff and combat replay
 
 Two checks of TavernGym against the live game: the client's card data (`tools/client_diff.py`)
-and combats from Battlegrounds Power.logs replayed in the simulator (`tools/bg_logs.py`,
-`tools/combat_replay.py`, `tests/test_combat_replay.py`). Inputs and outputs live in the ignored
+and combats from Battlegrounds Power.logs replayed in the simulator (`advisor/logs.py`,
+`advisor/replay.py`, `tests/test_combat_replay.py`). Inputs and outputs live in the ignored
 `data/` folder: client exports are downloaded, and logs carry player names.
 
 ## Client diff
@@ -22,18 +22,18 @@ logged shops are the second check: `data/replay/offers.jsonl`.
 ## Combat replay
 
 ```bash
-python -X utf8 tools/bg_logs.py <logs dir or Power.log>... --cards <client dir> --out data/replay
-python -X utf8 tools/combat_replay.py data/replay/combats.jsonl -n 500
+python -X utf8 -m advisor.logs <logs dir or Power.log>... --cards <client dir> --out data/replay
+python -X utf8 -m advisor.replay data/replay/combats.jsonl -n 500
 pytest tests/test_combat_replay.py      # skips when there are no extracted combats
 ```
 
-`bg_logs.py` splits each log at `CREATE_GAME` (a reconnect starts a new segment of the same game)
+`advisor.logs` splits each log at `CREATE_GAME` (a reconnect starts a new segment of the same game)
 and records, for every combat: both warbands and hands before Start of Combat, again just before
 the first attack with the side that attacks first, heroes, Hero Powers, trinkets, enchantments,
 the players left, and the result: the winner, and the damage the winner's hero dealt (`PREDAMAGE`,
 after the cap, before armor).
 
-`combat_replay.py` rebuilds each combat with the debug commands and runs `combat_preview`. Mode
+`advisor.replay` rebuilds each combat with the debug commands and runs `combat_preview`. Mode
 `start` simulates Start of Combat too. Mode `attack` starts from the first attack with the logged
 first attacker, so it tests the attack phase alone. Logged stats and keywords are set directly.
 Dark Gifts and magnetized minions are attached from their enchantments. "This game" counters are
@@ -61,14 +61,14 @@ player tags with no public names (the counters are numbered player tags such as 
 ## Recruit rules
 
 ```bash
-python -X utf8 tools/bg_decisions.py <logs>... --cards <client dir> --out data/replay
-python -X utf8 tools/recruit_checks.py data/replay/decisions.jsonl
+python -X utf8 -m advisor.decisions <logs>... --cards <client dir> --out data/replay
+python -X utf8 -m advisor.recruit_checks data/replay/decisions.jsonl
 ```
 
-`bg_decisions.py` records every recruit decision: the state (as for combats, plus Gold, the
+`advisor.decisions` records every recruit decision: the state (as for combats, plus Gold, the
 upgrade and refresh costs, the Tavern with frozen flags, the leaderboard), the options the client
 offered with their targets and errors, and the option or choice the player sent.
-`recruit_checks.py` compares the turn starts with TavernGym's rules.
+`advisor.recruit_checks` compares the turn starts with TavernGym's rules.
 
 On the 10 logged games (110 recruit turns, 2,031 decisions), against TavernGym's defaults:
 

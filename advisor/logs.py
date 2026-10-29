@@ -6,7 +6,7 @@ attacks first), plus heroes, Hero Powers, trinkets, enchantments and the outcome
 the damage the winner's hero dealt, before armor). For every game, records the minions and
 spells Bob offered, with their stats, as evidence for the pool and stat checks.
 
-Run:    python -X utf8 tools/bg_logs.py LOG_OR_DIR... --cards CLIENT_DIR --out data/replay
+Run:    python -X utf8 -m advisor.logs LOG_OR_DIR... --cards CLIENT_DIR --out data/replay
 Writes OUT/combats.jsonl and OUT/offers.jsonl (one JSON object per combat / per offer).
 Logs hold player names: keep the output out of the repository (data/ is ignored).
 """

@@ -1,12 +1,12 @@
 """Extract the friendly player's recruit-phase decisions from Battlegrounds Power.logs.
 
-At every Options packet outside combat: the state (tools/bg_logs.py snapshot plus gold, costs,
+At every Options packet outside combat: the state (advisor.logs snapshot plus gold, costs,
 the Tavern, the leaderboard), the options the client offered with their targets (legal ones
 have no error), and the option the player sent. Choices (Discover, hero and trinket picks) are
 recorded the same way. This is the input of the live bridge (docs/ROADMAP.md, M2) and of the
 recruit-rule checks (M1).
 
-Run:    python -X utf8 tools/bg_decisions.py LOG_OR_DIR... --cards CLIENT_DIR --out data/replay
+Run:    python -X utf8 -m advisor.decisions LOG_OR_DIR... --cards CLIENT_DIR --out data/replay
 Writes OUT/decisions.jsonl.
 """
 
@@ -21,7 +21,7 @@ from hearthstone.entities import Player
 from hearthstone.enums import CardType, GameTag, Zone
 from hslog import LogParser, packets
 
-import bg_logs
+from advisor import logs as bg_logs
 
 T = GameTag
 LEGAL_ERRORS = (None, "INVALID")  # END_TURN reports INVALID and is still allowed

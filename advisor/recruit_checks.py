@@ -1,13 +1,13 @@
 """Check TavernGym's recruit rules against logged recruit phases (docs/ROADMAP.md, M1).
 
-From tools/bg_decisions.py output, at the first decision of each recruit turn: maximum Gold,
+From advisor.decisions output, at the first decision of each recruit turn: maximum Gold,
 the upgrade cost (base cost minus the per-turn discount since the last upgrade), the refresh
 cost, and the size of a fresh (unfrozen) Tavern; and the Tier mix of the minions offered at
 each Tavern Tier, against TavernGym's own Taverns (sampled with the debug command
 `refresh_shop` over many lobbies). Effects (Goblin Wallet, hero powers, discounts) move single
 values; a rule error shows as a systematic difference.
 
-Run:    python -X utf8 tools/recruit_checks.py data/replay/decisions.jsonl
+Run:    python -X utf8 -m advisor.recruit_checks data/replay/decisions.jsonl
 """
 
 import argparse

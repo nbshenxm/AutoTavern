@@ -1,4 +1,4 @@
-"""Logged combats replayed in TavernGym (tools/bg_logs.py, tools/combat_replay.py).
+"""Logged combats replayed in TavernGym (advisor.logs, advisor.replay).
 
 The combats come from the player's own Power.logs and stay out of the repository; point
 TAVERNGYM_REPLAY at a combats.jsonl (default data/replay/combats.jsonl) or the test skips.
@@ -22,10 +22,9 @@ pytestmark = pytest.mark.skipif(not COMBATS.is_file(), reason=f"no logged combat
 
 @pytest.fixture(scope="module")
 def rows():
-    sys.path.insert(0, str(ROOT / "tools"))
-    import combat_replay
+    sys.path.insert(0, str(ROOT))
+    from advisor import replay as combat_replay
 
-    combat_replay.CAT = combat_replay.catalog()
     combats = [json.loads(line) for line in COMBATS.read_text(encoding="utf-8").splitlines()]
     out = []
     for c in combats:
