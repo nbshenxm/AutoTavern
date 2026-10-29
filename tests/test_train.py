@@ -41,3 +41,18 @@ def test_one_ppo_iteration_runs():
     opt = torch.optim.Adam(net.parameters(), lr=1e-3)
     stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128)
     assert all(abs(v) < 1e6 for v in stats.values())
+
+
+def test_league_gate_and_opponent_seats():
+    from taverngym import BatchEnv
+
+    small = lambda: PolicyNet(card_dim=4, hidden=64).eval()
+    pool = [small(), small()]
+    ev = train.evaluate_league(small(), pool, "cpu", episodes=4, games=2, threads=1)
+    assert ev["n"] == 4 and 1 <= ev["mean_place"] <= 8
+    env = BatchEnv(2, seed=4, controlled=list(range(8)), config=train.CONFIG)
+    opp = train.assign_opponents(env, pool, it=3)
+    assert sorted(opp) == [6, 7, 14, 15]
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    train.collect(env, small(), env.observe(), seats, 128, "cpu", opp)
+    assert all(not seats[i].items for i in opp)  # frozen seats aren't learned from
