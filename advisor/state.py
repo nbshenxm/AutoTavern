@@ -37,6 +37,8 @@ PLAYER_ENCHANTMENTS = {
     "BG31_808pe": ("beetle_atk", "beetle_hp"),  # Runed Progenitor and other Beetle buffs
 }
 TASTY_LOBSTER = "BG36_202"
+BLOOD_GEM = "BG20_GEM"
+SURVEYOR_PORTRAIT = "BG30_MagicItem_943"
 # A two-step Hero Power shows its second step as another card; TavernGym asks both steps
 # within one use, so the setup restarts the use
 HERO_POWER_STEPS = {
@@ -102,6 +104,14 @@ def player_stats(s):
             for f, v in zip(fields, e["data"]):
                 if f:
                     out[f] = v
+    # A Blood Gem in hand shows what it gives: (1 + gem_atk, 1 + gem_hp), plus 6/6 from the hand
+    # with Surveyor Portrait (TavernGym's gem_stats)
+    surveyor = any(t["card"].startswith(SURVEYOR_PORTRAIT) for t in s.get("trinkets", []))
+    for h in s.get("hand_all", []):
+        if h.get("card") == BLOOD_GEM and len(h.get("data") or []) >= 2 and h["data"][0] > 0:
+            a, hp = (x - 6 if surveyor else x for x in h["data"][:2])
+            out["gem_atk"] = max(out.get("gem_atk", 0), a - 1)
+            out["gem_hp"] = max(out.get("gem_hp", 0), hp - 1)
     # A Tasty Lobster shows the buff its Deathrattle gives: (2, 1) x (1 + improvements),
     # doubled when golden
     for m in s["board"] + s.get("hand", []):
