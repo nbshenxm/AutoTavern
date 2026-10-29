@@ -55,3 +55,17 @@ against: early networks, not yet advice to rely on.
 
 Throughput at home: about 22,000-34,000 decisions per second collecting, 2.8 s per iteration
 of 33,000 decisions.
+
+## Keeping the overlay's network current
+
+1. **Office, hourly at :10** (user crontab): `scripts/office/promote.sh` runs `advisor.promote`
+   on every run's `best.pt`. Each candidate plays the bot gate on the same 1,000 unseen seeds as
+   the current network and replaces `data/models/best.pt` only when its mean placement is lower
+   by more than twice the combined standard error (about 0.15 at present). Replaced networks go
+   to `data/models/archive/`; every decision is in `data/models/promotions.jsonl`
+   (`promote.log` holds the output); a checkpoint is judged once per version.
+2. **Home, hourly at :20** (scheduled task "TavernAdvisor Model Sync"): `scripts/sync_model.ps1`
+   copies the office's `best.pt` and `promotions.jsonl` into this repository's `data/models`
+   when they changed (the old network archived). Log: `%LOCALAPPDATA%\TavernAdvisor\sync.log`.
+   Remove: `Unregister-ScheduledTask -TaskName "TavernAdvisor Model Sync" -Confirm:$false`.
+3. **The advisor** reloads `data/models/best.pt` whenever the file changes, mid-session too.
