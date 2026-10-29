@@ -55,7 +55,9 @@ class DecisionExporter(bg_logs.CombatExporter):
         me["gold"] = (pt.get(T.RESOURCES, 0) + pt.get(T.TEMP_RESOURCES, 0)
                       - pt.get(T.RESOURCES_USED, 0))
         me["max_gold"] = pt.get(T.RESOURCES, 0)
-        me["hand_all"] = [self._entity_view(e.id) | {"data": bg_logs._data(e)}
+        # Unplayable: a card locked in hand (a Lockbox's minion until the box opens)
+        me["hand_all"] = [self._entity_view(e.id) | {"data": bg_logs._data(e),
+                                                     "unplayable": bool(e.tags.get(T.LITERALLY_UNPLAYABLE))}
                           for e in sorted((e for e in g.entities if e.zone == Zone.HAND
                                            and e.tags.get(T.CONTROLLER) == f),
                                           key=lambda e: e.tags.get(T.ZONE_POSITION, 0))]
@@ -67,6 +69,9 @@ class DecisionExporter(bg_logs.CombatExporter):
                     buttons["upgrade"] = e.tags.get(T.COST, 0)
                 elif "Reroll" in cid:
                     buttons["refresh"] = e.tags.get(T.COST, 0)
+            elif e.zone == Zone.PLAY and e.tags.get(T.CONTROLLER) == f and cid == "BG36_Button_DarkGift":
+                buttons["dark_gift"] = e.tags.get(T.COST, 0)
+                buttons["dark_gift_exhausted"] = bool(e.tags.get(T.EXHAUSTED))
         me["costs"] = buttons
         shop = []
         for e in sorted(self._in_play(b, CardType.MINION) + self._in_play(b, CardType.BATTLEGROUND_SPELL),

@@ -1,0 +1,49 @@
+"""The live bridge (advisor.bridge): TavernGym's legal actions at logged recruit decisions
+match the options the client offered.
+
+The decisions come from the player's own Power.logs (advisor.decisions) and stay out of the
+repository; point TAVERNGYM_DECISIONS at a decisions.jsonl (default
+data/replay/decisions.jsonl) or the test skips. Thresholds sit a little under the first
+measured baseline (10 games, 1,870 recruit decisions): identical legal sets in 89%, every
+action kind 97% or better.
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+DECISIONS = Path(os.environ.get("TAVERNGYM_DECISIONS",
+                                ROOT / "data" / "replay" / "decisions.jsonl"))
+
+pytestmark = pytest.mark.skipif(not DECISIONS.is_file(), reason=f"no decisions at {DECISIONS}")
+
+
+@pytest.fixture(scope="module")
+def result():
+    sys.path.insert(0, str(ROOT))
+    from advisor import bridge
+
+    lines = DECISIONS.read_text(encoding="utf-8").splitlines()
+    decisions = [json.loads(line) for line in lines[::3]]  # a third keeps the test quick
+    return bridge.parity(decisions)
+
+
+def test_legal_sets_mostly_identical(result):
+    n, exact, _, _ = result
+    assert n > 100
+    assert exact / n >= 0.85, exact / n
+
+
+@pytest.mark.parametrize("kind", ["end", "refresh", "freeze", "upgrade", "hero_power", "buy",
+                                  "sell", "play", "dark_gift"])
+def test_each_action_kind_agrees(result, kind):
+    _, _, by_kind, examples = result
+    both, client_only, tavern_only = by_kind.get(kind, [0, 0, 0])
+    total = both + client_only + tavern_only
+    if total == 0:
+        pytest.skip(f"no {kind} options in these decisions")
+    assert both / total >= 0.95, (kind, by_kind[kind], examples.get(kind))

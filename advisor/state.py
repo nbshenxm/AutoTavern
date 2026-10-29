@@ -110,7 +110,11 @@ def add_minion(g, p, where, m, gaps, label):
     if cid not in CAT or CAT[cid]["kind"] != "minion":
         gaps.append(f"{label} minion {m['card']}")
         return False
-    debug(g, cmd="add_minion", p=p, zone=where, card=cid, golden=golden or m["golden"])
+    try:
+        debug(g, cmd="add_minion", p=p, zone=where, card=cid, golden=golden or m["golden"])
+    except ValueError as e:  # full zone and the like
+        gaps.append(f"{label} minion {m['card']}: {e}")
+        return False
     idx = len(zone(g, p, where)) - 1
     for e in m["ench"]:
         a = attachment(e["card"])
@@ -137,14 +141,15 @@ def set_side(g, p, s, gaps, label):
             debug(g, cmd="set_hero_power", p=p, slot=i, card=hp["card"])
         else:
             gaps.append(f"{label} hero power {hp['card']}")
-    debug(g, cmd="clear_zone", p=p, zone="board")
-    debug(g, cmd="clear_zone", p=p, zone="hand")
-    # Trinkets before the warband: an on-attach buff must not hit the logged stats
+    # Trinkets before the warband: an on-attach buff must not hit the logged stats, and the
+    # cards an on-attach effect gives ("Get 2 random...") are cleared with the zones
     for t in s["trinkets"]:
         if t["card"] in CAT and CAT[t["card"]]["kind"].startswith("trinket"):
             debug(g, cmd="give_trinket", p=p, card=t["card"])
         else:
             gaps.append(f"{label} trinket {t['card']}")
+    debug(g, cmd="clear_zone", p=p, zone="board")
+    debug(g, cmd="clear_zone", p=p, zone="hand")
     debug(g, cmd="set_player", p=p, tier=max(1, s.get("tier", 1)), health=s.get("health", 30),
           armor=s.get("armor", 0))
     stats = player_stats(s)

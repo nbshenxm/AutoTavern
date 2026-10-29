@@ -65,5 +65,5 @@ built. M6 runs at every patch.
 | --- | --- |
 | M0 | done |
 | M1 | done: every recruit rule checked agrees ([REPLAY.md](REPLAY.md#recruit-rules)); train with `hero_choices: 4` for the player's seat |
-| M2 | in progress |
+| M2 | in progress: the player's seat is built and its legal actions match the client's in 89% of decisions ([REPLAY.md](REPLAY.md#live-bridge)); the opponents' seats are next |
 | M3-M6 | not started |

@@ -113,8 +113,11 @@ class CombatExporter(EntityTreeExporter):
                 if e.zone == Zone.HAND and _type(e) == CardType.MINION
                 and e.tags.get(T.CONTROLLER) == ctrl and getattr(e, "card_id", None)]
         side = {"board": board, "hand": sorted(hand, key=lambda m: m["pos"]),
-                "hero_powers": [{"card": e.card_id, "data": _data(e)}
-                                for e in self._in_play(ctrl, CardType.HERO_POWER)],
+                "hero_powers": [{"card": e.card_id, "data": _data(e), "cost": e.tags.get(T.COST, 0),
+                                 "exhausted": bool(e.tags.get(T.EXHAUSTED)),
+                                 "disabled": bool(e.tags.get(T.HERO_POWER_DISABLED))}
+                                for e in sorted(self._in_play(ctrl, CardType.HERO_POWER),
+                                                key=lambda e: e.tags.get(T.ZONE_POSITION, 0))],
                 "trinkets": [{"card": e.card_id, "data": _data(e)}
                              for e in self._in_play(ctrl, TRINKET)
                              if not TRINKET_PLACEHOLDERS.match(e.card_id or "")],

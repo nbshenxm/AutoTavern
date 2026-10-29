@@ -81,3 +81,30 @@ On the 10 logged games (110 recruit turns, 2,031 decisions), against TavernGym's
 | Tier mix of the minions offered at each Tavern Tier | within 2-3 points of TavernGym's own Taverns at every Tier |
 | Trinkets: Lesser at turn 6, Greater at turn 9, 4 options | all; extra 2-option offers come from effects |
 | Hero options | 4 (the player's season-pass offer); TavernGym's default `hero_choices` is 2 |
+
+## Live bridge
+
+```bash
+python -X utf8 -m advisor.bridge data/replay/decisions.jsonl
+pytest tests/test_bridge.py      # skips when there are no extracted decisions
+```
+
+`advisor.bridge.build` turns a logged recruit decision into a TavernGym game with the player on
+seat 0: hero, Hero Powers (used this turn, or a spent once-per-game one), trinkets, counters,
+Tier, health, armor, Gold, upgrade cost, free refreshes, warband, hand in logged order (a
+Lockbox's locked card stays locked) and the Tavern with its frozen flags. `parity` compares
+TavernGym's legal actions there with the options the client offered, by kind and slot.
+
+On the 10 logged games (1,870 recruit decisions), the legal sets are identical in 89%. End
+Turn, Freeze, Upgrade, Sell, Buy, Dark Gift and targeted Activates agree everywhere except
+one game's purchases. An Activate without a target can't be checked: the log shows it like a
+move. Left over:
+
+| Where | Count | What |
+| --- | ---: | --- |
+| Bile Spitter in hand, full warband | 103 | the client offers it with no target, in one game; unexplained |
+| Methodical Madness | 32 | TavernGym offers it where the client doesn't |
+| Spirit Swap (Hero Power) | 18 | the client offers it where TavernGym doesn't |
+| One game's buys and refreshes (Malchezaar on the warband) | 87 | TavernGym allows them with 0-1 Gold, paying Health |
+
+The live advisor only suggests actions that both TavernGym and the client allow.
