@@ -81,6 +81,35 @@ def attachment(ench):
     return None
 
 
+# "This game" counters the log shows on player enchantments: card -> PlayerStats fields
+# filled from the enchantment's TAG_SCRIPT_DATA_NUM_1 and _2
+PLAYER_ENCHANTMENTS = {
+    "BG25_011pe": ("undead_atk", None),  # Nerubian Deathswarmer
+    "BG25_008pe": ("eternal_knight_deaths", None),  # Eternal Knight
+    "BG31_808pe": ("beetle_atk", "beetle_hp"),  # Runed Progenitor and other Beetle buffs
+}
+TASTY_LOBSTER = "BG36_202"
+
+
+def player_stats(s):
+    """PlayerStats fields recoverable from a logged side."""
+    out = {}
+    for e in s.get("player_ench", []):
+        fields = PLAYER_ENCHANTMENTS.get(e["card"])
+        if fields:
+            for f, v in zip(fields, e["data"]):
+                if f:
+                    out[f] = v
+    # A Tasty Lobster shows the buff its Deathrattle gives: (2, 1) x (1 + improvements),
+    # doubled when golden
+    for m in s["board"] + s.get("hand", []):
+        cid, golden = normal_form(m["card"])
+        if cid == TASTY_LOBSTER and m["data"][0] > 0:
+            g = 2 if golden or m["golden"] else 1
+            out["lobster_bonus"] = max(out.get("lobster_bonus", 0), m["data"][0] // (2 * g) - 1)
+    return out
+
+
 def setup(c, snap, seed):
     """A TavernGym game holding the logged combat on seats 0 (friendly) and 1 (opponent).
     Returns (game, gaps): gaps are the logged parts the setup could not carry."""
@@ -110,6 +139,10 @@ def setup(c, snap, seed):
                 gaps.append(f"{side} trinket {t['card']}")
         dbg(cmd="set_player", p=p, tier=max(1, s.get("tier", 1)), health=s.get("health", 30),
             armor=s.get("armor", 0))
+        # Before the warband: minions created afterwards carry the player-level bonuses
+        stats = player_stats(s)
+        if stats:
+            dbg(cmd="set_stats", p=p, stats=stats)
         for zone, minions in (("board", s["board"][:7]), ("hand", s.get("hand", [])[:10])):
             for m in minions:
                 cid, golden = normal_form(m["card"])

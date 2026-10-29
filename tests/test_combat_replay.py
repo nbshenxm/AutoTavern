@@ -2,9 +2,9 @@
 
 The combats come from the player's own Power.logs and stay out of the repository; point
 TAVERNGYM_REPLAY at a combats.jsonl (default data/replay/combats.jsonl) or the test skips.
-Thresholds sit a little under the first measured baseline (client 37.0, 106 combats):
-attack-phase replays agreed with the logged winner 91% of the time (most likely outcome),
-Brier score 0.07, and 1 of 104 logged winners was given under 2%.
+Thresholds sit a little under the measured baseline (client 37.0, 106 combats, with the
+player-level counters set): the most likely outcome was the logged one in 92.5% (start) and
+95% (attack) of combats, Brier score 0.045 / 0.038, 1 of 210 logged winners under 2%.
 """
 
 import json
@@ -50,9 +50,9 @@ def test_replays_agree_with_logged_winners(rows, mode):
     accuracy = sum(predicted(r) == LOGGED[r["winner"]] for r in rs) / len(rs)
     brier = sum((r["sim"]["win"] - (r["winner"] == "friendly")) ** 2 for r in rs) / len(rs)
     surprises = sum(r["surprise"] for r in rs) / len(rs)
-    assert accuracy >= 0.85, accuracy
-    assert brier <= 0.10, brier
-    assert surprises <= 0.04, [r for r in rs if r["surprise"]]
+    assert accuracy >= 0.88, accuracy
+    assert brier <= 0.07, brier
+    assert surprises <= 0.03, [r for r in rs if r["surprise"]]
 
 
 def test_every_logged_card_is_known(rows):

@@ -59,6 +59,30 @@ def test_debug_commands_edit_state():
         g.debug(json.dumps({"cmd": "add_minion", "p": 0, "zone": "board", "card": "NOPE"}))
 
 
+def test_set_stats_reaches_minions_created_afterwards():
+    g = recruit_game(4)
+    dbg = lambda **c: json.loads(g.debug(json.dumps(c)))
+    base = json.loads(g.view(0))["me"]["board"]  # (no minions yet)
+    assert base == []
+    dbg(cmd="set_stats", p=0, stats={"undead_atk": 3, "lobster_bonus": 4})
+    st = json.loads(g.state_json())["players"][0]["stats"]
+    assert (st["undead_atk"], st["lobster_bonus"]) == (3, 4)
+    dbg(cmd="add_minion", p=0, zone="board", card="BG28_300")  # Harmless Bonehead, Undead
+    cat = {c["id"]: c for c in json.loads(taverngym._core.catalog_json())}
+    assert json.loads(g.view(0))["me"]["board"][0]["atk"] == cat["BG28_300"]["atk"] + 3
+    with pytest.raises(ValueError):
+        dbg(cmd="set_stats", p=0, stats={"no_such_stat": 1})
+
+
+def test_combat_preview_details_report_raw_damage():
+    g = recruit_game(5)
+    g.debug(json.dumps({"cmd": "add_minion", "p": 0, "zone": "board", "card": "BG36_345"}))
+    r = json.loads(g.debug(json.dumps({"cmd": "combat_preview", "a": 0, "b": 1, "n": 20,
+                                       "details": True})))
+    # p1's board is empty: p0 wins every time and deals at least its tavern tier
+    assert all(t["winner"] == 0 and t["damage"] >= 1 for t in r["trials"])
+
+
 def test_combat_preview_and_replay_frames():
     g = recruit_game(3)
     g.debug(json.dumps({"cmd": "add_minion", "p": 0, "zone": "board", "card": "BG28_300"}))

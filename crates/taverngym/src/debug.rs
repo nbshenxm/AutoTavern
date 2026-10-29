@@ -974,6 +974,12 @@ pub enum DebugCmd {
     SetTurn {
         turn: u32,
     },
+    /// Change "this game" counters (`PlayerStats` fields, only the given ones). Minions
+    /// created afterwards carry the new player-level bonuses; existing ones keep theirs.
+    SetStats {
+        p: PlayerId,
+        stats: serde_json::Map<String, Value>,
+    },
     /// Create a minion (by card id string) in board/hand/shop.
     AddMinion {
         p: PlayerId,
@@ -1168,6 +1174,17 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
             }
         }
         DebugCmd::SetTurn { turn } => g.turn = turn.max(1),
+        DebugCmd::SetStats { p, stats } => {
+            check(p)?;
+            let mut v = serde_json::to_value(&g.players[p].stats).map_err(|e| e.to_string())?;
+            for (k, x) in stats {
+                match v.get_mut(&k) {
+                    Some(slot) => *slot = x,
+                    None => return Err(format!("unknown player stat {k}")),
+                }
+            }
+            g.players[p].stats = serde_json::from_value(v).map_err(|e| e.to_string())?;
+        }
         DebugCmd::AddMinion {
             p,
             zone,

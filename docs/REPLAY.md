@@ -36,20 +36,24 @@ after the cap, before armor).
 `combat_replay.py` rebuilds each combat with the debug commands and runs `combat_preview`. Mode
 `start` simulates Start of Combat too. Mode `attack` starts from the first attack with the logged
 first attacker, so it tests the attack phase alone. Logged stats and keywords are set directly.
-Dark Gifts and magnetized minions are attached from their enchantments. A logged winner that
-TavernGym gives under 2% counts as a surprise.
+Dark Gifts and magnetized minions are attached from their enchantments. "This game" counters are
+set with `set_stats` before the warband is created, so minions summoned in combat get them: the
+Undead Attack bonus, Eternal Knight deaths and the Beetle bonus come from the `<card>pe`
+enchantments on the player entity (Bob's dummy player carries the opponent's copy), and the
+Tasty Lobster bonus comes from the buff a logged Lobster shows. A logged winner that TavernGym
+gives under 2% counts as a surprise.
 
 Baseline (TavernGym 36.6.3 data, 10 games on builds 254477 and 255790 = 37.0, 106 combats):
 
 | Build | Mode | Combats | Mean P(logged winner) | Surprises |
 | --- | --- | ---: | ---: | ---: |
-| 254477 | start | 51 | 0.89 | 1 |
-| 254477 | attack | 50 | 0.91 | 0 |
-| 255790 | start | 55 | 0.85 | 1 |
-| 255790 | attack | 54 | 0.86 | 1 |
+| 254477 | start | 51 | 0.91 | 0 |
+| 254477 | attack | 50 | 0.93 | 0 |
+| 255790 | start | 55 | 0.89 | 0 |
+| 255790 | attack | 54 | 0.90 | 1 |
 
-Over both builds, the most likely simulated result is the logged one in 90% (start) and 91%
-(attack) of combats, and the Brier score for the friendly win is 0.07 in both modes. The known gap is player-level state
-the setup can't carry yet: "this game" buffs and counters (Tasty Lobster improvements,
-Beetle and Undead bonuses, the `<card>pe` player enchantments) and Hero Power counters. It
-shows as a lean against the friendly side: logged wins that TavernGym gave 10-40%.
+Over both builds, the most likely simulated result is the logged one in 92.5% (start) and 95%
+(attack) of combats, and the Brier score for the friendly win is 0.045 / 0.038. Before the
+counters were set it was 90% / 91% and 0.073 / 0.069: Tasty Lobster builds were the main
+misses. Still not carried: Hero Power and trinket counters, Blood Gem bonuses, and other
+player tags with no public names (the counters are numbered player tags such as 4639).
