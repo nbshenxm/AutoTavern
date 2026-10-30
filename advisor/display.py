@@ -20,6 +20,7 @@ TEXT = {
         "odds_seen": " (their warband from turn {turn})", "now": "Now", "after": "After the plan",
         "more": "… {n} more",
         "odds_stale": "Next opponent's warband last seen on turn {turn}: no odds",
+        "trinket_stats": " · avg {place:.2f} · picked {pick:.0%}",
         "comp": "Closest meta comp: {name} (HSReplay tier {tier}), {have} of {of} core cards",
         "comp_missing": "; missing {cards}",
     },
@@ -36,10 +37,23 @@ TEXT = {
         "odds_seen": "（对手阵容来自第{turn}回合）", "now": "现在", "after": "按计划之后",
         "more": "… 还有{n}步",
         "odds_stale": "下一个对手的阵容最后见于第{turn}回合：不计算胜率",
+        "trinket_stats": " · 平均{place:.2f}名 · 选取率{pick:.0%}",
         "comp": "最接近的流行流派：{name}（HSReplay {tier}级），核心卡 {have}/{of}",
         "comp_missing": "；缺少 {cards}",
     },
 }
+
+
+_TRINKETS = None
+
+
+def trinket_stats():
+    """advisor.meta.trinket_stats(), read once per advisor run."""
+    global _TRINKETS
+    if _TRINKETS is None:
+        from advisor import meta
+        _TRINKETS = meta.trinket_stats()
+    return _TRINKETS
 
 
 def t(locale, key, **kw):
@@ -91,6 +105,10 @@ def row_for(view, a, locale, name_of):
         gifts = [a for a in o.get("attached") or [] if isinstance(a, dict) and a.get("kind") == "dark_gift"]
         if gifts:
             name += " + " + ", ".join(name_of(g["id"], locale) for g in gifts)
+        # A trinket: what the public data says of it (Firestone, the last 7 days)
+        stats = trinket_stats().get(_card(o) or "") if str(o.get("kind", "")).startswith("trinket") else None
+        if stats:
+            name += t(locale, "trinket_stats", place=stats["place"], pick=stats["pick"])
         row.update(verb=t(locale, "choose"), badge=t(locale, "badge_choose"), badge_kind="choose",
                    card_id=_card(o), name=name)
     elif 46 <= a <= 125:

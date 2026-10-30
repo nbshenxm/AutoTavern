@@ -276,3 +276,36 @@ def test_an_older_layouts_network_plays_the_same():
         (a, va), (b, vb) = net(f, c, m), net(g, c, m)
     assert torch.allclose(a, b, atol=1e-5) and torch.allclose(va, vb, atol=1e-5)
     assert at == L["OBS_FLOATS"]
+
+
+def test_the_trinket_prior_prefers_the_publicly_better_trinket():
+    # At a trinket offer the target favors the option with the lower public average placement
+    import json as _json
+
+    import taverngym
+    from advisor import meta
+
+    stats = meta.trinket_stats()
+    if not stats:
+        pytest.skip("no public trinket stats here")
+    g = taverngym.Game(4, _json.dumps(train.CONFIG))
+    for _ in range(5000):
+        v = _json.loads(g.view(0))
+        if (v["me"]["pending"] or {}).get("kind") == "trinket":
+            break
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    else:
+        pytest.skip("no trinket offer")
+    from advisor.policy import observe
+    f, c, m = (torch.from_numpy(x)[None] for x in observe(g, 0))
+    prior = train.TrinketPrior("cpu")
+    rows, target = prior.targets(f, c, m)
+    opts = [o["id"] for o in v["me"]["pending"]["options"]]
+    best = min((i for i, o in enumerate(opts) if o in stats and m[0, prior.a + i]),
+               key=lambda i: stats[opts[i]]["place"])
+    assert rows.tolist() == [0] and int(target[0].argmax()) == best
+    logits = torch.zeros(1, m.shape[1]).masked_fill(~m, -1e9)
+    ce, n = prior.loss(f, c, m, logits)
+    assert n == 1 and ce > 0

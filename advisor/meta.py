@@ -6,6 +6,7 @@ advice), and the one a player's cards are closest to.
     python -X utf8 -m advisor.meta --bot-config comp_bots.json   # and write a bot config
 """
 
+import gzip
 import json
 import sys
 import time
@@ -15,30 +16,54 @@ from pathlib import Path
 from advisor.state import CARDS
 
 URL = "https://hsreplay.net/api/v1/battlegrounds/comp_guides/?format=json"
+# Firestone's public trinket stats (the last 7 days: average placement and pick rate, overall and
+# by MMR bracket); no stated license: for this personal tool only, never redistributed
+TRINKET_URL = "https://static.zerotoheroes.com/api/bgs/trinket-stats/past-seven/overview-from-hourly.gz.json"
 META = Path(__file__).resolve().parents[1] / "data" / "meta"
 GUIDES = META / "comp_guides.json"
+TRINKETS = META / "trinket_stats.json"
 MAX_AGE = 24 * 3600
 
 _DBF = {c["dbf"]: c for c in json.loads(CARDS.read_text(encoding="utf-8"))["cards"]}
 _NORMAL = {c["id"]: (c["normal"] or c["id"]) for c in _DBF.values()}
 
 
-def fetch(force=False):
-    """The guides file, downloaded when missing or older than a day. Returns its path, or
-    None when there is none and the download failed."""
-    if GUIDES.exists() and not force and time.time() - GUIDES.stat().st_mtime < MAX_AGE:
-        return GUIDES
+def _download(url, path, force=False):
+    """`url`'s JSON into `path` when missing or older than a day; the last copy when offline.
+    Returns `path`, or None when there is none."""
+    if path.exists() and not force and time.time() - path.stat().st_mtime < MAX_AGE:
+        return path
     META.mkdir(parents=True, exist_ok=True)
     try:
-        req = urllib.request.Request(URL, headers={"User-Agent": "TavernAdvisor (personal use)"})
+        req = urllib.request.Request(url, headers={"User-Agent": "TavernAdvisor (personal use)",
+                                                   "Accept-Encoding": "gzip"})
         with urllib.request.urlopen(req, timeout=30) as r:
-            data = json.loads(r.read().decode("utf-8"))
-        tmp = GUIDES.with_suffix(".tmp")
+            raw = r.read()
+        if raw[:2] == b"\x1f\x8b":  # gzip magic: the trinket stats come compressed
+            raw = gzip.decompress(raw)
+        data = json.loads(raw.decode("utf-8"))
+        tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(GUIDES)
+        tmp.replace(path)
     except Exception as e:  # offline: keep the last copy
-        print(f"comp guides not fetched: {type(e).__name__}: {e}", flush=True)
-    return GUIDES if GUIDES.exists() else None
+        print(f"{path.name} not fetched: {type(e).__name__}: {e}", flush=True)
+    return path if path.exists() else None
+
+
+def fetch(force=False):
+    """The comp guides and the trinket stats, downloaded when missing or older than a day."""
+    _download(TRINKET_URL, TRINKETS, force)
+    return _download(URL, GUIDES, force)
+
+
+def trinket_stats():
+    """card id -> {"place": average placement, "pick": pick rate, "n": games} (the last 7 days,
+    all MMRs); {} without the file."""
+    if not TRINKETS.exists():
+        return {}
+    rows = json.loads(TRINKETS.read_text(encoding="utf-8")).get("trinketStats") or []
+    return {r["trinketCardId"]: {"place": r["averagePlacement"], "pick": r["pickRate"],
+                                 "n": r["dataPoints"]} for r in rows if r.get("trinketCardId")}
 
 
 def comps():

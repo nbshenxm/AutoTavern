@@ -160,8 +160,56 @@ def advantages(seats, gamma, lam):
 CHUNK = 1024  # rows per forward pass in an update: the GPU's memory, not the step size
 
 
+class TrinketPrior:
+    """Public play data as a warm start for trinket picks (advisor.meta: Firestone's average
+    placement of each trinket): at a trinket offer, the target is a softmax over the offered,
+    affordable trinkets of (4.5 - average placement) / TEMPERATURE. advisor.train
+    --trinket-prior COEF adds COEF x its cross-entropy at those decisions."""
+    TEMPERATURE = 0.25  # places: a trinket 0.25 better is e times likelier
+
+    def __init__(self, device):
+        import taverngym
+        from advisor import meta
+        from advisor.policy import N_MISC, L as PL
+        cat = json.loads(taverngym.catalog_json())
+        stats = meta.trinket_stats()
+        score = torch.full((taverngym.N_CARDS + 1,), float("nan"))
+        for c in cat:
+            if c["id"] in stats:
+                score[c["cid"] + 1] = 4.5 - stats[c["id"]]["place"]
+        self.score = score.to(device)
+        self.flag = PL["GLOBAL_F"] + PL["N_QUESTS"] * PL["QUEST_F"] + 6  # pending kind: trinket
+        self.choice = N_MISC + PL["N_BOARD"] + PL["N_HAND"] + PL["N_SHOP"]  # first option card
+        self.a = PL["A_CHOOSE"]
+
+    def targets(self, features, cards, mask):
+        """(row indices of the trinket decisions with two or more known affordable options,
+        their target over the 16 option slots), or None."""
+        rows = torch.nonzero(features[:, self.flag] > 0.5).flatten()
+        if not len(rows):
+            return None
+        s = self.score[cards[rows, self.choice:self.choice + 16].clamp(min=0)]
+        legal = mask[rows, self.a:self.a + 16] & ~torch.isnan(s)
+        keep = legal.sum(1) >= 2
+        if not keep.any():
+            return None
+        target = torch.softmax(torch.where(legal, s / self.TEMPERATURE, -1e9)[keep], 1)
+        return rows[keep], target
+
+    def loss(self, features, cards, mask, logits):
+        """(cross-entropy over the trinket decisions among these rows, how many), or None.
+        `logits`: the network's, illegal actions masked."""
+        t = self.targets(features, cards, mask)
+        if t is None:
+            return None
+        rows, target = t
+        logp = torch.log_softmax(logits[rows], 1)[:, self.a:self.a + 16]
+        return -(target * logp).sum(1).mean(), len(rows)
+
+
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
-           amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0):
+           amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0,
+           prior=None, prior_coef=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
     probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
     policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
@@ -205,6 +253,11 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                     anchor_kl = (ap * (torch.log_softmax(al.float(), 1)
                                        - torch.log_softmax(logits, 1))).sum(1).mean()
                     loss = loss + anchor_coef * anchor_kl
+                if prior is not None and prior_coef > 0:
+                    pl = prior.loss(fp, cp, mp, logits)
+                    if pl is not None:
+                        loss = loss + prior_coef * pl[0] * pl[1] / len(part)
+                        stats["trinket_ce"] = stats.get("trinket_ce", 0.0) + pl[0].item() * w
                 (loss * w).backward()
                 with torch.no_grad():
                     kl = (old_lp[part].to(device) - lp).mean().item()
@@ -374,6 +427,8 @@ def main():
     ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
     ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
                     help="these seats fight with real warbands from the logs (advisor.library)")
+    ap.add_argument("--trinket-prior", type=float, default=0.0, metavar="COEF",
+                    help="pull trinket picks toward the public data's preference (TrinketPrior)")
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
                     help="the first N iterations train only the value (after a hot start)")
     ap.add_argument("--anchor", help="keep the policy close to this checkpoint (a hot start)")
@@ -387,6 +442,8 @@ def main():
     ap.add_argument("--gpu-memory", type=float, default=0.4, help="the most of the GPU it takes")
     a = ap.parse_args()
     cap_gpu_memory(a.device, a.gpu_memory)
+    from advisor import meta
+    meta.fetch()  # the public data the card table (built with each network) and the prior read
     if a.evaluate:
         net, ck = load(a.evaluate, a.device)
         # Seeds apart from the training gate's, so a promotion is judged on unseen games
@@ -418,6 +475,7 @@ def main():
     if a.resume and "opt" in ck and "adapted" not in ck:  # an adapted network's shapes changed
         opt.load_state_dict(ck["opt"])
     anchor = load(a.anchor, a.device)[0] if a.anchor else None
+    prior = TrinketPrior(a.device) if a.trinket_prior else None
     sbuf = None
     if a.search_data:
         from advisor.search_games import SearchBuffer
@@ -472,7 +530,8 @@ def main():
         if sbuf is not None:
             sbuf.refresh()
         stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
-                       anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef)
+                       anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef,
+                       prior=prior, prior_coef=a.trinket_prior)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
         if warm:
