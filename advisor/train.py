@@ -75,10 +75,11 @@ def wasted_gold(obs, i, a):
     return WASTED_GOLD * round(float(f[F_GOLD]) * 10)
 
 
-def collect(env, net, obs, seats, n_transitions, device, opponent_of=None):
+def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
-    slot to the frozen network playing it (a pool snapshot); those seats aren't learned from."""
+    slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
+    `starts` (RealStarts) replaces some of the games that begin anew."""
     opponent_of = opponent_of or {}
     stored, placements = 0, []
     while stored < n_transitions:
@@ -112,6 +113,8 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None):
                     seats[i].items[-1][7] = True
             if done[i] and info["placement"][i]:
                 placements.append(int(info["placement"][i]))
+        if starts is not None:
+            starts.apply(env)
         obs = env.observe()
     return obs, placements
 
@@ -396,6 +399,64 @@ class Generation:
         return out
 
 
+class RealStarts:
+    """--real-starts P: a share P of the new games start where the player stood at the start of a
+    logged round (advisor.library.starts, made into games by the bridge) instead of at round 1.
+    Self-play games end with warbands a real lobby has by round 8 (advisor.study --curve); from
+    a real round-10 position the network stalled - a full board, gold left, cards in hand - where
+    the player kept scaling (advisor.continue_test). These games put it in those midgames. Each
+    keeps the new game's random state, so the same start plays out differently every time."""
+
+    def __init__(self, p, seed, path=None, log=print):
+        from advisor import library
+        self.p, self.path, self.log = p, Path(path or library.STARTS), log
+        self.rng = np.random.default_rng(seed)
+        self.version, self.states, self.seen = None, [], None
+        self.refresh()
+
+    def refresh(self):
+        """Rebuild the games when the file changed (the home sync sends new ones after you play)."""
+        from advisor import bridge
+        if not self.path.is_file() or self.path.stat().st_mtime_ns == self.version:
+            return
+        self.version = self.path.stat().st_mtime_ns
+        states, skipped = [], 0
+        for line in open(self.path, encoding="utf-8"):
+            r = json.loads(line)
+            try:
+                g, gaps = bridge.build(r["d"], r["combats"])
+            except Exception:  # a position the bridge can't build: skip it
+                gaps = ["error"]
+            if gaps:
+                skipped += 1
+                continue
+            states.append(json.loads(g.state_json()))
+        self.states = states
+        self.log({"real_starts": len(states), "skipped": skipped})
+
+    def apply(self, env):
+        """After env.step: the games that just began anew start from a real position instead,
+        each with probability p. The number replaced."""
+        idx = [env.episode_index(i) for i in range(env.n_games)]
+        if self.seen is None or len(self.seen) != len(idx):
+            self.seen = idx
+            return 0
+        n = 0
+        for i, (was, now) in enumerate(zip(self.seen, idx)):
+            if was == now or not self.states or self.rng.random() >= self.p:
+                continue
+            fresh = json.loads(env.save(i))
+            st = json.loads(json.dumps(self.states[self.rng.integers(len(self.states))]))
+            # The run's rules (library seats and all) with the logged lobby's tribes
+            st["cfg"] = {**fresh["game"]["cfg"], "lobby_types": st["cfg"].get("lobby_types")}
+            st["rng"] = fresh["game"]["rng"]
+            env.load(i, json.dumps({"game": st, "index": fresh["index"],
+                                    "finished": [not p["alive"] for p in st["players"]]}))
+            n += 1
+        self.seen = idx
+        return n
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", help="run name (data/train/RUN)")
@@ -427,6 +488,8 @@ def main():
     ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
     ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
                     help="these seats fight with real warbands from the logs (advisor.library)")
+    ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
+                    help="this share of new games start from a logged round's position (RealStarts)")
     ap.add_argument("--trinket-prior", type=float, default=0.0, metavar="COEF",
                     help="pull trinket picks toward the public data's preference (TrinketPrior)")
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
@@ -492,6 +555,7 @@ def main():
     obs = env.observe()
     pool = load_pool(out, a.device)
     gen = Generation(a.device) if a.generations else None
+    starts = RealStarts(a.real_starts, a.seed + it0, log=log) if a.real_starts else None
     best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
     # The anchor fades from where it was first applied, across restarts
     anchor_from = (ck.get("anchor_from") if a.resume else None) or it0 + a.critic_warmup
@@ -516,7 +580,9 @@ def main():
         if gen and gen.refresh(log):
             best_h2h = 4.5  # a new generation: the record against the old best is void
         opponents = gen.assign(env, it, pool) if gen else assign_opponents(env, pool, it)
-        obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents)
+        if starts is not None:
+            starts.refresh()
+        obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents, starts)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
         batch = advantages(seats, a.gamma, a.lam)

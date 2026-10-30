@@ -216,6 +216,9 @@ def build(d, combats=(), seed=7):
         if pid in last_seen:
             scouted[seat] = {"board": o["board"], "turn": (last_seen[pid]["turn"] + 1) // 2}
     p0["scouted"] = scouted
+    # The dead in the order they died (the last one is the ghost a lone player fights)
+    st["eliminated"] = sorted((i for i, o in enumerate(st["players"]) if not o["alive"]),
+                              key=lambda i: -st["players"][i]["placement"])
     combat_pids = [c["start"]["opponent"].get("player_id") for c in sorted(combats, key=lambda c: c["turn"])]
     p0["last_opponent"] = seat_of.get(combat_pids[-1]) if combat_pids else None
     p0["next_opponent"] = seat_of.get(me.get("next_opponent"))

@@ -62,7 +62,7 @@ try {
     Log "progress failed: $($_.Exception.Message)"
 }
 
-# The library seats' real warbands (advisor.library): rebuilt from the logs when a game was
+# The library seats' real warbands and the round starts (advisor.library): rebuilt from the logs when a game was
 # played since, never while Hearthstone runs (it parses every log), and sent to the office's
 # training runs when they changed (they pick the new file up by themselves).
 try {
@@ -71,12 +71,14 @@ try {
         $py = Join-Path $env:USERPROFILE "anaconda3\envs\taverngym\python.exe"
         $said = & $py -X utf8 -m advisor.library --refresh 2>&1 | Select-Object -Last 2
         $boards = Join-Path $repo "data\library\boards.json"
+        $starts = Join-Path $repo "data\library\starts.jsonl"
         $sent = Join-Path $repo "data\library\sent.sha256"
-        $hash = (Get-FileHash $boards -Algorithm SHA256).Hash
+        $hash = (Get-FileHash $boards -Algorithm SHA256).Hash + (Get-FileHash $starts -Algorithm SHA256).Hash
         $last = if (Test-Path $sent) { Get-Content $sent } else { "" }
         if ($hash -ne $last) {
             & scp -q -o BatchMode=yes -o ConnectTimeout=20 $boards "office:autotavern/data/library/boards.json.tmp"
-            & ssh -o BatchMode=yes -o ConnectTimeout=20 office 'mv autotavern/data/library/boards.json.tmp autotavern/data/library/boards.json'
+            & scp -q -o BatchMode=yes -o ConnectTimeout=20 $starts "office:autotavern/data/library/starts.jsonl.tmp"
+            & ssh -o BatchMode=yes -o ConnectTimeout=20 office 'cd autotavern/data/library && mv boards.json.tmp boards.json && mv starts.jsonl.tmp starts.jsonl'
             if ($LASTEXITCODE -eq 0) {
                 Set-Content $sent $hash
                 Log "library sent to the office: $($said -join ' ')"

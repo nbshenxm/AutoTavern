@@ -309,3 +309,37 @@ def test_the_trinket_prior_prefers_the_publicly_better_trinket():
     logits = torch.zeros(1, m.shape[1]).masked_fill(~m, -1e9)
     ce, n = prior.loss(f, c, m, logits)
     assert n == 1 and ce > 0
+
+
+def test_real_starts_replace_new_games(tmp_path):
+    # A game that begins anew starts from a stored position (a round-5 lobby with one player
+    # out) with the run's rules; it plays to the end and the survivors take places 1-7
+    import json as _json
+
+    import taverngym
+
+    g = taverngym.Game(4, _json.dumps(train.CONFIG))
+    while g.turn < 5:
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    st = _json.loads(g.state_json())
+    st["players"][3].update(alive=False, placement=8, health=0)
+    st["eliminated"] = [3]
+    rs = train.RealStarts(1.0, 0, path=tmp_path / "none.jsonl", log=lambda r: None)
+    rs.states = [st]
+    env = train.BatchEnv(2, seed=9, controlled=list(range(8)), config=train.CONFIG, threads=1)
+    assert rs.apply(env) == 0  # the first call only notes where the games are
+    rs.seen = [-1, -1]
+    assert rs.apply(env) == 2
+    loaded = _json.loads(env.save(0))
+    assert loaded["game"]["turn"] == 5 and loaded["finished"][3]
+    rng = np.random.default_rng(0)
+    places = []
+    obs = env.observe()
+    while env.episode_index(0) == 0:
+        acts = np.array([rng.choice(np.flatnonzero(m)) if m.any() else 0 for m in obs["action_mask"]])
+        _, done, info = env.step(acts)
+        places += [int(info["placement"][j]) for j in np.flatnonzero(done) if j < 8]
+        obs = env.observe()
+    assert sorted(places) == list(range(1, 8))
