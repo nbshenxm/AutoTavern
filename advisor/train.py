@@ -24,15 +24,17 @@ import torch
 
 from advisor.policy import load, make, save
 from advisor.state import GAME_CONFIG
-from taverngym import BatchEnv
+from taverngym import BatchEnv, layout
 
 CONFIG = GAME_CONFIG  # advisor.state: shared with the live advisor
 # Ending a turn with gold left while Refresh is legal and the Tavern isn't frozen costs this much
 # reward per gold: gold doesn't carry over, so a Refresh is free then. Self-play alone left the
-# network ending late turns with 4-9 gold (advisor.train docstring)
+# network ending late turns with 4-9 gold (advisor.train docstring). A frozen Tavern with a buy
+# it can afford counts too: the network had learned to freeze and end with 14 gold
+# (advisor.continue_test)
 WASTED_GOLD = 0.003
 F_GOLD, F_FROZEN = 7, 15  # global observation features (obs.rs): gold / 10, Tavern frozen
-A_END, A_REFRESH = 0, 1  # taverngym.layout()
+A_END, A_REFRESH, A_BUY, N_SHOP = (dict(layout())[k] for k in ("A_END", "A_REFRESH", "A_BUY", "N_SHOP"))
 
 
 def cap_gpu_memory(device, fraction):
@@ -70,7 +72,11 @@ class Seat:
 def wasted_gold(obs, i, a):
     """The shaping cost of slot `i` taking action `a` (WASTED_GOLD)."""
     f, m = obs["features"][i], obs["action_mask"][i]
-    if a != A_END or not m[A_REFRESH] or f[F_FROZEN] > 0.5:
+    if a != A_END:
+        return 0.0
+    if f[F_FROZEN] > 0.5 and not m[A_BUY:A_BUY + N_SHOP].any():
+        return 0.0
+    if f[F_FROZEN] <= 0.5 and not m[A_REFRESH]:
         return 0.0
     return WASTED_GOLD * round(float(f[F_GOLD]) * 10)
 
