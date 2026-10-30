@@ -145,6 +145,18 @@ def build(d, combats=(), seed=7):
         holder["hand"] = []
         gift = next((a for o in options for a in o.get("Minion", {}).get("attached", [])), 0)
         p0["pending"] = [{"Discover": {"source": gift, "options": options}}]
+    kind, cards = choice_options(d)
+    cids = ([CAT[normal_form(c)[0]]["cid"] for c in cards if normal_form(c)[0] in CAT]
+            if kind in ("trinket", "spell") else [])
+    if kind == "trinket" and len(cids) == len(cards):
+        # A trinket offer: TavernGym prices each one as the game does (discounts included)
+        p0["pending"] = [{"Trinket": {"options": cids, "free": False, "replace": None}}]
+    elif kind == "spell" and len(cids) == len(cards):
+        source = d.get("source")
+        source = source.get("card") if isinstance(source, dict) else source
+        src = CAT.get(normal_form(source or "")[0])
+        p0["pending"] = [{"Discover": {"source": src["cid"] if src else cids[0],
+                                       "options": [{"Spell": {"card": c, "data": 0}} for c in cids]}}]
     scouted = [{"board": [], "turn": 0} for _ in st["players"]]
     for pid, seat in seat_of.items():
         if seat == 0:
@@ -198,6 +210,26 @@ def build(d, combats=(), seed=7):
             card["locked"] = max(1, card.get("locked", 0))
     g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
+
+
+def choice_options(d):
+    """(kind, offered) at a choice decision the advice can rebuild: "minion" (a Discover of
+    minions: the logged minions), "trinket" (a trinket offer: card ids) or "spell" (a Discover
+    of Tavern spells: card ids); (None, []) for an Options decision and other choices (heroes,
+    Hero Powers, mixed offers)."""
+    if d.get("kind") != "choices":
+        return None, []
+    opts = d.get("options") or []
+    if not opts:
+        return None, []
+    if all("minion" in o for o in opts):
+        return "minion", [o["minion"] for o in opts]
+    kinds = {(CAT.get(normal_form(o.get("card") or "")[0]) or {}).get("kind") for o in opts}
+    if kinds <= {"trinket_lesser", "trinket_greater"}:
+        return "trinket", [o["card"] for o in opts]
+    if kinds <= {"tavern_spell"}:
+        return "spell", [o["card"] for o in opts]
+    return None, []
 
 
 def discover_options(d):

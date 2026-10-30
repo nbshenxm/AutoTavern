@@ -67,3 +67,20 @@ def test_lobby_types_from_what_was_seen():
     d = {"state": {"shop": shop, "friendly": {"board": [{"card": by_race["MURLOC"][1]}], "hand": []}},
          "tavern_seen": [by_race["UNDEAD"][0]]}
     assert lobby_types(d) == ["MURLOC", "BEAST", "UNDEAD"]
+
+
+def test_a_trinket_offer_is_rebuilt_for_advice():
+    # A logged trinket choice: the player's pending choice is that offer, priced by TavernGym
+    import json as _json
+
+    from advisor import bridge
+    from advisor.state import CAT
+
+    tr = [c["id"] for c in CAT.values() if c.get("kind") == "trinket_lesser" and c.get("in_pool")][:4]
+    d = {"kind": "choices", "turn": 11, "log": "x", "segment": 0, "player_id": 1,
+         "source": {"card": None}, "options": [{"card": t} for t in tr],
+         "state": {"friendly": {"board": [], "hand": [], "hand_all": [], "gold": 8, "hero_powers": [],
+                                "trinkets": [], "player_ench": [], "health": 30, "armor": 0,
+                                "tier": 3, "hero": None},
+                   "shop": [], "leaderboard": {}, "costs": {}}}
+    assert bridge.choice_options(d) == ("trinket", tr)

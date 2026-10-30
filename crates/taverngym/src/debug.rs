@@ -93,6 +93,7 @@ pub fn card_json(c: CardId) -> Value {
         "atk": d.atk,
         "hp": d.hp,
         "races": race_names(d.races),
+        "assoc": race_names(d.assoc),
         "implemented": implemented(c),
         "in_pool": d.pools.minion || d.pools.spell || d.pools.hero || d.pools.trinket,
         "pool_tag": d.pool_tag,

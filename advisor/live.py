@@ -111,8 +111,9 @@ class Tracker:
         d = self.exporter.pending
         if d is None or d["turn"] % 2 == 0 or d is self.reported:
             return None
-        # Recruit Options, or a Discover between minions (Dark Discovery...): both get advice
-        if d["kind"] != "options" and not bridge.discover_options(d):
+        # Recruit Options, or a choice the bridge can rebuild (a Discover of minions or Tavern
+        # spells, Dark Discovery, a trinket offer): they get advice
+        if d["kind"] != "options" and bridge.choice_options(d)[0] is None:
             return None
         self.reported = d
         return self._seen(d)

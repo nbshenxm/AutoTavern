@@ -79,7 +79,7 @@ CARD_MECH = ["BATTLECRY", "DEATHRATTLE", "START_OF_COMBAT", "END_OF_TURN", "AVEN
              "CHOOSE_ONE", "DISCOVER", "AURA", "MAGNETIC", "ACTIVATE"]
 CARD_KW = ["TAUNT", "DIVINE_SHIELD", "WINDFURY", "REBORN", "VENOMOUS", "POISONOUS", "STEALTH",
            "MAGNETIC", "MEGA_WINDFURY", "CLEAVE", "IMMUNE", "IMMUNE_ATTACKING"]  # Kw::NAMES
-CARD_F = len(CARD_KINDS) + len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6
+CARD_F = len(CARD_KINDS) + 2 * len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6
 
 
 def card_table():
@@ -96,6 +96,11 @@ def card_table():
         row[i:i + 6] = [(c.get("tier") or 0) / 7, (c.get("cost") or 0) / 10,
                         np.log1p(max(0, c.get("atk") or 0)) / 4, np.log1p(max(0, c.get("hp") or 0)) / 4,
                         bool(c.get("normal_id")), bool(c.get("in_pool"))]
+        i += 6
+        # Added later, at the end (`adapt` widens older networks there): the minion types a
+        # trinket, hero or spell goes with
+        for j, n in enumerate(CARD_RACES):
+            row[i + j] = n in (c.get("assoc") or [])
     return t
 
 
@@ -230,6 +235,9 @@ def adapt(state, old, new=OBS_LAYOUT):
             prev = at
         state[key] = torch.cat(parts + [w[:, prev:]], dim=1)
     gm, gi, gg, go = (new[k] - old[k] for k in ("MINION_F", "ITEM_F", "GLOBAL_F", "OPP_F"))
+    w = state.get("card_proj.weight")
+    if w is not None and w.shape[1] < CARD_F:  # a card table that has grown since (at its end)
+        state["card_proj.weight"] = torch.cat([w, w.new_zeros(w.shape[0], CARD_F - w.shape[1])], 1)
     if gg:
         widen("glob.weight", [(old["GLOBAL_F"], gg)])
     for name, extra in (("board", gm), ("oppb", gm), ("hand", gi), ("shop", gi),
@@ -246,7 +254,8 @@ def load(path, device="cpu"):
     net = make(ck["config"]).to(device)
     state = ck["state"]
     old = ck.get("obs", V1_LAYOUT)
-    if old != OBS_LAYOUT:
+    grown = "card_proj.weight" in state and state["card_proj.weight"].shape[1] < CARD_F
+    if old != OBS_LAYOUT or grown:
         if ck["config"].get("arch") != "entity":
             raise ValueError(f"{path}: an MLP built for observation layout {old} can't be adapted")
         state = adapt(dict(state), old)
