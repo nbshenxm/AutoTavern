@@ -43,6 +43,11 @@ PLAYER_ENCHANTMENTS = {
     "BG25_011pe": ("undead_atk", None),  # Nerubian Deathswarmer
     "BG25_008pe": ("eternal_knight_deaths", None),  # Eternal Knight
     "BG31_808pe": ("beetle_atk", "beetle_hp"),  # Runed Progenitor and other Beetle buffs
+    # (found by advisor.recruit_diff: these "this game" bonuses were missing from the bridge)
+    "BG26_159pe": ("gem_atk", "gem_hp"),  # Blood Gem size: a gem gives 1 more than these
+    "BG_ShopBuff": ("tavern_atk", "tavern_hp"),  # Tavern minions have +a/+h this game
+    "BG_ShopBuff_Elemental": ("tavern_elemental_atk", "tavern_elemental_hp"),
+    "BG31_816pe": ("ballers_sold", None),  # Ballers sold
 }
 TASTY_LOBSTER = "BG36_202"
 BLOOD_GEM = "BG20_GEM"
@@ -120,6 +125,10 @@ def player_stats(s):
                     out[f] = v
     # A Blood Gem in hand shows what it gives: (1 + gem_atk, 1 + gem_hp), plus 6/6 from the hand
     # with Surveyor Portrait (TavernGym's gem_stats)
+    # Tavern spells' bonus ("your Tavern spells give an extra +1 Attack"): player tags
+    for f in ("spell_atk", "spell_hp"):
+        if s.get(f):
+            out[f] = s[f]
     surveyor = any(t["card"].startswith(SURVEYOR_PORTRAIT) for t in s.get("trinkets", []))
     for h in s.get("hand_all", []):
         if h.get("card") == BLOOD_GEM and len(h.get("data") or []) >= 2 and h["data"][0] > 0:
@@ -203,3 +212,9 @@ def set_side(g, p, s, gaps, label):
         add_minion(g, p, "board", m, gaps, label)
     for m in s.get("hand", [])[:10]:
         add_minion(g, p, "hand", m, gaps, label)
+    # The client's Tavern spell bonus is the total; TavernGym adds the warband's and trinkets'
+    # part (Humon'gozz, Enchanted Sentinel, Heart of the Forest...) to its this-game bonus
+    if s.get("spell_atk") or s.get("spell_hp"):
+        a, h = debug(g, cmd="spell_extra", p=p)
+        debug(g, cmd="set_stats", p=p, stats={"spell_atk": max(0, 2 * s.get("spell_atk", 0) - a),
+                                              "spell_hp": max(0, 2 * s.get("spell_hp", 0) - h)})

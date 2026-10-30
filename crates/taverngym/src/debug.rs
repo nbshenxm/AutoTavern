@@ -1129,6 +1129,11 @@ pub enum DebugCmd {
         p: PlayerId,
         card: String,
     },
+    /// The extra Attack and Health seat `p`'s Tavern spells give now: its this-game bonus plus
+    /// what its warband and trinkets add (`Ctx::spell_extra`).
+    SpellExtra {
+        p: PlayerId,
+    },
     /// Simulate `n` combats a vs b on copies (no state change).
     CombatPreview {
         a: PlayerId,
@@ -1649,6 +1654,11 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                 return Err("too many secrets".into());
             }
             g.players[p].secrets.push(c);
+        }
+        DebugCmd::SpellExtra { p } => {
+            check(p)?;
+            let (a, h) = g.with_recruit(p, |ctx| ctx.spell_extra(0));
+            return Ok(json!([a, h]));
         }
         DebugCmd::CombatPreview {
             a,

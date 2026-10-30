@@ -101,3 +101,22 @@ def test_a_hero_offer_is_rebuilt_at_the_games_start():
     v = _json.loads(g.view(0))
     assert not gaps and v["me"]["pending"]["kind"] == "hero"
     assert [o["id"] for o in v["me"]["pending"]["options"]] == heroes
+
+
+def test_the_logged_spell_bonus_is_the_total():
+    # The client's Tavern spell bonus counts the warband's auras; TavernGym adds those itself,
+    # so the this-game part it keeps is the total minus them
+    import json as _json
+
+    from advisor.state import CAT, debug, recruit_game, set_side
+
+    gozz = "BG32_341"  # Humon'gozz: your Tavern spells give an extra +1/+2
+    assert gozz in CAT
+    side = {"hero": None, "hero_powers": [], "trinkets": [], "board": [
+        {"card": gozz, "atk": 4, "hp": 4, "golden": False, "keywords": [], "ench": [], "data": [0, 0]}],
+        "hand": [], "tier": 4, "health": 30, "armor": 0, "player_ench": [],
+        "spell_atk": 3, "spell_hp": 4}
+    g = recruit_game(1)
+    set_side(g, 0, side, [], "me")
+    assert debug(g, cmd="spell_extra", p=0) == [3, 4]
+    assert _json.loads(g.state_json())["players"][0]["stats"]["spell_atk"] == 2

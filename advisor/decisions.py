@@ -57,6 +57,8 @@ class DecisionExporter(bg_logs.CombatExporter):
         me["max_gold"] = pt.get(T.RESOURCES, 0)
         me["next_opponent"] = pt.get(T.NEXT_OPPONENT_PLAYER_ID, 0)
         me["gold_next_turn"] = pt.get(T.BACON_PLAYER_EXTRA_GOLD_NEXT_TURN, 0)
+        me["spell_atk"] = pt.get(T.TAVERN_SPELL_ATTACK_INCREASE, 0)
+        me["spell_hp"] = pt.get(T.TAVERN_SPELL_HEALTH_INCREASE, 0)
         # Unplayable: a card locked in hand (a Lockbox's minion until the box opens)
         me["hand_all"] = [self._entity_view(e.id) | {"data": bg_logs._data(e),
                                                      "unplayable": bool(e.tags.get(T.LITERALLY_UNPLAYABLE))}
