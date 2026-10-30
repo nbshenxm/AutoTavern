@@ -104,7 +104,34 @@ pub fn card_json(c: CardId) -> Value {
         "hero_power_id": d.hero_power.map(|h| db().get(h).id.clone()),
         "hero_power_scripted": d.hero_power.is_some_and(|h| script(h).is_some()),
         "gift_window": d.window.map(|(a, b)| json!([a, b])),
+        "mech": mech_names(d.mech),
+        "keywords": (0..crate::types::Kw::NAMES.len())
+            .filter(|i| d.kw.0 >> i & 1 == 1)
+            .map(|i| crate::types::Kw::NAMES[i])
+            .collect::<Vec<_>>(),
     })
+}
+
+/// The printed mechanics of a card (`Mech`), for the network's card table.
+pub fn mech_names(m: crate::types::Mech) -> Vec<&'static str> {
+    use crate::types::Mech;
+    [
+        (Mech::BATTLECRY, "BATTLECRY"),
+        (Mech::DEATHRATTLE, "DEATHRATTLE"),
+        (Mech::START_OF_COMBAT, "START_OF_COMBAT"),
+        (Mech::END_OF_TURN, "END_OF_TURN"),
+        (Mech::AVENGE, "AVENGE"),
+        (Mech::RALLY, "RALLY"),
+        (Mech::CHOOSE_ONE, "CHOOSE_ONE"),
+        (Mech::DISCOVER, "DISCOVER"),
+        (Mech::AURA, "AURA"),
+        (Mech::MAGNETIC, "MAGNETIC"),
+        (Mech::ACTIVATE, "ACTIVATE"),
+    ]
+    .into_iter()
+    .filter(|(x, _)| m.0 & x.0 != 0)
+    .map(|(_, n)| n)
+    .collect()
 }
 
 fn mod_kind(k: crate::state::ModKind) -> &'static str {

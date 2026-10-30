@@ -109,7 +109,7 @@ def main():
         net = make({"arch": a.arch}).to(a.device)
     net.train()
     opt = torch.optim.Adam(net.parameters(), lr=a.lr)
-    if a.resume and "opt" in ck:
+    if a.resume and "opt" in ck and "adapted" not in ck:
         opt.load_state_dict(ck["opt"])
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=list(range(8)),
                    config=TEACHER_CONFIG, threads=a.threads)

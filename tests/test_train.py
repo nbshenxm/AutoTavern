@@ -226,3 +226,53 @@ def test_library_seats_fight_with_real_warbands(tmp_path):
     seen = [(m["atk"], m["hp"]) for m in p7["last_board"]]
     assert seen and all(a - 100 == h - 200 and 1 <= a - 100 <= g.turn for a, h in seen), seen
     assert p7["tier"] == 3
+
+
+def test_an_older_layouts_network_plays_the_same():
+    # adapt() gives a network built for observation layout 1 zero weights for layout 2's inputs:
+    # its outputs can't depend on them (so it computes what it did), and the inserted columns
+    # sit exactly where obs.rs appends them
+    from advisor import policy
+    from taverngym import BatchEnv
+
+    L = policy.L
+    torch.manual_seed(0)
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    new = policy.OBS_LAYOUT
+    old = policy.V1_LAYOUT
+    # Back to layout 1: drop the columns layout 2 added, then adapt them back in
+    state = {k: v.clone() for k, v in net.state_dict().items()}
+    cut = lambda w, cols: torch.cat([w[:, i:i + 1] for i in range(w.shape[1]) if i not in cols], 1)
+    gm, gi, gg, go = (new[k] - old[k] for k in ("MINION_F", "ITEM_F", "GLOBAL_F", "OPP_F"))
+    state["glob.weight"] = cut(state["glob.weight"], set(range(old["GLOBAL_F"], new["GLOBAL_F"])))
+    for name, extra in (("board", gm), ("oppb", gm), ("hand", gi), ("shop", gi), ("choice", gi),
+                        ("opp", go)):
+        w = state[f"proj.{name}.weight"]
+        state[f"proj.{name}.weight"] = cut(w, set(range(w.shape[1] - extra, w.shape[1])))
+    policy.adapt(state, old)
+    net.load_state_dict(state, strict=False)
+    net.eval()
+    env = BatchEnv(1, seed=11, controlled=list(range(8)), config=train.CONFIG)
+    for _ in range(60):  # into the game: board, hand, opponents seen
+        o = env.observe()
+        env.step(np.array([int(np.flatnonzero(m)[0]) if r else 0
+                           for m, r in zip(o["action_mask"], o["ready"])]))
+    o = env.observe()
+    f, c, m = (torch.from_numpy(o[k]) for k in ("features", "cards", "action_mask"))
+    # Layout 2's positions: the global additions, and the last float(s) of every occupied slot
+    # (an empty slot's are zero, as obs.rs writes them: the network tells empty slots by it)
+    g = f.clone()
+    g[:, old["GLOBAL_F"]:new["GLOBAL_F"]] = torch.randn(g.shape[0], gg) * 5
+    at = policy.GLOBAL_ALL
+    for name, n, k in policy.FLOAT_BLOCKS:
+        extra = {"board": gm, "oppb": gm, "opp": go}.get(name, gi)
+        for s in range(n):
+            lo = at + s * k
+            occupied = f[:, lo:lo + k].abs().sum(1) > 0
+            for e in range(extra):
+                g[occupied, lo + k - 1 - e] = torch.randn(int(occupied.sum())) * 5
+        at += n * k
+    with torch.no_grad():
+        (a, va), (b, vb) = net(f, c, m), net(g, c, m)
+    assert torch.allclose(a, b, atol=1e-5) and torch.allclose(va, vb, atol=1e-5)
+    assert at == L["OBS_FLOATS"]

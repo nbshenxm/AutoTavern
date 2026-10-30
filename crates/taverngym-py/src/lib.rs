@@ -435,6 +435,7 @@ fn layout() -> Vec<(&'static str, usize)> {
     use taverngym::actions as a;
     use taverngym::obs as o;
     vec![
+        ("OBS_VERSION", o::OBS_VERSION),
         ("MINION_F", o::MINION_F),
         ("ITEM_F", o::ITEM_F),
         ("GLOBAL_F", o::GLOBAL_F),

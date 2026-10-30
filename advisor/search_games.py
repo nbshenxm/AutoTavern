@@ -116,6 +116,8 @@ class SearchBuffer:
             if f not in self.loaded:
                 try:
                     z = np.load(f)
+                    if z["features"].shape[1] != taverngym.OBS_FLOATS:  # an older layout
+                        continue
                     self.loaded[f] = (z["features"], z["cards"], z["mask"], z["actions"])
                 except (OSError, ValueError, KeyError):
                     continue

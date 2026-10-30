@@ -9,6 +9,7 @@ live advisor. Both take the 3,227 observation floats (signed log) and the 124 ca
   warband slot is scored from that slot's token.
 """
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -63,6 +64,41 @@ FLOAT_BLOCKS = [("board", N_BOARD, MINION_F), ("hand", N_HAND, ITEM_F), ("shop",
 assert GLOBAL_ALL + sum(n * k for _, n, k in FLOAT_BLOCKS) == OBS_FLOATS
 assert N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS) == OBS_CARDS
 
+# The observation layout a network is built for (saved with it): a network saved for an older
+# one is adapted at load time (`adapt`). Version 1 is everything before 2026-10-30.
+OBS_LAYOUT = {k: L[k] for k in ("OBS_VERSION", "MINION_F", "ITEM_F", "GLOBAL_F", "OPP_F")}
+V1_LAYOUT = {"OBS_VERSION": 1, "MINION_F": 31, "ITEM_F": 40, "GLOBAL_F": 53, "OPP_F": 9}
+
+# The card table: what each card is, from TavernGym's card data (rebuilt at every load, so a
+# patched card reads as it is now and a new one doesn't start from nothing). Fixed width.
+CARD_KINDS = ["minion", "tavern_spell", "spell", "hero", "hero_power", "trinket_lesser",
+              "trinket_greater", "dark_gift", "quest", "quest_reward"]
+CARD_RACES = ["BEAST", "DEMON", "DRAGON", "ELEMENTAL", "MECHANICAL", "MURLOC", "PIRATE",
+              "QUILBOAR", "UNDEAD", "ABERRATION", "NAGA", "ALL"]
+CARD_MECH = ["BATTLECRY", "DEATHRATTLE", "START_OF_COMBAT", "END_OF_TURN", "AVENGE", "RALLY",
+             "CHOOSE_ONE", "DISCOVER", "AURA", "MAGNETIC", "ACTIVATE"]
+CARD_KW = ["TAUNT", "DIVINE_SHIELD", "WINDFURY", "REBORN", "VENOMOUS", "POISONOUS", "STEALTH",
+           "MAGNETIC", "MEGA_WINDFURY", "CLEAVE", "IMMUNE", "IMMUNE_ATTACKING"]  # Kw::NAMES
+CARD_F = len(CARD_KINDS) + len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6
+
+
+def card_table():
+    """(N_CARDS + 1, CARD_F) float32: row 1 + cid is that card (row 0: no card)."""
+    t = np.zeros((N_CARDS + 1, CARD_F), np.float32)
+    for c in json.loads(taverngym.catalog_json()):
+        row = t[c["cid"] + 1]
+        i = 0
+        for names, have in ((CARD_KINDS, [c["kind"]]), (CARD_RACES, c.get("races") or []),
+                            (CARD_MECH, c.get("mech") or []), (CARD_KW, c.get("keywords") or [])):
+            for j, n in enumerate(names):
+                row[i + j] = n in have
+            i += len(names)
+        row[i:i + 6] = [(c.get("tier") or 0) / 7, (c.get("cost") or 0) / 10,
+                        np.log1p(max(0, c.get("atk") or 0)) / 4, np.log1p(max(0, c.get("hp") or 0)) / 4,
+                        bool(c.get("normal_id")), bool(c.get("in_pool"))]
+    return t
+
+
 class EntityNet(nn.Module):
     """Tokens: global (the global, Quest and pending-kind floats), the card-only slots (hero,
     Hero Powers, Deity, pending source, Quests, Secrets, trinkets), warband, hand, Tavern,
@@ -73,6 +109,12 @@ class EntityNet(nn.Module):
         self.config = {"arch": "entity", "card_dim": card_dim, "d": d, "layers": layers,
                        "heads": heads}
         self.cards = nn.Embedding(N_CARDS + 1, card_dim, padding_idx=0)
+        # What the card is (the card table), added to its learned embedding; zero at first, so
+        # a network from before the table plays exactly as it did
+        self.register_buffer("card_table", torch.from_numpy(card_table()), persistent=False)
+        self.card_proj = nn.Linear(CARD_F, card_dim)
+        nn.init.zeros_(self.card_proj.weight)
+        nn.init.zeros_(self.card_proj.bias)
         self.glob = nn.Linear(GLOBAL_ALL, d)
         self.misc = nn.Linear(card_dim, d)
         self.proj = nn.ModuleDict({n: nn.Linear(card_dim + k, d) for n, _, k in FLOAT_BLOCKS})
@@ -109,7 +151,7 @@ class EntityNet(nn.Module):
     def forward(self, features, cards, mask):
         features = torch.sign(features) * torch.log1p(features.abs())
         cards = cards.clamp(0, N_CARDS)
-        emb = self.cards(cards)
+        emb = self.cards(cards) + self.card_proj(self.card_table[cards])
         b = features.shape[0]
         # Card slots in observation order: misc, warband, hand, Tavern, choices, trinkets,
         # opponent heroes, opponent warbands
@@ -171,13 +213,47 @@ def make(config=None):
 def save(net, path, extra=None):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"config": net.config, "state": net.state_dict(), **(extra or {})}, path)
+    torch.save({"config": net.config, "state": net.state_dict(), "obs": OBS_LAYOUT,
+                **(extra or {})}, path)
+
+
+def adapt(state, old, new=OBS_LAYOUT):
+    """An entity network's weights for observation layout `old` made to read layout `new`:
+    each layout's additions sit at the end of a block (obs.rs), so the input layers get zero
+    weights for them there and the network computes exactly what it did. In place; returns
+    `state`."""
+    def widen(key, cuts):  # cuts: [(position in the old input, columns to insert)]
+        w = state[key]
+        parts, prev = [], 0
+        for at, n in cuts:
+            parts += [w[:, prev:at], w.new_zeros(w.shape[0], n)]
+            prev = at
+        state[key] = torch.cat(parts + [w[:, prev:]], dim=1)
+    gm, gi, gg, go = (new[k] - old[k] for k in ("MINION_F", "ITEM_F", "GLOBAL_F", "OPP_F"))
+    if gg:
+        widen("glob.weight", [(old["GLOBAL_F"], gg)])
+    for name, extra in (("board", gm), ("oppb", gm), ("hand", gi), ("shop", gi),
+                        ("choice", gi), ("opp", go)):
+        if extra:
+            widen(f"proj.{name}.weight", [(state[f"proj.{name}.weight"].shape[1], extra)])
+    return state
 
 
 def load(path, device="cpu"):
+    """A saved network on `device`, adapted when it was built for an older observation layout
+    (`ck["adapted"]` then holds the layout it had; its optimizer state no longer fits)."""
     ck = torch.load(path, map_location=device, weights_only=False)
     net = make(ck["config"]).to(device)
-    net.load_state_dict(ck["state"])
+    state = ck["state"]
+    old = ck.get("obs", V1_LAYOUT)
+    if old != OBS_LAYOUT:
+        if ck["config"].get("arch") != "entity":
+            raise ValueError(f"{path}: an MLP built for observation layout {old} can't be adapted")
+        state = adapt(dict(state), old)
+        ck["adapted"] = old
+    missing, unexpected = net.load_state_dict(state, strict=False)
+    if unexpected or any(not k.startswith("card_proj.") for k in missing):
+        raise ValueError(f"{path}: weights don't fit ({missing}, {unexpected})")
     net.eval()
     return net, ck
 

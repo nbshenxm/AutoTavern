@@ -160,9 +160,19 @@ def build(d, combats=(), seed=7):
     combat_pids = [c["start"]["opponent"].get("player_id") for c in sorted(combats, key=lambda c: c["turn"])]
     p0["last_opponent"] = seat_of.get(combat_pids[-1]) if combat_pids else None
     p0["next_opponent"] = seat_of.get(me.get("next_opponent"))
-    if combats:  # the last combat's result (the network reads it)
-        winner = max(combats, key=lambda c: c["turn"])["winner"]
-        p0["stats"]["won_last"], p0["stats"]["lost_last"] = winner == "friendly", winner == "opponent"
+    if combats:  # the recent combats (the network reads them): last result, damage, streak
+        ordered = sorted(combats, key=lambda c: c["turn"])
+        last = ordered[-1]
+        st_ = p0["stats"]
+        st_["won_last"], st_["lost_last"] = last["winner"] == "friendly", last["winner"] == "opponent"
+        st_["tied_last"] = last["winner"] == "tie"
+        sign = {"friendly": 1, "opponent": -1}.get(last["winner"], 0)
+        st_["last_damage"] = sign * int(last.get("damage") or 0)
+        streak = 0
+        for c in ordered:
+            w = {"friendly": 1, "opponent": -1}.get(c["winner"], 0)
+            streak = 0 if w == 0 else (streak + w if streak * w > 0 else w)
+        st_["streak"] = streak
     if costs.get("dark_gift_exhausted"):
         p0["dark_gift_used_turn"] = True
     for slot, x in zip(p0["shop"], s["shop"]):

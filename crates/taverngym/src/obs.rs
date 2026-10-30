@@ -11,19 +11,24 @@ use crate::engine::{Game, Phase};
 use crate::state::{Item, Minion, Pending};
 use crate::types::{Kw, PlayerId, Races};
 
-pub const MINION_F: usize = 8 + Kw::NAMES.len() + Races::COUNT;
+/// Layout version 2 (2026-10-30) appended, at the end of each block: a minion's counter; the
+/// turn's actions and moves left, the damage cap, the last combat tied, the streak and the last
+/// combat's damage (global); how long ago each opponent's warband was seen. Networks built for
+/// an older layout get zero weights for these (advisor/policy.py `adapt`).
+pub const OBS_VERSION: usize = 2;
+pub const MINION_F: usize = 9 + Kw::NAMES.len() + Races::COUNT;
 /// Item header: present, is-minion, cost, locked, temporary, Choose-One-combined, frozen
 /// (Tavern: frozen; hand: dies if played this turn, Tomb Turning), kept from last turn
 /// (Tavern), marked (Tavern: Darkmoon Ticket; hand: linked group).
 pub const ITEM_F: usize = 9 + MINION_F;
-pub const GLOBAL_F: usize = 42 + Races::COUNT;
+pub const GLOBAL_F: usize = 48 + Races::COUNT;
 /// Active Quests shown (present, progress / goal each).
 pub const N_QUESTS: usize = 3;
 pub const QUEST_F: usize = 2;
 /// Secrets in play shown: a player holds at most 5 (the Hearthstone limit; Akazamzarak's
 /// four plus one from a trinket).
 pub const N_SECRETS: usize = crate::state::MAX_SECRETS;
-pub const OPP_F: usize = 9;
+pub const OPP_F: usize = 10;
 pub const N_OPP: usize = 7;
 /// Opponent warband memory (last seen boards, 7 minions each).
 pub const OPP_BOARD_F: usize = N_OPP * N_BOARD * MINION_F;
@@ -77,6 +82,7 @@ fn push_minion(f: &mut Vec<f32>, m: Option<&Minion>) {
     for i in 0..Races::COUNT {
         f.push((m.races.0 >> i & 1) as f32);
     }
+    f.push(m.counter as f32 / 10.0);
 }
 
 fn push_item(f: &mut Vec<f32>, it: Option<&Item>, cost: i32, locked: u8, flags: [bool; 5]) {
@@ -205,6 +211,28 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
     for i in 0..Races::COUNT {
         f.push((g.lobby_races.0 >> i & 1) as f32);
     }
+    // (version 2) The turn's budget (a real turn's time; none when uncapped), the damage cap
+    // and the recent combats
+    let cap = g.action_cap_of(p);
+    let actions_left = if pl.uncapped || cap == u32::MAX {
+        1.0
+    } else {
+        cap.saturating_sub(pl.actions_this_turn) as f32 / cap.max(1) as f32
+    };
+    let moves = g.cfg.moves_per_turn;
+    let moves_left = if moves == 0 {
+        1.0
+    } else {
+        moves.saturating_sub(pl.moves_this_turn) as f32 / moves as f32
+    };
+    f.extend([
+        actions_left,
+        moves_left,
+        g.cfg.damage_cap(g.turn, alive).unwrap_or(40) as f32 / 40.0,
+        pl.stats.tied_last as u8 as f32,
+        pl.stats.streak as f32 / 5.0,
+        pl.stats.last_damage as f32 / 20.0,
+    ]);
 
     // ---- active Quests
     for i in 0..N_QUESTS {
@@ -405,6 +433,7 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
                     0.0,
                     0.0,
                     0.0,
+                    0.0,
                 ]);
                 c.push(0);
             }
@@ -419,6 +448,15 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
                     o.placement as f32 / 8.0,
                     (pl.last_opponent == Some(o.id)) as u8 as f32,
                     (pl.next_opponent == Some(o.id)) as u8 as f32,
+                    {
+                        // (version 2) Turns since its warband was seen (0: never)
+                        let (board, seen) = g.board_shown(p, o.id, all);
+                        if board.is_empty() || seen == 0 {
+                            0.0
+                        } else {
+                            g.turn.saturating_sub(seen) as f32 / 10.0
+                        }
+                    },
                 ]);
                 c.push(o.hero.map(card_index).unwrap_or(0));
             }

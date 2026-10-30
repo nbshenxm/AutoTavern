@@ -322,8 +322,12 @@ class Generation:
         if version == self.version:
             return False
         self.best, ck = load(self.best_path, self.device)
-        self.past = [load(f, self.device)[0]
-                     for f in sorted(self.archive.glob("best_*.pt"))[-POOL_SIZE:]]
+        self.past = []
+        for f in sorted(self.archive.glob("best_*.pt"))[-POOL_SIZE:]:
+            try:
+                self.past.append(load(f, self.device)[0])
+            except ValueError:  # an old MLP: it can't read the current observation layout
+                pass
         self.version = version
         log({"opponents": "generation", "best": ck.get("source"), "past": len(self.past)})
         return True
@@ -411,7 +415,7 @@ def main():
     else:
         net, it0, best = make({"arch": a.arch}).to(a.device), 0, 9.0
     opt = torch.optim.Adam(net.parameters(), lr=a.lr)
-    if a.resume and "opt" in ck:
+    if a.resume and "opt" in ck and "adapted" not in ck:  # an adapted network's shapes changed
         opt.load_state_dict(ck["opt"])
     anchor = load(a.anchor, a.device)[0] if a.anchor else None
     sbuf = None

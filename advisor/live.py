@@ -255,6 +255,10 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
             break
+        if script is not None and step < len(script) and not after["mask"][script[step]]:
+            # The search planned on a copy with what's hidden re-rolled: where its plan asks
+            # for something this game doesn't offer, the network goes on from here
+            script = None
         if script is not None:
             if step >= len(script):
                 break
