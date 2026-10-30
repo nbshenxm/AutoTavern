@@ -386,6 +386,19 @@ def render():
                                           for r in rows if r.get("vs_best")]) for k, (run, rows) in enumerate(gens)],
                             "Place against the current best", lo=3.0, hi=5.5, reference=(4.5, "even")))
 
+    libs = [(run, rows) for run, rows in runs.items() if any(r.get("vs_library") for r in rows)]
+    if libs:
+        parts.append("<h3>In lobbies with real warbands</h3>")
+        parts.append('<p class="sub">One seat against copies of the current best, two of them playing real '
+                     'warbands from your games (library seats). Closest to a real lobby; lower is better. '
+                     'Clearly better here than the best, twice, also earns a promotion.</p>')
+        parts.append(_chart([(run, f"s{1 + k % 4}", [(r["iteration"], r["vs_library"]["mean_place"],
+                                                      f"{run} iteration {r['iteration']}: "
+                                                      f"{r['vs_library']['mean_place']:.2f}")
+                                                     for r in rows if r.get("vs_library")])
+                             for k, (run, rows) in enumerate(libs)],
+                            "Place in lobbies with real warbands", lo=3.0, hi=6.0, reference=None))
+
     parts.append("<h2>How good are its decisions?</h2><ul>")
     parts.append("<li><strong>Plan search</strong>: the network alone 2.47, with plan search 1.99, in 200 "
                  "test games against seven plain bots (0.48 ± 0.13 places better).</li>")

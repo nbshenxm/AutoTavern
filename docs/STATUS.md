@@ -16,6 +16,14 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 - **Live bridge fixed:** the lobby's five minion types (read from what your Tavern shows), the
   last combat's result, and a stand-in that could leave you in a skipped turn. The network and
   the plan search now see your real lobby.
+- **The network sees more (observation version 2).** What each card is, from the card data
+  (mechanics, types, Tier, stats: the Hearthstone advisor's card table), a minion's counter, the
+  turn's actions left, the damage cap, streaks, how old each opponent's last warband is. Older
+  networks load with zero weights for these and play exactly as before, then learn them.
+- **The library grows by itself.** After you play, the hourly home sync rebuilds the real
+  warbands from your logs (now 295 from 149 combats) and the office's runs take them up.
+- **A second way to promotion:** clearly better in lobbies with real warbands (and not worse
+  head to head), twice. Real lobbies are what counts.
 - `teachppo1` was promoted again at 09:25 (head to head 4.28): the hot-start line still leads.
   The cautious line (`safe1`) didn't gain and made room for `lib1`.
 
