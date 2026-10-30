@@ -24,9 +24,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 PROGRESS = DATA / "progress"
 LIVE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "TavernAdvisor"
-RUNS = {  # the runs worth a line on the chart, oldest first: what each one is
-    "office2": "self-play (old rules)",
+RUNS = {  # the runs worth a line on the chart: what each one is
     "office3": "self-play, fixed rules",
+    "gen1": "generations: against the frozen best",
     "teach1": "hot start: copying the teacher",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
@@ -279,6 +279,16 @@ def render():
     parts.append('<div class="legend">' + "".join(
         f'<span><span class="key k{1 + list(RUNS).index(r) % 3}"></span>{r}: {_esc(RUNS[r])}</span>'
         for r in runs) + "</div>")
+    gens = [(run, rows) for run, rows in runs.items() if any(r.get("vs_best") for r in rows)]
+    if gens:
+        parts.append("<h3>Against the network it has to beat</h3>")
+        parts.append('<p class="sub">A generation run trains against the frozen current best and is tested '
+                     'on one seat against seven copies of it: 4.5 is even, lower means it is pulling ahead. '
+                     'Clearly under 4.5, and again on fresh games, and it is promoted.</p>')
+        parts.append(_chart([(run, "s2", [(r["iteration"], r["vs_best"]["mean_place"],
+                                           f"{run} iteration {r['iteration']}: {r['vs_best']['mean_place']:.2f}")
+                                          for r in rows if r.get("vs_best")]) for run, rows in gens],
+                            "Place against the current best", lo=3.0, hi=5.5, reference=(4.5, "even")))
 
     parts.append("<h2>How good are its decisions?</h2><ul>")
     parts.append("<li><strong>Plan search</strong>: the network alone 2.47, with plan search 1.99, in 200 "
