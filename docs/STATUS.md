@@ -21,6 +21,12 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
   with the simulator's: who attacks first with equal warbands (random, not the higher Tier),
   that it's settled after Start of Combat, Dark Gifts the log numbers differently (an
   Admiration's +153 Attack was lost), and rebuilt hands forming triples that hadn't happened.
+- **The simulator checked against your own actions:** each logged action replayed on the
+  rebuilt state gives exactly the warband the log shows next in 94.5% of 1,550 cases (90.8% at
+  first). Fixed on the way: Blood Gem size, Tavern buffs, the Tavern spell bonus and minions'
+  "(N left!)" counters weren't carried from the log (an Unbound Tempest fired at the wrong
+  time). What remains is mostly random ("a random minion"). So the late-game gap is the
+  network's play, not the simulator's rules.
 - **More of your games' data used:** gold next turn and the free Refresh count are now read
   from the log; three sessions the first export had missed are in (95.8% of 2,603 logged
   decisions now match the client's options exactly).
