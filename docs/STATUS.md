@@ -6,6 +6,13 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 
 ## Latest
 
+- **Search games started.** 12 office cores play games where two seats follow the plan search;
+  every searched decision (about 200,000 an hour) is kept as a target. A run can then learn the
+  search's choices alongside PPO, the Hearthstone advisor's search-guided training. Ready for
+  when generations stop gaining.
+- **The hourly promotion had been failing** since about 22:10: the two training runs held 7.8 GB
+  of the GPU each, leaving it none. Training now takes at most 40% each (its updates run in
+  smaller pieces, the same result), and the promotion falls back to the CPU if needed.
 - **Training in generations (`gen1`), like the Hearthstone advisor.** Three seats of every
   training game play the frozen current best, one an earlier best, the learner the other four.
   When a new network clearly beats the best (on one seat against seven copies of it, and again on

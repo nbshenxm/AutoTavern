@@ -198,11 +198,12 @@ def _running():
     synced = datetime.fromtimestamp(path.stat().st_mtime)
     jobs = []
     for l in lines:
-        m = re.search(r"-m advisor\.(\w+).*?(?:--run (\S+))?(?:\s|$)", l)
+        m = re.search(r"-m advisor\.(\w+)", l)
         run = re.search(r"--run (\S+)", l)
         hours = re.search(r"--hours (\S+)", l)
-        if m:
-            jobs.append((m.group(1), run.group(1) if run else "", hours.group(1) if hours else ""))
+        job = (m.group(1), run.group(1) if run else "", hours.group(1) if hours else "") if m else None
+        if job and job not in jobs:  # a pool's workers repeat its command line
+            jobs.append(job)
     return jobs, synced
 
 
@@ -310,7 +311,8 @@ def render():
         rows = []
         for kind, run, hours in jobs:
             last = (_jsonl(PROGRESS / "train" / run / "log.jsonl") or [{}])[-1] if run else {}
-            what = RUNS.get(run, {"promote": "judging candidates", "search_eval": "testing plan search"}.get(kind, kind))
+            what = RUNS.get(run, {"promote": "judging candidates", "search_eval": "testing plan search",
+                                     "search_games": "search games: targets for search-guided training"}.get(kind, kind))
             rows.append(f"<tr><td>{_esc(run or kind)}</td><td>{_esc(what)}</td>"
                         f"<td class='num'>{last.get('iteration', '–')}</td>"
                         f"<td class='num'>{float(last.get('t', 0)) / 3600:.1f} of {hours or '?'} h</td></tr>")
