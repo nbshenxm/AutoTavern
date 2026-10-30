@@ -176,6 +176,78 @@ def _chart(series, label, lo=1.0, hi=None, reference=(4.5, "the bots' average"))
     return "".join(out)
 
 
+def _overview(rows):
+    """Over time: the network in the overlay against seven plain bots (a step at each
+    promotion), every candidate judged (faint), and each promoted network head to head against
+    the one it replaced (under 4.5: stronger). Placements, lower is better."""
+    pts = []
+    for r in rows:
+        try:
+            t = datetime.fromisoformat(r["time"]).timestamp()
+        except (KeyError, TypeError, ValueError):
+            continue
+        pts.append((t, r))
+    if not pts:
+        return '<p class="sub">No promotions yet.</p>'
+    w, h, left, right, top, bottom = 760, 300, 40, 200, 14, 34
+    pw, ph = w - left - right, h - top - bottom
+    t0, t1 = pts[0][0], max(pts[-1][0], datetime.now().timestamp())
+    lo, hi = 1.0, 5.0
+    x = lambda t: left + pw * (t - t0) / max(1.0, t1 - t0)
+    y = lambda v: top + ph * (min(max(v, lo), hi) - lo) / (hi - lo)
+    out = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Strength over time" class="chart">']
+    for k in range(int(lo), int(hi) + 1):
+        out.append(f'<line x1="{left}" x2="{left + pw}" y1="{y(k):.1f}" y2="{y(k):.1f}" class="grid"/>'
+                   f'<text x="{left - 6}" y="{y(k) + 4:.1f}" class="tick" text-anchor="end">{k}</text>')
+    out.append(f'<line x1="{left}" x2="{left + pw}" y1="{y(4.5):.1f}" y2="{y(4.5):.1f}" class="mid"/>'
+               f'<text x="{left + pw + 6}" y="{y(4.5) + 4:.1f}" class="direct">4.5: even</text>')
+    span = t1 - t0
+    step = next((s for s in (3600, 3 * 3600, 6 * 3600, 12 * 3600, 86400, 2 * 86400) if span / s <= 8), 7 * 86400)
+    tick = (int(t0) // step + 1) * step
+    while tick < t1:
+        d = datetime.fromtimestamp(tick)
+        label = d.strftime("%b %d") if d.hour == 0 or step >= 86400 else d.strftime("%H:%M")
+        out.append(f'<line x1="{x(tick):.1f}" x2="{x(tick):.1f}" y1="{top}" y2="{top + ph}" class="grid"/>'
+                   f'<text x="{x(tick):.1f}" y="{h - 12}" class="tick" text-anchor="middle">{label}</text>')
+        tick += step
+    out.append(f'<text x="{left}" y="{h - 1}" class="tick">{datetime.fromtimestamp(t0):%b %d %H:%M}</text>')
+    for t, r in pts:  # every candidate judged
+        if r.get("gate") and not r.get("promoted"):
+            out.append(f'<circle cx="{x(t):.1f}" cy="{y(r["gate"]["mean_place"]):.1f}" r="2.5" '
+                       f'style="fill: var(--mid)"><title>{_esc(_when(r["time"]))}: '
+                       f'{_esc(r.get("candidate", ""))} {r["gate"]["mean_place"]:.2f}, not promoted</title></circle>')
+    promo = [(t, r) for t, r in pts if r.get("promoted") and r.get("gate")]
+    if promo:
+        d, prev = "", None
+        for t, r in promo:
+            v = r["gate"]["mean_place"]
+            d += f"M{x(t):.1f},{y(v):.1f}" if prev is None else f" H{x(t):.1f} V{y(v):.1f}"
+            prev = v
+        d += f" H{x(t1):.1f}"
+        out.append(f'<path d="{d}" class="line s1"/>')
+        for t, r in promo:
+            v = r["gate"]["mean_place"]
+            src = r.get("candidate", "").split("/")[-2] if "/" in r.get("candidate", "") else r.get("candidate", "")
+            out.append(f'<circle cx="{x(t):.1f}" cy="{y(v):.1f}" r="5" class="promo"><title>'
+                       f'{_esc(_when(r["time"]))}: {_esc(src)} iteration {r.get("iteration")} promoted, '
+                       f'{v:.2f} against the bots</title></circle>')
+        out.append(f'<text x="{x(t1) + 8:.1f}" y="{y(prev) + 4:.1f}" class="direct">vs plain bots {prev:.2f}</text>')
+        hh = [(t, r["head_to_head"]["mean_place"]) for t, r in promo if (r.get("head_to_head") or {}).get("mean_place")]
+        for t, v in hh:
+            out.append(f'<circle cx="{x(t):.1f}" cy="{y(v):.1f}" r="5" style="fill: var(--s2)"><title>'
+                       f'head to head against the network it replaced: {v:.2f}</title></circle>')
+        if hh:
+            out.append(f'<text x="{x(hh[-1][0]) + 8:.1f}" y="{y(hh[-1][1]) - 8:.1f}" class="direct">'
+                       f'vs the one it replaced {hh[-1][1]:.2f}</text>')
+    out.append("</svg>")
+    legend = ('<div class="legend"><span><span class="key k1"></span>the network in your overlay, '
+              'against seven plain bots (a dot: promoted)</span><span><span class="key k2"></span>'
+              'a promoted network against seven copies of the one it replaced</span>'
+              '<span><span class="key" style="background: var(--mid)"></span>candidates not promoted'
+              '</span></div>')
+    return "".join(out) + legend
+
+
 def _network():
     path = DATA / "models" / "best.pt"
     if not path.is_file():
@@ -264,6 +336,11 @@ def render():
     tiles.append(("Training now", str(len([j for j in jobs if j[0] in ('train', 'pretrain')])),
                   ", ".join(j[1] for j in jobs if j[1]) or "nothing running"))
     parts.append(_tiles(tiles))
+    parts.append("<h2>Strength over time</h2>")
+    parts.append('<p class="sub">Placement out of 8, lower is better (1 at the top). Against plain bots '
+                 'the curve flattens near the top as networks get strong, so each promotion also shows '
+                 'how it did head to head against the network it replaced: under 4.5 means stronger.</p>')
+    parts.append(_overview(_jsonl(DATA / "models" / "promotions.jsonl")))
 
     if status.is_file():
         parts.append("<h2>In plain words</h2>" + _markdown(status.read_text(encoding="utf-8")))
