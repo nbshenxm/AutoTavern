@@ -256,6 +256,10 @@ def build(d, combats=(), seed=7):
         p0["dark_gift_used_turn"] = True
     for slot, x in zip(p0["shop"], s["shop"]):
         slot["frozen"] = bool(x.get("frozen"))
+        # A Tavern spell at another price than its card's (a discount): the logged price
+        base = CAT.get(normal_form(x.get("card") or "")[0], {}).get("cost")
+        if x.get("kind") != "minion" and x.get("cost") is not None and base is not None                 and x["cost"] != base:
+            slot["price"] = int(x["cost"])
     for power, logged in zip(p0["powers"], me["hero_powers"]):
         if logged.get("exhausted"):
             power["uses_turn"] = max(1, power.get("uses_turn", 0))
