@@ -20,7 +20,7 @@ import torch
 
 from advisor import teacher
 from advisor.policy import load, make, save
-from advisor.train import CONFIG, cap_gpu_memory, evaluate, wait_while_playing
+from advisor.train import CHUNK, CONFIG, cap_gpu_memory, evaluate, wait_while_playing
 from taverngym import BatchEnv
 
 TEACHER_CONFIG = {**CONFIG, "teacher": teacher.config()}
@@ -50,19 +50,21 @@ def train_step(net, opt, batch, device, minibatch, amp):
     n = 0
     for s in range(0, len(a), minibatch):
         j = order[s:s + minibatch]
-        ft, ct = torch.from_numpy(f[j]).to(device), torch.from_numpy(c[j]).to(device)
-        mt, at = torch.from_numpy(m[j]).to(device), torch.from_numpy(a[j]).to(device)
-        with torch.autocast(device_type=device.split(":")[0], dtype=torch.bfloat16, enabled=amp):
-            logits, _ = net(ft, ct, mt)
-        logits = logits.float()
-        loss = torch.nn.functional.cross_entropy(logits, at)
         opt.zero_grad()
-        loss.backward()
+        for k in range(0, len(j), CHUNK):  # gradients added up: one step per minibatch
+            jj = j[k:k + CHUNK]
+            ft, ct = torch.from_numpy(f[jj]).to(device), torch.from_numpy(c[jj]).to(device)
+            mt, at = torch.from_numpy(m[jj]).to(device), torch.from_numpy(a[jj]).to(device)
+            with torch.autocast(device_type=device.split(":")[0], dtype=torch.bfloat16, enabled=amp):
+                logits, _ = net(ft, ct, mt)
+            logits = logits.float()
+            loss = torch.nn.functional.cross_entropy(logits, at)
+            (loss * len(jj) / len(j)).backward()
+            stats["loss"] += float(loss) * len(jj)
+            stats["acc"] += float((logits.argmax(1) == at).float().sum())
+            n += len(jj)
         torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
         opt.step()
-        stats["loss"] += float(loss) * len(j)
-        stats["acc"] += float((logits.argmax(1) == at).float().sum())
-        n += len(j)
     return {k: round(v / n, 4) for k, v in stats.items()}
 
 

@@ -157,6 +157,9 @@ def advantages(seats, gamma, lam):
     return batch
 
 
+CHUNK = 1024  # rows per forward pass in an update: the GPU's memory, not the step size
+
+
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
            amp=False, value_only=False, anchor=None, anchor_coef=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
@@ -176,32 +179,35 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     steps = 0
     for _ in range(epochs):
         for idx in torch.randperm(n).split(minibatch):
-            with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
-                logits, v = net(f[idx].to(device), c[idx].to(device), m[idx].to(device))
-            logits, v = logits.float(), v.float()
-            dist = torch.distributions.Categorical(logits=logits)
-            lp = dist.log_prob(a[idx].to(device))
-            ratio = (lp - old_lp[idx].to(device)).exp()
-            ad = adv[idx].to(device)
-            pi_loss = -torch.min(ratio * ad, ratio.clamp(1 - clip, 1 + clip) * ad).mean()
-            v_loss = (v - ret[idx].to(device)).pow(2).mean()
-            entropy = dist.entropy().mean()
-            loss = vf * v_loss if value_only else pi_loss + vf * v_loss - ent * entropy
-            if anchor is not None and anchor_coef > 0:  # in the warmup too: it holds the policy
-                with torch.no_grad():
-                    al, _ = anchor(f[idx].to(device), c[idx].to(device), m[idx].to(device))
-                    ap = torch.softmax(al.float(), 1)
-                anchor_kl = (ap * (torch.log_softmax(al.float(), 1)
-                                   - torch.log_softmax(logits, 1))).sum(1).mean()
-                loss = loss + anchor_coef * anchor_kl
             opt.zero_grad()
-            loss.backward()
+            for part in idx.split(CHUNK):  # gradients added up: one step per minibatch
+                w = len(part) / len(idx)
+                fp, cp, mp = f[part].to(device), c[part].to(device), m[part].to(device)
+                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
+                    logits, v = net(fp, cp, mp)
+                logits, v = logits.float(), v.float()
+                dist = torch.distributions.Categorical(logits=logits)
+                lp = dist.log_prob(a[part].to(device))
+                ratio = (lp - old_lp[part].to(device)).exp()
+                ad = adv[part].to(device)
+                pi_loss = -torch.min(ratio * ad, ratio.clamp(1 - clip, 1 + clip) * ad).mean()
+                v_loss = (v - ret[part].to(device)).pow(2).mean()
+                entropy = dist.entropy().mean()
+                loss = vf * v_loss if value_only else pi_loss + vf * v_loss - ent * entropy
+                if anchor is not None and anchor_coef > 0:  # in the warmup too: it holds the policy
+                    with torch.no_grad():
+                        al, _ = anchor(fp, cp, mp)
+                        ap = torch.softmax(al.float(), 1)
+                    anchor_kl = (ap * (torch.log_softmax(al.float(), 1)
+                                       - torch.log_softmax(logits, 1))).sum(1).mean()
+                    loss = loss + anchor_coef * anchor_kl
+                (loss * w).backward()
+                with torch.no_grad():
+                    kl = (old_lp[part].to(device) - lp).mean().item()
+                for k, x in (("pi", pi_loss.item()), ("v", v_loss.item()), ("ent", entropy.item()), ("kl", kl)):
+                    stats[k] += x * w
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
-            with torch.no_grad():
-                kl = (old_lp[idx].to(device) - lp).mean().item()
-            for k, x in (("pi", pi_loss.item()), ("v", v_loss.item()), ("ent", entropy.item()), ("kl", kl)):
-                stats[k] += x
             steps += 1
     return {k: round(v / max(1, steps), 4) for k, v in stats.items()}
 
