@@ -4,6 +4,23 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
+## Today (Oct 30), afternoon
+
+- **Why the network falls behind late, found.** Started from your own position at the start
+  of round 10, the network fills the board and then stalls: by round 13 it freezes and ends the
+  turn with 14 gold and four cards in hand, where you kept scaling (an Unbound Tempest 418 →
+  706 → 1,447). From round 6 it keeps up with you for two rounds. The scripted teacher bot
+  levels as fast as real players and still has only 590 Attack+Health at round 13. Self-play
+  games never reach a real late game, so the network never learned one.
+- **Training from your positions.** A share of new training games (30% in `big2`) now start
+  where you stood at the start of a logged round (168 positions from your 10 games, more with
+  every game: the home sync sends them). A new number, `vs_best_real`, plays the network in your
+  seat from every one of them (paired with the best's own result).
+- **The live advisor ran over all your games** (2,603 decisions, plan search on): no errors,
+  median 0.6 s. One decision took 6 minutes (beside a heavy job); being tracked down.
+- **The larger network** (8.6M parameters, distilled from the best) continues as `big2`
+  (PPO, search targets, real starts), in `lib2`'s place: the library seats alone didn't help.
+
 ## Today (Oct 30), while you were away
 
 - **Trinkets and heroes are advised.** A trinket offer, a Tavern spell Discover and the hero

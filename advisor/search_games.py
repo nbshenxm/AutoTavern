@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import time
+import zipfile
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -119,7 +120,7 @@ class SearchBuffer:
                     if z["features"].shape[1] != taverngym.OBS_FLOATS:  # an older layout
                         continue
                     self.loaded[f] = (z["features"], z["cards"], z["mask"], z["actions"])
-                except (OSError, ValueError, KeyError):
+                except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile):  # half written
                     continue
         self.loaded = {f: self.loaded[f] for f in keep if f in self.loaded}
         parts = list(self.loaded.values())
