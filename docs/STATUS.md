@@ -4,6 +4,29 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
+## Today (Oct 30), while you were away
+
+- **Trinkets and heroes are advised.** A trinket offer, a Tavern spell Discover and the hero
+  offer at the start now get advice (they had none). The overlay lists the offered trinkets or
+  heroes by the public average placement of players who picked them (Firestone, the last 7
+  days), and the network's card table knows those numbers too.
+- **Public trinket averages are not a rule to follow:** picking the publicly best trinket every
+  time does 0.6 places worse than the network's own picks in the simulator (players pick the
+  trinket that fits their board, so averages flatter fitting picks). The network's picks are
+  worth about a place over random ones.
+- **Arrange advice.** When the plan ends the turn and the next opponent's warband has been
+  seen, the advisor tries other orders of your warband in simulated combats and adds an Arrange
+  step when one clearly does better (the network itself rarely rearranges).
+- **A simulator rule fixed:** with equal warbands, who attacks first is random, not the higher
+  Tavern Tier (your logs: the higher Tier went first in only 17 of 29 such combats).
+- **More of your games' data used:** gold next turn and the free Refresh count are now read
+  from the log; three sessions the first export had missed are in (95.8% of 2,603 logged
+  decisions now match the client's options exactly).
+- **Strength curve on the progress page:** the network's warbands by round against your lobbies
+  and the public average. It keeps up until round 9, then flattens: the main thing to fix.
+- **Search-guided training (`search2`)** took `teachppo1`'s place when generations stalled; its
+  first tests improve (4.44 → 4.26 against the best).
+
 ## Today (Oct 30)
 
 - **Case study: why the advice is weak in real games.** In its own games the network stays on
