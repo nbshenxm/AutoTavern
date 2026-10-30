@@ -313,14 +313,13 @@ fn restore_visible_combat_memory(ctx: &mut Ctx) {
     }
 }
 
-/// More minions attacks first; on a tie the higher Tavern Tier; then random.
+/// More minions attacks first; on a tie, random. (Not the higher Tavern Tier: in the logged
+/// 37.0 combats with equal warbands and different Tiers, the higher Tier attacked first in 17
+/// of 29, where that rule says all 29.)
 fn first_attacker(ctx: &mut Ctx) -> Side {
     let (a, b) = (ctx.boards[0].len(), ctx.boards[1].len());
-    let (ta, tb) = (ctx.cs[0].tier, ctx.cs[1].tier);
     if a != b {
         usize::from(b > a)
-    } else if ta != tb {
-        usize::from(tb > ta)
     } else {
         ctx.g.rng.below(2)
     }

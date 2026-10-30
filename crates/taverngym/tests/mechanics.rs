@@ -4607,8 +4607,11 @@ fn m19_deathrattles_summon_where_their_minion_died() {
 }
 
 #[test]
-fn n1_higher_tier_attacks_first_on_equal_boards() {
-    for seed in 0..10 {
+fn n1_equal_boards_attack_first_at_random_whatever_the_tiers() {
+    // More minions attacks first; with as many, either side, whatever the Tavern Tiers (the
+    // logged 37.0 combats: the higher Tier went first in 17 of 29)
+    let mut firsts = std::collections::HashSet::new();
+    for seed in 0..20 {
         let mut g = game(800 + seed);
         g.cfg.record_log = true;
         set_board(&mut g, 0, &["BG36_345"]);
@@ -4617,8 +4620,18 @@ fn n1_higher_tier_attacks_first_on_equal_boards() {
         g.log.clear();
         g.simulate_combat(0, Some(1), None);
         let first = g.log.iter().find(|l| l.contains(" attacks ")).unwrap();
-        assert!(first.contains("p1"), "{first}");
+        firsts.insert(first.contains("p1"));
     }
+    assert_eq!(firsts.len(), 2, "both sides attacked first in some combats");
+    // More minions still goes first
+    let mut g = game(830);
+    g.cfg.record_log = true;
+    set_board(&mut g, 0, &["BG36_345", "BG36_345"]);
+    set_board(&mut g, 1, &["BG36_345"]);
+    g.players[1].tier = 6;
+    g.log.clear();
+    g.simulate_combat(0, Some(1), None);
+    assert!(g.log.iter().find(|l| l.contains(" attacks ")).unwrap().contains("p0"));
 }
 
 #[test]

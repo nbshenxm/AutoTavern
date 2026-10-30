@@ -26,10 +26,15 @@ from pathlib import Path
 
 import torch
 
+import taverngym
+
 from advisor.policy import load
 from advisor.train import CONFIG, evaluate, evaluate_league
 
 MODELS = Path(__file__).resolve().parents[1] / "data" / "models"
+# A gate is only comparable under one set of rules and one simulator build (a fixed card or
+# combat rule changes every network's numbers): both are kept with the current network's gate
+RULES = {**CONFIG, "sim": taverngym.build_info()["source_hash"]}
 GATE = {"episodes": 1000, "seed": 20_000_000}  # advisor.train --evaluate: unseen by training
 HEAD_TO_HEAD = {"episodes": 1000, "seed": 40_000_000}  # seeds no other gate uses
 # Lobbies closer to real ones: one seat against seven copies of the current best, two of
@@ -101,9 +106,9 @@ def main():
         ck = torch.load(best_path, map_location="cpu", weights_only=False)
         current = ck.get("gate")
         # Measured again when the game rules changed since (a gate is only comparable under one)
-        if not current or current.get("n") != GATE["episodes"] or current.get("rules") != CONFIG:
+        if not current or current.get("n") != GATE["episodes"] or current.get("rules") != RULES:
             current, _ = gate(best_path, a.device, a.threads)
-            current["rules"] = CONFIG
+            current["rules"] = RULES
     for cand in map(Path, a.candidates):
         if not cand.is_file():
             continue
@@ -159,7 +164,7 @@ def main():
         if best_path.exists():
             (models / "archive").mkdir(exist_ok=True)
             shutil.copy(best_path, models / "archive" / f"best_{time.strftime('%Y%m%d_%H%M%S')}.pt")
-        ck["gate"] = {**ev, "vs": "7 scripted bots, unseen seeds", "rules": CONFIG}
+        ck["gate"] = {**ev, "vs": "7 scripted bots, unseen seeds", "rules": RULES}
         if h2h:
             ck["head_to_head"] = h2h
         ck["source"] = f"{cand.parent.name} iteration {ck.get('iteration')} ({datetime.now():%Y-%m-%d %H:%M})"
