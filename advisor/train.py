@@ -425,6 +425,7 @@ def main():
     train_config = CONFIG
     if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
         from advisor import library
+        lib_version = library.BOARDS.stat().st_mtime_ns
         train_config = {**CONFIG, "library": library.library(a.library)}
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=list(range(8)),
                    config=train_config, threads=a.threads)
@@ -444,6 +445,15 @@ def main():
         wait_while_playing(log)
         it += 1
         ts = time.time()
+        if a.library and library.BOARDS.stat().st_mtime_ns != lib_version:
+            # New real warbands (the home sync uploads them after you play): new games with them
+            lib_version = library.BOARDS.stat().st_mtime_ns
+            train_config = {**CONFIG, "library": library.library(a.library)}
+            env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=list(range(8)),
+                           config=train_config, threads=a.threads)
+            seats = [Seat() for _ in range(env.n_slots)]
+            obs = env.observe()
+            log({"library": len(train_config["library"]["boards"])})
         if gen and gen.refresh(log):
             best_h2h = 4.5  # a new generation: the record against the old best is void
         opponents = gen.assign(env, it, pool) if gen else assign_opponents(env, pool, it)
