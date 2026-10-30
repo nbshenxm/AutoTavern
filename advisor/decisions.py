@@ -92,7 +92,8 @@ class DecisionExporter(bg_logs.CombatExporter):
         return s
 
     def _leaderboard(self):
-        """Every player's latest hero: health, armor, tier, place (PLAYER_ID keyed)."""
+        """Every player's latest hero: health, armor, tier, place, triples and the trinkets the
+        leaderboard shows (database ids) (PLAYER_ID keyed)."""
         latest = {}
         for e in self.game.entities:
             pid = e.tags.get(T.PLAYER_ID)
@@ -101,7 +102,10 @@ class DecisionExporter(bg_logs.CombatExporter):
                     latest[pid] = e
         return {str(pid): {"hero": self.skins.get(e.card_id, e.card_id), "health": bg_logs._hp(e),
                            "armor": e.tags.get(T.ARMOR, 0), "tier": e.tags.get(T.PLAYER_TECH_LEVEL, 0),
-                           "place": e.tags.get(T.PLAYER_LEADERBOARD_PLACE, 0)}
+                           "place": e.tags.get(T.PLAYER_LEADERBOARD_PLACE, 0),
+                           "triples": e.tags.get(T.PLAYER_TRIPLES, 0),
+                           "trinkets": [x for x in (e.tags.get(T.BACON_FIRST_TRINKET_DATABASE_ID, 0),
+                                                    e.tags.get(T.BACON_SECOND_TRINKET_DATABASE_ID, 0)) if x]}
                 for pid, e in latest.items()}
 
     # ------------------------------------------------------------------ packets

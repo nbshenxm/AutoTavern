@@ -933,6 +933,9 @@ pub struct Player {
     /// (`Ctx::check_triples`): it runs when the menu is answered or cancelled.
     #[serde(default)]
     pub triples_held: bool,
+    /// Triples made this game (the leaderboard shows everyone's: PLAYER_TRIPLES).
+    #[serde(default)]
+    pub triples: u32,
     pub ended_turn: bool,
     pub last_opponent: Option<PlayerId>,
     /// Opponents of the most recent combats, newest last (None = the ghost); matchmaking avoids
@@ -1089,6 +1092,7 @@ impl Player {
             buddy_button: None,
             timewarp_hand_limit: 0,
             triples_held: false,
+            triples: 0,
             ended_turn: false,
             last_opponent: None,
             recent_opponents: Vec::new(),

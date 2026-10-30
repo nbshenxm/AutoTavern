@@ -57,17 +57,19 @@ GLOBAL_ALL = L["GLOBAL_F"] + L["N_QUESTS"] * L["QUEST_F"] + L["PENDING_KINDS"]
 # (card, Reward, owned Reward each), Secrets (crates/taverngym/src/obs.rs)
 N_MISC = 1 + L["N_POWERS"] + 2 + 3 * L["N_QUESTS"] + L["N_SECRETS"]
 N_TRINKETS = 8
+N_OPP_TRINKETS = L["N_OPP_TRINKETS"]  # each opponent's trinkets: the last card slots (version 3)
 # Float blocks in observation order: (name, slots, floats each)
 FLOAT_BLOCKS = [("board", N_BOARD, MINION_F), ("hand", N_HAND, ITEM_F), ("shop", N_SHOP, ITEM_F),
                 ("choice", N_CHOICE, ITEM_F), ("opp", N_OPP, OPP_F),
                 ("oppb", N_OPP * N_BOARD, MINION_F)]
 assert GLOBAL_ALL + sum(n * k for _, n, k in FLOAT_BLOCKS) == OBS_FLOATS
-assert N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS) == OBS_CARDS
+assert N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS) + N_OPP * N_OPP_TRINKETS == OBS_CARDS
 
 # The observation layout a network is built for (saved with it): a network saved for an older
 # one is adapted at load time (`adapt`). Version 1 is everything before 2026-10-30.
 OBS_LAYOUT = {k: L[k] for k in ("OBS_VERSION", "MINION_F", "ITEM_F", "GLOBAL_F", "OPP_F")}
 V1_LAYOUT = {"OBS_VERSION": 1, "MINION_F": 31, "ITEM_F": 40, "GLOBAL_F": 53, "OPP_F": 9}
+V2_LAYOUT = {"OBS_VERSION": 2, "MINION_F": 32, "ITEM_F": 41, "GLOBAL_F": 59, "OPP_F": 10}
 
 # The card table: what each card is, from TavernGym's card data (rebuilt at every load, so a
 # patched card reads as it is now and a new one doesn't start from nothing). Fixed width.
@@ -115,7 +117,8 @@ def card_table():
 class EntityNet(nn.Module):
     """Tokens: global (the global, Quest and pending-kind floats), the card-only slots (hero,
     Hero Powers, Deity, pending source, Quests, Secrets, trinkets), warband, hand, Tavern,
-    choices, opponents (hero + leaderboard floats) and their last seen warbands."""
+    choices, opponents (hero + leaderboard floats, their trinkets added to the hero card) and
+    their last seen warbands."""
 
     def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity"):
         super().__init__()
@@ -130,6 +133,11 @@ class EntityNet(nn.Module):
         nn.init.zeros_(self.card_proj.bias)
         self.glob = nn.Linear(GLOBAL_ALL, d)
         self.misc = nn.Linear(card_dim, d)
+        # An opponent's trinkets (version 3), added to its hero card; zero at first, so an older
+        # network plays exactly as it did
+        self.opp_trinket = nn.Linear(card_dim, card_dim)
+        nn.init.zeros_(self.opp_trinket.weight)
+        nn.init.zeros_(self.opp_trinket.bias)
         self.proj = nn.ModuleDict({n: nn.Linear(card_dim + k, d) for n, _, k in FLOAT_BLOCKS})
         self.n_tokens = 1 + N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS)
         self.pos = nn.Parameter(torch.randn(self.n_tokens, d) * 0.02)
@@ -173,6 +181,7 @@ class EntityNet(nn.Module):
                 [("trinkets", N_TRINKETS)] + [(n, k) for n, k, _ in FLOAT_BLOCKS[4:]]:
             spans[name] = (emb[:, c:c + n], cards[:, c:c + n])
             c += n
+        opp_trinkets = self.opp_trinket(emb[:, c:].reshape(b, N_OPP, N_OPP_TRINKETS, -1).sum(2))
         toks = [self.glob(features[:, :GLOBAL_ALL])[:, None],
                 self.misc(spans["misc"][0]), self.misc(spans["trinkets"][0])]
         empties = [torch.zeros(b, 1, dtype=torch.bool, device=features.device),
@@ -182,6 +191,8 @@ class EntityNet(nn.Module):
             x = features[:, f:f + n * k].reshape(b, n, k)
             f += n * k
             e, cc = spans[name]
+            if name == "opp":
+                e = e + opp_trinkets
             toks.append(self.proj[name](torch.cat([e, x], dim=2)))
             empties.append((cc == 0) & (x.abs().sum(2) == 0))
         h = torch.cat(toks, dim=1) + self.pos
@@ -269,10 +280,28 @@ def load(path, device="cpu"):
         state = adapt(dict(state), old)
         ck["adapted"] = old
     missing, unexpected = net.load_state_dict(state, strict=False)
-    if unexpected or any(not k.startswith("card_proj.") for k in missing):
+    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.")) for k in missing):
         raise ValueError(f"{path}: weights don't fit ({missing}, {unexpected})")
     net.eval()
     return net, ck
+
+
+def widen_obs(features, cards):
+    """Observations stored under layout version 2 (search shards) as version 3: a zero for
+    each opponent's triples at the end of its leaderboard floats, no opponent trinkets. Arrays
+    already at the current width come back as they are."""
+    if features.shape[1] == OBS_FLOATS and cards.shape[1] == OBS_CARDS:
+        return features, cards
+    old = V2_LAYOUT["OPP_F"]
+    if features.shape[1] != OBS_FLOATS - N_OPP * (OPP_F - old) or             cards.shape[1] != OBS_CARDS - N_OPP * N_OPP_TRINKETS:
+        raise ValueError(f"observations of width {features.shape[1]}/{cards.shape[1]}: not version 2")
+    at = GLOBAL_ALL + sum(n * k for name, n, k in FLOAT_BLOCKS[:4])
+    opp = features[:, at:at + N_OPP * old].reshape(len(features), N_OPP, old)
+    pad = np.zeros((len(features), N_OPP, OPP_F - old), features.dtype)
+    features = np.concatenate([features[:, :at], np.concatenate([opp, pad], 2).reshape(len(features), -1),
+                               features[:, at + N_OPP * old:]], 1)
+    cards = np.concatenate([cards, np.zeros((len(cards), N_OPP * N_OPP_TRINKETS), cards.dtype)], 1)
+    return features, cards
 
 
 def observe(g, seat):

@@ -213,6 +213,11 @@ def build(d, combats=(), seed=7):
         row = s["leaderboard"][str(pid)]
         if row["health"] <= 0:
             o["alive"], o["placement"], o["health"] = False, row["place"], row["health"]
+        # What the leaderboard shows: triples made and trinkets (older exports have neither)
+        o["triples"] = int(row.get("triples") or 0)
+        trinkets = [trinket_cid(x) for x in row.get("trinkets") or []]
+        if trinkets and all(t is not None for t in trinkets):
+            o["trinkets"] = trinkets
         if pid in last_seen:
             scouted[seat] = {"board": o["board"], "turn": (last_seen[pid]["turn"] + 1) // 2}
     p0["scouted"] = scouted
@@ -260,6 +265,14 @@ def build(d, combats=(), seed=7):
             card["locked"] = max(1, card.get("locked", 0))
     g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
+
+
+def trinket_cid(dbf):
+    """A trinket's database id -> its TavernGym card index, or None."""
+    from advisor import meta
+    c = meta._DBF.get(dbf)
+    x = normal_form(c["id"])[0] if c else None
+    return CAT[x]["cid"] if x in CAT and CAT[x]["kind"].startswith("trinket") else None
 
 
 def choice_options(d):

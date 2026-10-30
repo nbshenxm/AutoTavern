@@ -444,6 +444,7 @@ fn layout() -> Vec<(&'static str, usize)> {
         ("N_SECRETS", o::N_SECRETS),
         ("OPP_F", o::OPP_F),
         ("N_OPP", o::N_OPP),
+        ("N_OPP_TRINKETS", o::N_OPP_TRINKETS),
         ("PENDING_KINDS", o::PENDING_KINDS),
         ("N_SHOP", a::N_SHOP),
         ("N_BOARD", a::N_BOARD),

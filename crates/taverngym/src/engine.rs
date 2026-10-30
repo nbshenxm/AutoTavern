@@ -3569,6 +3569,7 @@ impl<'g> Ctx<'g> {
                 }
             }
             let name = golden.name();
+            self.g.players[p].triples += 1;
             self.g.log(|| format!("p{p} triples into golden {name}"));
             // No hand-size protection: with a full hand the golden card is lost.
             self.add_to_hand(side, Item::Minion(golden));

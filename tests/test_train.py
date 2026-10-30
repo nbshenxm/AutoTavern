@@ -426,3 +426,53 @@ def test_a_library_seat_follows_one_player(tmp_path):
     assert seen and len(tracks) <= 1, seen
     # an even round shows the odd round before it, its Health doubled by the curve
     assert any(h == 2000 for _, _, h in seen), seen
+
+
+def test_a_version_2_network_ignores_opponent_trinkets_and_triples():
+    # Loaded under version 3, a network saved for version 2 has zero weights for the opponents'
+    # triples and trinkets: its output doesn't depend on them
+    import json as _json
+
+    import taverngym
+    from advisor import policy
+
+    net = EntityNet()
+    st = policy.adapt  # noqa: F841 (the path under test is policy.load)
+    old = net.state_dict()
+    old = {k: v for k, v in old.items() if not k.startswith("opp_trinket.")}
+    w = old["proj.opp.weight"]
+    old["proj.opp.weight"] = w[:, :-1]  # as saved under OPP_F 10
+    path = Path(__import__("tempfile").mkdtemp()) / "v2.pt"
+    torch.save({"config": net.config, "state": old, "obs": policy.V2_LAYOUT}, path)
+    loaded, ck = policy.load(path)
+    assert ck["adapted"] == policy.V2_LAYOUT
+    g = taverngym.Game(3, _json.dumps(train.CONFIG))
+    while g.turn < 3:
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    f, c, m = policy.observe(g, 0)
+    f2, c2 = f.copy(), c.copy()
+    at = policy.GLOBAL_ALL + sum(n * k for _, n, k in policy.FLOAT_BLOCKS[:4])
+    for i in range(policy.N_OPP):
+        f2[at + i * policy.OPP_F + policy.OPP_F - 1] = 0.6  # 3 triples
+    c2[-policy.N_OPP * policy.N_OPP_TRINKETS:] = 5
+    with torch.no_grad():
+        a = loaded(*(torch.from_numpy(x)[None] for x in (f, c, m)))
+        b = loaded(*(torch.from_numpy(x)[None] for x in (f2, c2, m)))
+    assert torch.allclose(a[0], b[0]) and torch.allclose(a[1], b[1])
+
+
+def test_version_2_shards_are_widened():
+    from advisor import policy
+
+    n = 3
+    f = np.random.rand(n, policy.OBS_FLOATS - policy.N_OPP).astype(np.float16)
+    c = np.ones((n, policy.OBS_CARDS - policy.N_OPP * policy.N_OPP_TRINKETS), np.int32)
+    f3, c3 = policy.widen_obs(f, c)
+    assert f3.shape[1] == policy.OBS_FLOATS and c3.shape[1] == policy.OBS_CARDS
+    at = policy.GLOBAL_ALL + sum(k * m for _, k, m in policy.FLOAT_BLOCKS[:4])
+    old = policy.OPP_F - 1
+    assert np.array_equal(f3[:, :at], f[:, :at])
+    assert (f3[:, at + old] == 0).all() and np.array_equal(f3[:, at:at + old], f[:, at:at + old])
+    assert np.array_equal(f3[:, at + policy.N_OPP * policy.OPP_F:], f[:, at + policy.N_OPP * old:])

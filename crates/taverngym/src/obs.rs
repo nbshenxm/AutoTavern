@@ -14,8 +14,10 @@ use crate::types::{Kw, PlayerId, Races};
 /// Layout version 2 (2026-10-30) appended, at the end of each block: a minion's counter; the
 /// turn's actions and moves left, the damage cap, the last combat tied, the streak and the last
 /// combat's damage (global); how long ago each opponent's warband was seen. Networks built for
-/// an older layout get zero weights for these (advisor/policy.py `adapt`).
-pub const OBS_VERSION: usize = 2;
+/// an older layout get zero weights for these (advisor/policy.py `adapt`). Version 3
+/// (2026-10-30) appended each opponent's triples (its floats) and, after every other card slot,
+/// each opponent's two trinkets (the leaderboard shows both).
+pub const OBS_VERSION: usize = 3;
 pub const MINION_F: usize = 9 + Kw::NAMES.len() + Races::COUNT;
 /// Item header: present, is-minion, cost, locked, temporary, Choose-One-combined, frozen
 /// (Tavern: frozen; hand: dies if played this turn, Tomb Turning), kept from last turn
@@ -28,8 +30,10 @@ pub const QUEST_F: usize = 2;
 /// Secrets in play shown: a player holds at most 5 (the Hearthstone limit; Akazamzarak's
 /// four plus one from a trinket).
 pub const N_SECRETS: usize = crate::state::MAX_SECRETS;
-pub const OPP_F: usize = 10;
+pub const OPP_F: usize = 11;
 pub const N_OPP: usize = 7;
+/// Trinkets shown per opponent (a lesser and a greater one).
+pub const N_OPP_TRINKETS: usize = 2;
 /// Opponent warband memory (last seen boards, 7 minions each).
 pub const OPP_BOARD_F: usize = N_OPP * N_BOARD * MINION_F;
 pub const PENDING_KINDS: usize = 9;
@@ -45,7 +49,7 @@ pub const OBS_FLOATS: usize = GLOBAL_F
     + OPP_BOARD_F;
 /// hero, hero powers, Deity, source of the pending choice, board, hand, shop, choices, owned
 /// trinkets (8), Quests with their Rewards, owned Rewards, Secrets, opponent heroes, opponent
-/// last boards.
+/// last boards, opponent trinkets.
 pub const OBS_CARDS: usize = 1
     + crate::actions::N_POWERS
     + 2
@@ -57,7 +61,8 @@ pub const OBS_CARDS: usize = 1
     + N_CHOICE
     + 8
     + N_OPP
-    + N_OPP * N_BOARD;
+    + N_OPP * N_BOARD
+    + N_OPP * N_OPP_TRINKETS;
 
 fn card_index(c: CardId) -> i32 {
     c.idx() as i32 + 1
@@ -434,6 +439,7 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
                     0.0,
                     0.0,
                     0.0,
+                    0.0,
                 ]);
                 c.push(0);
             }
@@ -457,6 +463,8 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
                             g.turn.saturating_sub(seen) as f32 / 10.0
                         }
                     },
+                    // (version 3) Triples made this game
+                    o.triples as f32 / 5.0,
                 ]);
                 c.push(o.hero.map(card_index).unwrap_or(0));
             }
@@ -473,6 +481,16 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
             let m = board.and_then(|b| b.get(j));
             push_minion(&mut f, m);
             c.push(m.map(|m| card_index(m.card)).unwrap_or(0));
+        }
+    }
+    // (version 3) Each opponent's trinkets, shown on the leaderboard (none at hero selection)
+    for i in 0..N_OPP {
+        let o = others.get(i).map(|o| &g.players[*o]);
+        for j in 0..N_OPP_TRINKETS {
+            let t = o
+                .filter(|_| g.phase != Phase::HeroSelect || all)
+                .and_then(|o| o.trinkets.get(j));
+            c.push(t.map(|t| card_index(*t)).unwrap_or(0));
         }
     }
     debug_assert_eq!(f.len(), OBS_FLOATS);

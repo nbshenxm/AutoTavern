@@ -27,7 +27,7 @@ import torch
 
 import taverngym
 from advisor import search
-from advisor.policy import load, observe
+from advisor.policy import load, observe, widen_obs
 from advisor.state import GAME_CONFIG
 
 SEARCHED = (0, 1)
@@ -136,9 +136,11 @@ class SearchBuffer:
             if f not in self.loaded:
                 try:
                     z = np.load(f)
-                    if z["features"].shape[1] != taverngym.OBS_FLOATS:  # an older layout
+                    try:  # an older layout: version 2 shards are widened, others skipped
+                        feats, cards = widen_obs(z["features"], z["cards"])
+                    except ValueError:
                         continue
-                    self.loaded[f] = (z["features"], z["cards"], z["mask"], z["actions"])
+                    self.loaded[f] = (feats, cards, z["mask"], z["actions"])
                 except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile):  # half written
                     continue
         self.loaded = {f: self.loaded[f] for f in keep if f in self.loaded}
