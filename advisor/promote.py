@@ -24,7 +24,7 @@ from pathlib import Path
 import torch
 
 from advisor.policy import load
-from advisor.train import evaluate, evaluate_league
+from advisor.train import CONFIG, evaluate, evaluate_league
 
 MODELS = Path(__file__).resolve().parents[1] / "data" / "models"
 GATE = {"episodes": 1000, "seed": 20_000_000}  # advisor.train --evaluate: unseen by training
@@ -60,8 +60,10 @@ def main():
     if best_path.exists():
         ck = torch.load(best_path, map_location="cpu", weights_only=False)
         current = ck.get("gate")
-        if not current or current.get("n") != GATE["episodes"]:
+        # Measured again when the game rules changed since (a gate is only comparable under one)
+        if not current or current.get("n") != GATE["episodes"] or current.get("rules") != CONFIG:
             current, _ = gate(best_path, a.device, a.threads)
+            current["rules"] = CONFIG
     for cand in map(Path, a.candidates):
         if not cand.is_file():
             continue
@@ -100,7 +102,7 @@ def main():
         if best_path.exists():
             (models / "archive").mkdir(exist_ok=True)
             shutil.copy(best_path, models / "archive" / f"best_{time.strftime('%Y%m%d_%H%M%S')}.pt")
-        ck["gate"] = {**ev, "vs": "7 scripted bots, unseen seeds"}
+        ck["gate"] = {**ev, "vs": "7 scripted bots, unseen seeds", "rules": CONFIG}
         if h2h:
             ck["head_to_head"] = h2h
         ck["source"] = f"{cand.parent.name} iteration {ck.get('iteration')} ({datetime.now():%Y-%m-%d %H:%M})"
