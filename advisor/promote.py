@@ -6,7 +6,10 @@ mean placement over 1,000 unseen games is under 4.5 by more than twice its stand
 gate (seven scripted bots, the same 1,000 unseen seeds as the current network's) must not be
 clearly worse either; against bots alone strong networks all place near 2 and can't be told
 apart. A winner must then win again on 1,000 games of seeds no gate has used (winner's curse: with
-many candidates judged on the same seeds, the luckiest one wins). The replaced network is kept in data/models/archive/, every decision is logged in
+many candidates judged on the same seeds, the luckiest one wins). A candidate not clearly better
+head to head (but not clearly worse) can also win in lobbies with real warbands (two library
+seats, advisor.library): clearly better there than the current best on the same seeds, twice.
+The replaced network is kept in data/models/archive/, every decision is logged in
 data/models/promotions.jsonl, and a checkpoint already judged at its current version is not
 judged again.
 
@@ -29,6 +32,30 @@ from advisor.train import CONFIG, evaluate, evaluate_league
 MODELS = Path(__file__).resolve().parents[1] / "data" / "models"
 GATE = {"episodes": 1000, "seed": 20_000_000}  # advisor.train --evaluate: unseen by training
 HEAD_TO_HEAD = {"episodes": 1000, "seed": 40_000_000}  # seeds no other gate uses
+# Lobbies closer to real ones: one seat against seven copies of the current best, two of
+# them library seats (real warbands from the logs, advisor.library); candidate and best on the
+# same seeds
+LIBRARY = {"episodes": 1000, "seed": 45_000_000, "seats": [6, 7]}
+
+
+def library_pair(cand_net, cur_net, device, threads, seed):
+    """(candidate, current best): each on seat 0 in lobbies of the best with library seats, on
+    the same seeds; None without a library."""
+    from advisor import library
+    if not library.BOARDS.exists():
+        return None
+    config = {**CONFIG, "library": library.library(LIBRARY["seats"])}
+    out = []
+    for n in (cand_net, cur_net):
+        r = evaluate_league(n, [cur_net], device, LIBRARY["episodes"], seed=seed, threads=threads,
+                            config=config)
+        r.pop("pool", None)
+        out.append(r)
+    return out
+
+
+def clearly_lower(a, b):
+    return a["mean_place"] < b["mean_place"] - 2 * math.sqrt(a["se"] ** 2 + b["se"] ** 2)
 
 
 def pick_device(need_gb=2.0):
@@ -99,7 +126,21 @@ def main():
                                   seed=HEAD_TO_HEAD["seed"], threads=a.threads)
             h2h.pop("pool", None)
             better = not_worse and h2h["mean_place"] < 4.5 - 2 * h2h["se"]
-            if better:
+            lib = None
+            if not better and not_worse and h2h["mean_place"] <= 4.5 + 2 * h2h["se"]:
+                # Or: clearly better in lobbies with real warbands, and not clearly worse head to
+                # head (what real games ask of it); confirmed on fresh seeds too
+                pair = library_pair(cand_net, cur_net, a.device, a.threads, LIBRARY["seed"])
+                if pair and clearly_lower(*pair):
+                    fresh = 70_000_000 + (int(time.time()) % 1_000_000) * 1000
+                    again = library_pair(cand_net, cur_net, a.device, a.threads, fresh)
+                    lib = {"candidate": pair[0], "current": pair[1],
+                           "confirm": {"candidate": again[0], "current": again[1], "seed": fresh}}
+                    better = clearly_lower(*again)
+                elif pair:
+                    lib = {"candidate": pair[0], "current": pair[1]}
+                h2h["library"] = lib
+            elif better:
                 # Winner's curse: many candidates judged on the same seeds, the luckiest wins.
                 # A winner must win again on seeds no gate has used.
                 fresh = 60_000_000 + (int(time.time()) % 1_000_000) * 1000
