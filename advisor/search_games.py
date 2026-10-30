@@ -6,7 +6,9 @@ legal mask) and the search's first action. They go to DIR/shard_*.npz, which adv
 --search-data DIR reads (the newest --search-buffer decisions) and trains toward.
 
 The network is re-read from --net whenever the file changes (a run's last.pt: the search improves
-with the network it searches with).
+with the network it searches with). --real-starts P: that share of the games start from the
+player's logged round starts (advisor.train.RealStarts, late rounds weighted), seat 0 in the
+player's own seat: search targets where the network stalls.
 
     python -X utf8 -m advisor.search_games --net data/train/gen1/last.pt --out data/search/gen1 \
         --workers 16 --hours 10
@@ -32,6 +34,7 @@ SEARCHED = (0, 1)
 SHARD = 4096  # decisions per file
 F16_MAX = 65000.0
 _NET = {"path": None, "version": None, "net": None}
+_STARTS = {"rs": None}
 
 
 def _net(path):
@@ -53,10 +56,19 @@ def _init():
 
 def play(args):
     """One game; the searched seats' (features, cards, mask, action) and their placements."""
-    seed, path, k, temperature = args
+    seed, path, k, temperature, real = args
     net = _net(path)
     rng = np.random.default_rng(seed)
     g = taverngym.Game(seed, json.dumps(GAME_CONFIG))
+    if real and rng.random() < real:
+        if _STARTS["rs"] is None:
+            from advisor.train import RealStarts
+            _STARTS["rs"] = RealStarts(1.0, 0, log=lambda r: None)
+        rs = _STARTS["rs"]
+        if rs.states:
+            st = json.loads(json.dumps(rs.states[rng.choice(len(rs.states), p=rs.weights)]))
+            st["rng"] = json.loads(g.state_json())["rng"]  # this game's own random draws
+            g = taverngym.Game.from_json(json.dumps(st))
     rows, n = [], 0
     for _ in range(200_000):
         if g.is_over():
@@ -85,7 +97,7 @@ def play(args):
 def write_shard(out, rows):
     f, c, m, a = zip(*rows)
     name = out / f"shard_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}_{len(rows)}.npz"
-    tmp = name.with_suffix(".tmp.npz")
+    tmp = name.with_suffix(".partial.npz")  # SearchBuffer skips it until renamed
     # float16 ends at 65504: late-game stats can pass it (inf, then NaN in training)
     f16 = np.clip(np.stack(f), -F16_MAX, F16_MAX).astype(np.float16)
     np.savez(tmp, features=f16, cards=np.stack(c).astype(np.int32),
@@ -103,7 +115,8 @@ class SearchBuffer:
         self.width = dict(taverngym.layout())["N_ACTIONS"]
 
     def refresh(self):
-        files = sorted((f for d in self.dirs for f in d.glob("shard_*.npz")),
+        files = sorted((f for d in self.dirs for f in d.glob("shard_*.npz")
+                        if not f.name.endswith((".partial.npz", ".tmp.npz"))),
                        key=lambda f: f.stat().st_mtime, reverse=True)
         keep, total = [], 0
         for f in files:
@@ -151,6 +164,8 @@ def main():
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument("--hours", type=float, default=0)
     ap.add_argument("--seed", type=int, default=80_000_000)
+    ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
+                    help="this share of games start from the player's logged round starts")
     ap.add_argument("--stop-if-playing", action="store_true",
                     help="stop when Hearthstone runs (a run on the home PC)")
     a = ap.parse_args()
@@ -167,7 +182,8 @@ def main():
                 if hearthstone_running():
                     print("Hearthstone started: stopping", flush=True)
                     break
-            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature) for i in range(batch)]
+            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts)
+                    for i in range(batch)]
             for rows, pl in pool.imap_unordered(play, jobs):
                 pending += rows
                 games, decisions = games + 1, decisions + len(rows)
