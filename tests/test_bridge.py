@@ -120,3 +120,33 @@ def test_the_logged_spell_bonus_is_the_total():
     set_side(g, 0, side, [], "me")
     assert debug(g, cmd="spell_extra", p=0) == [3, 4]
     assert _json.loads(g.state_json())["players"][0]["stats"]["spell_atk"] == 2
+
+
+def test_an_activate_used_this_turn_is_not_offered_again():
+    # The log drops an Activate minion's INTERACTABLE_OBJECT to 0 once it was used this turn
+    # (once a turn); the rebuilt minion must not offer it again
+    import copy
+    import json as _json
+
+    import taverngym
+
+    from advisor import bridge
+
+    acts = {c["id"] for c in _json.loads(taverngym.catalog_json()) if "ACTIVATE" in (c.get("mech") or [])}
+    rows = [_json.loads(line) for line in DECISIONS.read_text(encoding="utf-8").splitlines()]
+    for d in rows:
+        if d["kind"] != "options" or d["turn"] % 2 == 0:
+            continue
+        board = d["state"]["friendly"]["board"]
+        i = next((i for i, m in enumerate(board) if m["card"] in acts), None)
+        if i is None:
+            continue
+        g, gaps = bridge.build(d, [])
+        if gaps or not _json.loads(g.view(0))["mask"][23 + i]:
+            continue  # this Activate isn't usable here anyway (gold, targets)
+        used = copy.deepcopy(d)
+        used["state"]["friendly"]["board"][i]["interactable"] = 0
+        g2, _ = bridge.build(used, [])
+        assert not _json.loads(g2.view(0))["mask"][23 + i]
+        return
+    pytest.skip("no usable Activate minion in the logged decisions")

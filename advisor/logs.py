@@ -102,7 +102,9 @@ class CombatExporter(EntityTreeExporter):
         return {"card": e.card_id, "eid": e.id, "pos": t.get(T.ZONE_POSITION, 0),
                 "atk": t.get(T.ATK, 0), "hp": _hp(e), "max_hp": t.get(T.HEALTH, 0),
                 "golden": t.get(T.PREMIUM, 0) == 1, "tier": t.get(T.TECH_LEVEL, 0),
-                "keywords": kws, "data": _data(e), "ench": self._enchantments(e.id)}
+                "keywords": kws, "data": _data(e), "ench": self._enchantments(e.id),
+                # An Activate minion: 1 while its Activate is available this turn, 0 once used
+                "interactable": t.get(T.INTERACTABLE_OBJECT)}
 
     def _side(self, ctrl):
         heroes = self._in_play(ctrl, CardType.HERO)

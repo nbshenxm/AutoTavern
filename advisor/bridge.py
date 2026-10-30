@@ -256,6 +256,10 @@ def build(d, combats=(), seed=7):
             f = COUNTER_FROM_DATA.get(normal_form(logged["card"])[0])
             if f is not None and len(logged.get("data") or []) >= 2:
                 m["counter"] = max(0, f(logged["data"]))
+            # An Activate already used this turn (once a turn: the client drops the minion's
+            # INTERACTABLE_OBJECT to 0); a rebuilt minion would offer it again
+            if logged.get("interactable") == 0:
+                m["activations"] = max(1, m.get("activations", 0))
     # Trinkets with a per-turn use the log counts down ("(1 left!)"): spent ones marked used
     for t in me["trinkets"]:
         if t["card"] in TRINKET_USES_LEFT and t["data"][0] == 0 and t["card"] in CAT:
