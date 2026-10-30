@@ -119,9 +119,14 @@ def build(d, combats=(), seed=7):
         else:
             add_spell(g, "shop", x["card"], x.get("data", [0])[0], gaps)
     costs = me.get("costs", {})
+    # Free Refreshes: the Refresh button's count when the log has it (older exports: a Refresh
+    # that costs nothing is one); gold next turn from the player (a Southsea Busker...)
+    free = costs.get("free_refreshes")
+    if free is None:
+        free = 1 if costs.get("refresh", 1) == 0 else 0
     debug(g, cmd="set_player", p=0, gold=me.get("gold", 0),
-          upgrade_cost=costs.get("upgrade", 0),
-          free_refreshes=1 if costs.get("refresh", 1) == 0 else 0)
+          upgrade_cost=costs.get("upgrade", 0), free_refreshes=free,
+          gold_next_turn=me.get("gold_next_turn", 0))
     # A Discover the player is choosing in (Dark Discovery, a Discover card): its logged
     # options are created on an empty seat's hand, then moved into the player's pending choice
     offer = discover_options(d)

@@ -56,6 +56,7 @@ class DecisionExporter(bg_logs.CombatExporter):
                       - pt.get(T.RESOURCES_USED, 0))
         me["max_gold"] = pt.get(T.RESOURCES, 0)
         me["next_opponent"] = pt.get(T.NEXT_OPPONENT_PLAYER_ID, 0)
+        me["gold_next_turn"] = pt.get(T.BACON_PLAYER_EXTRA_GOLD_NEXT_TURN, 0)
         # Unplayable: a card locked in hand (a Lockbox's minion until the box opens)
         me["hand_all"] = [self._entity_view(e.id) | {"data": bg_logs._data(e),
                                                      "unplayable": bool(e.tags.get(T.LITERALLY_UNPLAYABLE))}
@@ -70,6 +71,7 @@ class DecisionExporter(bg_logs.CombatExporter):
                     buttons["upgrade"] = e.tags.get(T.COST, 0)
                 elif "Reroll" in cid:
                     buttons["refresh"] = e.tags.get(T.COST, 0)
+                    buttons["free_refreshes"] = e.tags.get(T.BACON_FREE_REFRESH_COUNT, 0)
             elif e.zone == Zone.PLAY and e.tags.get(T.CONTROLLER) == f and cid == "BG36_Button_DarkGift":
                 buttons["dark_gift"] = e.tags.get(T.COST, 0)
                 buttons["dark_gift_exhausted"] = bool(e.tags.get(T.EXHAUSTED))
