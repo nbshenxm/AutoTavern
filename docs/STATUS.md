@@ -21,6 +21,13 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
   (1st-2nd): the simulated opponents are copies of it and don't scale either, so ending a turn
   with 10 gold costs nothing. Since 18:00 two seats of big2's games also play real warbands from
   your lobbies at that round (library seats), so a late start now meets real late-game strength.
+- **Stronger, readable opponents (your suggestion).** Library seats used to show a random
+  warband at every combat, so what the network saw of one told it nothing about the next fight.
+  Now each library seat follows one player all game: your own warbands of one game, one of your
+  opponents as you met them, or one of 19 curated comps from Tavern Link's catalog (poison
+  Murlocs, Divine Shield Dragons, Undead...). Their stats are scaled to the top 1% of players by
+  round (Firestone: up to 1.7x your lobbies at rounds 7-10). big2 now trains with 3 of them, so
+  reading the next opponent's warband and answering it (Venomous, 火车王, Divine Shield) pays.
 - **The live advisor ran over all your games** (2,603 decisions, plan search on): no errors,
   median 0.6 s beside a heavy job. Timed again on a quiet PC: median 0.4 s, 95% under 1.0 s,
   the slowest of 2,818 decisions 8.3 s (a 6-minute one in the first run didn't come back).
