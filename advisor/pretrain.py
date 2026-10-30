@@ -20,7 +20,7 @@ import torch
 
 from advisor import teacher
 from advisor.policy import load, make, save
-from advisor.train import CONFIG, evaluate, wait_while_playing
+from advisor.train import CONFIG, cap_gpu_memory, evaluate, wait_while_playing
 from taverngym import BatchEnv
 
 TEACHER_CONFIG = {**CONFIG, "teacher": teacher.config()}
@@ -84,7 +84,9 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--resume", help="continue from this checkpoint (its last.pt)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--gpu-memory", type=float, default=0.4, help="the most of the GPU it takes")
     a = ap.parse_args()
+    cap_gpu_memory(a.device, a.gpu_memory)
     out = Path(a.out) / a.run
     out.mkdir(parents=True, exist_ok=True)
     logf = open(out / "log.jsonl", "a", encoding="utf-8")

@@ -31,6 +31,18 @@ GATE = {"episodes": 1000, "seed": 20_000_000}  # advisor.train --evaluate: unsee
 HEAD_TO_HEAD = {"episodes": 1000, "seed": 40_000_000}  # seeds no other gate uses
 
 
+def pick_device(need_gb=2.0):
+    """The GPU when it has `need_gb` free (training runs share it), else the CPU (slower)."""
+    if torch.cuda.is_available():
+        try:
+            free, _ = torch.cuda.mem_get_info()
+            if free >= need_gb * 2**30:
+                return "cuda"
+        except RuntimeError:  # no context could be made: the GPU is full
+            pass
+    return "cpu"
+
+
 def gate(path, device, threads):
     net, ck = load(path, device)
     ev = evaluate(net, device, GATE["episodes"], seed=GATE["seed"], threads=threads)
@@ -42,8 +54,9 @@ def main():
     ap.add_argument("candidates", nargs="+")
     ap.add_argument("--models", default=str(MODELS))
     ap.add_argument("--threads", type=int, default=4)
-    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--device", default=None, help="default: the GPU if it has room, else the CPU")
     a = ap.parse_args()
+    a.device = a.device or pick_device()
     models = Path(a.models)
     models.mkdir(parents=True, exist_ok=True)
     best_path, log_path = models / "best.pt", models / "promotions.jsonl"

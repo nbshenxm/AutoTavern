@@ -35,6 +35,13 @@ F_GOLD, F_FROZEN = 7, 15  # global observation features (obs.rs): gold / 10, Tav
 A_END, A_REFRESH = 0, 1  # taverngym.layout()
 
 
+def cap_gpu_memory(device, fraction):
+    """At most `fraction` of the GPU for this process: two runs share the office's GPU, and
+    PyTorch keeps what it once used, leaving nothing for the hourly promotion's tests."""
+    if device.startswith("cuda") and fraction:
+        torch.cuda.set_per_process_memory_fraction(fraction)
+
+
 def hearthstone_running():
     try:
         out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Hearthstone.exe", "/NH"],
@@ -337,7 +344,9 @@ def main():
     ap.add_argument("--anchor-iters", type=int, default=200,
                     help="iterations over which the anchor fades out")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--gpu-memory", type=float, default=0.4, help="the most of the GPU it takes")
     a = ap.parse_args()
+    cap_gpu_memory(a.device, a.gpu_memory)
     if a.evaluate:
         net, ck = load(a.evaluate, a.device)
         # Seeds apart from the training gate's, so a promotion is judged on unseen games
