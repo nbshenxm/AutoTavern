@@ -26,8 +26,10 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
   decisions now match the client's options exactly).
 - **Strength curve on the progress page:** the network's warbands by round against your lobbies
   and the public average. It keeps up until round 9, then flattens: the main thing to fix.
-- **Search-guided training (`search2`)** took `teachppo1`'s place when generations stalled; its
-  first tests improve (4.44 → 4.26 against the best).
+- **Search-guided training works:** `search2` (learning the plan search's choices besides PPO)
+  was promoted at 12:20 (4.22 head to head against the previous best), the first promotion since
+  10:21. A larger network (8.6M parameters, was 0.86M) is learning to copy it (`big1`), to
+  continue with PPO.
 
 ## Today (Oct 30)
 

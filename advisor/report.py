@@ -34,6 +34,7 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "lib1": "generations + real warbands from your logs",
     "search2": "generations + learning the plan search's choices",
     "lib2": "real warbands + a longer horizon (gamma 1, lambda 0.995)",
+    "big1": "a larger network (8.6M) copying the best",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 SIMULATOR = [
