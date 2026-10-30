@@ -462,8 +462,9 @@ def main():
     ap.add_argument("--live-dir", default=str(LIVE_DIR))
     ap.add_argument("--locale", default="enUS", choices=["enUS", "zhCN"])
     ap.add_argument("--log-file", help="write output here (the plugin runs pythonw, no console)")
-    ap.add_argument("--search", type=int, default=0, metavar="K",
-                    help="plan search over the greedy plan and K sampled ones (0: off)")
+    ap.add_argument("--search", type=int, default=8, metavar="K",
+                    help="plan search over the greedy plan and K sampled ones (0: off; at 8 it "
+                    "places 0.48 better than the network alone, docs/EXPERIMENTS.md)")
     ap.add_argument("--model", default=str(MODEL),
                     help="policy network (advisor.train checkpoint); the scripted bot without one")
     a = ap.parse_args()

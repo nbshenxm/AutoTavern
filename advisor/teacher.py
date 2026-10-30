@@ -1,6 +1,6 @@
 """The teacher bot's plan (TavernGym `RulesConfig.teacher`, crates/taverngym/src/teacher.rs),
 from the player's advice: level on a curve; early, take economy cards and Dark Gifts that give
-free Refreshes or win early fights; complete triples (their Discover reaches the higher Tiers,
+free Refreshes or win early fights (both 0 for now, see BONUS_SCALE); complete triples (their Discover reaches the higher Tiers,
 where the key cards are, and Tier 6 has few copies); from the mid game build toward the meta
 comp (advisor.meta) the warband is closest to.
 
@@ -15,7 +15,10 @@ from advisor import meta
 from advisor.state import GAME_CONFIG
 
 LEVEL_TURNS = [2, 5, 7, 9, 11]  # Tavern Tier 2, 3, 4, 5, 6 by these turns
-EARLY_TURNS = 5
+EARLY_TURNS = 8  # Dark Gift over a card with nothing beyond its stats (5: 3.94, 8: 3.52)
+# The bonuses below cost the teacher about 0.1 place against plain bots (docs/EXPERIMENTS.md),
+# so they are scaled by BONUS_SCALE, 0 until they are tested against a stronger field
+BONUS_SCALE = 0
 COMMIT_TURN = 7
 ECONOMY = {  # value added through EARLY_TURNS
     "BG26_135": 8,   # Southsea Busker: Gain 1 Gold next turn
@@ -42,8 +45,9 @@ GIFTS = {  # Dark Gifts, value added through EARLY_TURNS
 
 def config(seats=()):
     meta.fetch()
-    return {"level_turns": LEVEL_TURNS, "early_turns": EARLY_TURNS, "economy": ECONOMY,
-            "gifts": GIFTS, "commit_turn": COMMIT_TURN, "seats": list(seats),
+    scaled = lambda d: {k: v * BONUS_SCALE for k, v in d.items() if v * BONUS_SCALE}
+    return {"level_turns": LEVEL_TURNS, "early_turns": EARLY_TURNS, "economy": scaled(ECONOMY),
+            "gifts": scaled(GIFTS), "commit_turn": COMMIT_TURN, "seats": list(seats),
             "comps": [{"core": c["core"], "addon": c["addon"]} for c in meta.comps()]}
 
 
