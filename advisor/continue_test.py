@@ -18,13 +18,15 @@ import torch
 
 from advisor import bridge, search
 from advisor.policy import load
+from advisor.train import wait_while_playing
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def rollout(g, net, start, ahead, rng, sample):
-    """Seat 0's warband Attack+Health at the end of each round from `start` to start+ahead."""
-    out = {}
+def rollout(g, net, start, ahead, rng, sample, k=0):
+    """Seat 0's warband Attack+Health at the end of each round from `start` to start+ahead.
+    `k` > 0: seat 0 plays the plan search's turn (advisor.search, as the live advisor does)."""
+    out, script = {}, []
     for _ in range(100_000):
         if g.is_over():
             break
@@ -35,8 +37,16 @@ def rollout(g, net, start, ahead, rng, sample):
             v = json.loads(g.view(seat))
             if v["turn"] > start + ahead:
                 return out
-            probs, _ = search._policy(net, g, seat)
-            a = int(rng.choice(len(probs), p=probs / probs.sum())) if sample else int(probs.argmax())
+            a = None
+            if seat == 0 and k and v["phase"].lower() == "recruit":
+                if not script:
+                    script = list(search.best_plan(g, net, 0, None, k)[0])
+                a = script.pop(0) if script else None
+                if a is not None and not v["mask"][a]:
+                    a, script = None, []
+            if a is None:
+                probs, _ = search._policy(net, g, seat)
+                a = int(rng.choice(len(probs), p=probs / probs.sum())) if sample else int(probs.argmax())
             if seat == 0 and v["phase"].lower() == "recruit" and not v["me"]["pending"] \
                     and a == v["actions"]["END"]:
                 out[v["turn"]] = sum(m["atk"] + m["hp"] for m in v["me"]["board"])
@@ -56,6 +66,7 @@ def main():
     ap.add_argument("--ahead", type=int, default=4)
     ap.add_argument("--trials", type=int, default=2)
     ap.add_argument("--greedy", action="store_true")
+    ap.add_argument("--search", type=int, default=0, metavar="K", help="seat 0 plays the plan search's turns")
     a = ap.parse_args()
     torch.set_num_threads(4)
     net, _ = load(a.checkpoint, "cpu")
@@ -76,11 +87,12 @@ def main():
     rng = np.random.default_rng(5)
     ratio = collections.defaultdict(list)  # (start, rounds ahead): simulated / real
     for (log, seg, r), d in sorted(starts.items()):
+        wait_while_playing(print)  # home rule: no heavy jobs while you play
         g0, gaps = bridge.build(d, bridge.game_combats(combats, d))
         line = []
         for t in range(a.trials):
             g, _ = bridge.build(d, bridge.game_combats(combats, d), seed=11 + t)
-            sim = rollout(g, net, r, a.ahead, rng, not a.greedy)
+            sim = rollout(g, net, r, a.ahead, rng, not a.greedy, a.search)
             for k in range(a.ahead + 1):
                 rr = (log, seg, r + k)
                 if rr in real and r + k in sim and real[rr] > 0:
