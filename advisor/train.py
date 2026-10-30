@@ -151,9 +151,11 @@ def advantages(seats, gamma, lam):
 
 
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
-           amp=False):
+           amp=False, value_only=False, anchor=None, anchor_coef=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
-    probabilities and losses stay float32)."""
+    probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
+    policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
+    `anchor_coef` times KL(anchor || policy)."""
     f = torch.from_numpy(np.stack([b[0][0] for b in batch]))
     c = torch.from_numpy(np.stack([b[0][1] for b in batch]))
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
@@ -177,7 +179,14 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
             pi_loss = -torch.min(ratio * ad, ratio.clamp(1 - clip, 1 + clip) * ad).mean()
             v_loss = (v - ret[idx].to(device)).pow(2).mean()
             entropy = dist.entropy().mean()
-            loss = pi_loss + vf * v_loss - ent * entropy
+            loss = vf * v_loss if value_only else pi_loss + vf * v_loss - ent * entropy
+            if anchor is not None and anchor_coef > 0:  # in the warmup too: it holds the policy
+                with torch.no_grad():
+                    al, _ = anchor(f[idx].to(device), c[idx].to(device), m[idx].to(device))
+                    ap = torch.softmax(al.float(), 1)
+                anchor_kl = (ap * (torch.log_softmax(al.float(), 1)
+                                   - torch.log_softmax(logits, 1))).sum(1).mean()
+                loss = loss + anchor_coef * anchor_kl
             opt.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
@@ -191,9 +200,10 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
 
 
 @torch.no_grad()
-def evaluate(net, device, episodes=200, games=32, seed=10_000_000, threads=8):
-    """Mean placement of the greedy network on seat 0 against seven scripted bots."""
-    env = BatchEnv(games, seed=seed, controlled=[0], config=CONFIG, threads=threads)
+def evaluate(net, device, episodes=200, games=32, seed=10_000_000, threads=8, config=None):
+    """Mean placement of the greedy network on seat 0 against seven scripted bots (`config`'s
+    teacher bots when it has one)."""
+    env = BatchEnv(games, seed=seed, controlled=[0], config=config or CONFIG, threads=threads)
     obs = env.observe()
     places = []
     while len(places) < episodes:
@@ -280,6 +290,12 @@ def main():
     ap.add_argument("--snapshot-every", type=int, default=50,
                     help="iterations between pool snapshots (opponents and the league gate)")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
+                    help="the first N iterations train only the value (after a hot start)")
+    ap.add_argument("--anchor", help="keep the policy close to this checkpoint (a hot start)")
+    ap.add_argument("--anchor-coef", type=float, default=0.1)
+    ap.add_argument("--anchor-iters", type=int, default=200,
+                    help="iterations over which the anchor fades out")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args()
     if a.evaluate:
@@ -312,6 +328,7 @@ def main():
     opt = torch.optim.Adam(net.parameters(), lr=a.lr)
     if a.resume and "opt" in ck:
         opt.load_state_dict(ck["opt"])
+    anchor = load(a.anchor, a.device)[0] if a.anchor else None
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=list(range(8)),
                    config=CONFIG, threads=a.threads)
     seats = [Seat() for _ in range(env.n_slots)]
@@ -333,7 +350,13 @@ def main():
         batch = advantages(seats, a.gamma, a.lam)
         tc = time.time()
         net.train()
-        stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp)
+        warm = it - it0 <= a.critic_warmup
+        fade = max(0, it - it0 - a.critic_warmup) / a.anchor_iters  # from the warmup's end
+        coef = a.anchor_coef * max(0.0, 1 - fade) if anchor else 0.0
+        stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
+                       anchor=anchor, anchor_coef=coef)
+        if warm:
+            stats["critic_warmup"] = True
         net.eval()
         row = {"iteration": it, "batch": len(batch), "episodes": len(placements),
                "collect_s": round(tc - ts, 1), "update_s": round(time.time() - tc, 1),

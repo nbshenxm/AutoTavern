@@ -329,6 +329,11 @@ impl PyBatchEnv {
         py.detach(|| env.load(i, json))
             .map_err(PyValueError::new_err)
     }
+    /// The scripted bot's action for every ready slot, -1 for the others (the games' random
+    /// streams are not moved).
+    fn bot_actions(&mut self, py: Python<'_>) -> Vec<i64> {
+        py.detach(|| self.env.bot_actions())
+    }
     /// The index of game `i`'s current episode (0 for the first).
     fn episode_index(&self, i: usize) -> PyResult<u64> {
         if i >= self.env.n_games() {

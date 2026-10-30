@@ -96,6 +96,11 @@ class BatchEnv:
     def load(self, i, state):
         self._env.load(int(i), state)
 
+    def bot_actions(self):
+        """The scripted bot's action for every ready slot (int64, -1 for the others), the
+        teacher's when the config has one; the games don't move."""
+        return np.asarray(self._env.bot_actions(), dtype=np.int64)
+
     def episode_index(self, i):
         return self._env.episode_index(int(i))
 

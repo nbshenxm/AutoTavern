@@ -281,6 +281,24 @@ impl BatchEnv {
         Ok(())
     }
 
+    /// The scripted bot's choice (`bot::choose_action`, the teacher when configured) for every
+    /// slot that must act, -1 for the others; the games' random streams are not moved. For
+    /// learning from the bot.
+    pub fn bot_actions(&mut self) -> Vec<i64> {
+        let k = self.controlled.len();
+        let mut out = vec![-1; self.n_slots()];
+        for (i, e) in self.episodes.iter_mut().enumerate() {
+            for (j, &p) in self.controlled.iter().enumerate() {
+                if !e.finished[j] && !over(&e.game) && e.game.needs_action(p) {
+                    let rng = e.game.rng.clone();
+                    out[i * k + j] = crate::bot::choose_action(&mut e.game, p).encode() as i64;
+                    e.game.rng = rng;
+                }
+            }
+        }
+        out
+    }
+
     /// Apply one action per slot (see the module documentation); `out` gets one result per
     /// slot.
     pub fn step(&mut self, actions: &[i64], out: &mut [SlotResult]) -> Result<(), String> {

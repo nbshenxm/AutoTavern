@@ -84,3 +84,38 @@ def test_wasted_gold():
     assert train.wasted_gold(obs, 0, train.A_REFRESH) == 0.0
     f[0, train.F_FROZEN] = 1.0
     assert train.wasted_gold(obs, 0, train.A_END) == 0.0
+
+
+def test_value_warmup_with_an_anchor_keeps_the_policy():
+    from taverngym import BatchEnv
+
+    torch.manual_seed(0)
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    anchor = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    anchor.load_state_dict(net.state_dict())
+    env = BatchEnv(2, seed=6, controlled=list(range(8)), config=train.CONFIG)
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    train.collect(env, net, env.observe(), seats, 256, "cpu")
+    batch = train.advantages(seats, 0.995, 0.95)
+    opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+    stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128, value_only=True,
+                         anchor=anchor, anchor_coef=1.0)
+    assert all(abs(v) < 1e6 for v in stats.values())
+
+
+def test_pretrain_learns_the_teachers_actions():
+    from advisor import pretrain
+    from taverngym import BatchEnv
+
+    pytest.importorskip("taverngym").BatchEnv.bot_actions  # a module with the teacher
+    torch.manual_seed(0)
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    env = BatchEnv(2, seed=7, controlled=list(range(8)), config=pretrain.TEACHER_CONFIG)
+    batch, _ = pretrain.collect(env, env.observe(), 512)
+    f, c, m, a = batch
+    assert len(a) >= 512 and m[np.arange(len(a)), a].all(), "the teacher's actions are legal"
+    opt = torch.optim.Adam(net.parameters(), lr=3e-3)
+    first = pretrain.train_step(net, opt, batch, "cpu", 256, False)
+    for _ in range(5):
+        last = pretrain.train_step(net, opt, batch, "cpu", 256, False)
+    assert last["loss"] < first["loss"]
