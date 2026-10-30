@@ -185,8 +185,13 @@ def build(d, combats=(), seed=7):
         for m in offer:
             add_minion(g, spare, "hand", m, gaps, "offer")
     # Fields no debug command reaches: patched in the saved state
+    base_max = json.loads(g.view(0))["me"]
+    base_max = base_max["max_gold"] - base_max.get("max_gold_bonus", 0)
     st = json.loads(g.state_json())
     p0 = st["players"][0]
+    # Maximum Gold above the round's (an effect that gave it for good): the next turns' Gold
+    if me.get("max_gold") and me["max_gold"] > base_max:
+        p0["max_gold_bonus"] = me["max_gold"] - base_max
     # At an Options packet the player is not in a choice: drop what the stand-in hero opened,
     # and a turn it skipped (A. F. Kay) or the actions it took (the turn's budget starts now)
     p0["pending"] = []
