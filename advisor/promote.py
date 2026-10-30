@@ -158,6 +158,16 @@ def main():
                                   seed=HEAD_TO_HEAD["seed"], threads=a.threads)
             h2h.pop("pool", None)
             better = not_worse and h2h["mean_place"] < 4.5 - 2 * h2h["se"]
+            if better:
+                # Winner's curse: many candidates judged on the same seeds, the luckiest wins.
+                # A winner must win again on seeds no gate has used.
+                fresh = 60_000_000 + (int(time.time()) % 1_000_000) * 1000
+                confirm = evaluate_league(cand_net, [cur_net], a.device, HEAD_TO_HEAD["episodes"],
+                                          seed=fresh, threads=a.threads)
+                confirm.pop("pool", None)
+                h2h["confirm"] = {**confirm, "seed": fresh}
+                better = confirm["mean_place"] < 4.5 - 2 * confirm["se"]
+            # Not promoted head to head (a near miss included): the other two ways
             lib = None
             # (the bots' floor with 0.1 places to spare: near 1.5 against bots, a network trained
             # against real warbands may give up a hair there)
@@ -183,15 +193,6 @@ def main():
                         real["confirm"] = real_pair(cand_net, cur_net, a.device, a.threads, fresh)
                         better = real_better(real["confirm"])
                     h2h["real"] = real
-            elif better:
-                # Winner's curse: many candidates judged on the same seeds, the luckiest wins.
-                # A winner must win again on seeds no gate has used.
-                fresh = 60_000_000 + (int(time.time()) % 1_000_000) * 1000
-                confirm = evaluate_league(cand_net, [cur_net], a.device, HEAD_TO_HEAD["episodes"],
-                                          seed=fresh, threads=a.threads)
-                confirm.pop("pool", None)
-                h2h["confirm"] = {**confirm, "seed": fresh}
-                better = confirm["mean_place"] < 4.5 - 2 * confirm["se"]
         log({"candidate": str(cand), "iteration": ck.get("iteration"), "arch": ck["config"].get("arch"),
              "gate": ev, "current": current, "head_to_head": h2h, "promoted": better})
         if not better:
