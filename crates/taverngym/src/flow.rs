@@ -832,8 +832,9 @@ impl Game {
     /// eliminate, and start the next turn.
     /// Pair living players for this turn's combat (avoiding last opponents when possible)
     /// and publish each player's next opponent, so it is known during the recruit phase.
-    /// `RulesConfig::library`: the library seats take a real warband of this round (drawn from
-    /// the seed, the round and the seat, not the game's random stream).
+    /// `RulesConfig::library`: the library seats take a real warband (`RulesConfig::library`),
+    /// drawn from the seed and the seat (the track, for the whole game) and the round, not the
+    /// game's random stream.
     fn library_boards(&mut self) {
         let Some(lib) = self.cfg.library.clone() else { return };
         let Some(nearest) = lib.boards.iter().map(|b| b.round.abs_diff(self.turn)).min() else {
@@ -841,14 +842,38 @@ impl Game {
         };
         let pool: Vec<&crate::config::LibraryBoard> =
             lib.boards.iter().filter(|b| b.round.abs_diff(self.turn) == nearest).collect();
+        let mut tracks: Vec<u32> = lib.boards.iter().map(|b| b.track).filter(|t| *t != 0).collect();
+        tracks.sort_unstable();
+        tracks.dedup();
         for &p in &lib.seats {
             if p >= self.players.len() || !self.players[p].alive {
                 continue;
             }
-            let mut rng = crate::rng::Rng::new(
-                self.seed ^ 0x11B2_A27C_0000_0000 ^ ((self.turn as u64) << 8) ^ p as u64,
-            );
-            let b = pool[rng.below(pool.len())];
+            // The real player this seat follows, the whole game
+            let followed = (!tracks.is_empty()).then(|| {
+                let mut r = crate::rng::Rng::new(self.seed ^ 0x7AC4_5EA7_0000_0000 ^ p as u64);
+                tracks[r.below(tracks.len())]
+            });
+            let latest = followed.and_then(|t| {
+                lib.boards
+                    .iter()
+                    .filter(|b| b.track == t && b.round <= self.turn)
+                    .max_by_key(|b| b.round)
+                    .filter(|b| self.turn - b.round <= crate::config::LIBRARY_TRACK_GAP)
+            });
+            let b = latest.unwrap_or_else(|| {
+                let mut rng = crate::rng::Rng::new(
+                    self.seed ^ 0x11B2_A27C_0000_0000 ^ ((self.turn as u64) << 8) ^ p as u64,
+                );
+                pool[rng.below(pool.len())]
+            });
+            // Grown to this round when the board is from an earlier one
+            let grow = |r: u32| lib.growth.get(r as usize).copied().filter(|g| *g > 0.0);
+            let factor = match (grow(b.round), grow(self.turn)) {
+                (Some(then), Some(now)) if b.round < self.turn => (now / then).max(1.0),
+                _ => 1.0,
+            };
+            let scale = |x: i32| ((x as f32) * factor).round() as i32;
             let minions: Vec<Minion> = b
                 .minions
                 .iter()
@@ -856,6 +881,13 @@ impl Game {
                 .map(|m| {
                     let mut m = m.clone();
                     m.eid = self.alloc_eid();
+                    if factor > 1.0 {
+                        m.atk = scale(m.atk);
+                        m.hp = scale(m.hp);
+                        m.max_hp = scale(m.max_hp);
+                        m.peak_atk = m.peak_atk.max(m.atk);
+                        m.peak_hp = m.peak_hp.max(m.hp);
+                    }
                     m
                 })
                 .collect();

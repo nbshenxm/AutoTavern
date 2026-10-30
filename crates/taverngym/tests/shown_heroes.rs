@@ -73,6 +73,7 @@ fn sell_one(g: &mut Game) {
             golden: false,
             atk: None,
             hp: None,
+            no_triple: false,
         },
     )
     .unwrap();

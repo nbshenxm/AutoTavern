@@ -543,6 +543,10 @@ def main():
     ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
     ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
                     help="these seats fight with real warbands from the logs (advisor.library)")
+    ap.add_argument("--library-strength", type=float, default=1.0, metavar="S",
+                    help="library warbands scaled toward the top 1%% by round (0 = as logged)")
+    ap.add_argument("--library-comps", action="store_true",
+                    help="library seats also play the curated comps (advisor.library.comp_boards)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
                     help="this share of new games start from a logged round's position (RealStarts)")
     ap.add_argument("--trinket-prior", type=float, default=0.0, metavar="COEF",
@@ -603,7 +607,7 @@ def main():
     if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
         from advisor import library
         lib_version = library.BOARDS.stat().st_mtime_ns
-        train_config = {**CONFIG, "library": library.library(a.library)}
+        train_config = {**CONFIG, "library": library.library(a.library, strength=a.library_strength, comps=a.library_comps)}
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=list(range(8)),
                    config=train_config, threads=a.threads)
     seats = [Seat() for _ in range(env.n_slots)]
@@ -627,7 +631,7 @@ def main():
         if a.library and library.BOARDS.stat().st_mtime_ns != lib_version:
             # New real warbands (the home sync uploads them after you play): new games with them
             lib_version = library.BOARDS.stat().st_mtime_ns
-            train_config = {**CONFIG, "library": library.library(a.library)}
+            train_config = {**CONFIG, "library": library.library(a.library, strength=a.library_strength, comps=a.library_comps)}
             env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=list(range(8)),
                            config=train_config, threads=a.threads)
             seats = [Seat() for _ in range(env.n_slots)]

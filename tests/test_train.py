@@ -387,3 +387,42 @@ def test_the_real_positions_promotion_pair(monkeypatch):
     r = promote.real_pair(net, net, "cpu", 1, 47_000_000)
     # the same network on the same seeds: the very same games
     assert r["n"] == 4 and r["diff"] == 0 and not promote.real_better(r)
+
+
+def test_a_library_seat_follows_one_player(tmp_path):
+    # Boards of two tracks (Attack = 100 * track + round): a library seat's warband comes from
+    # one track all game, the latest round up to the current one, grown by the curve in between
+    import json as _json
+
+    import taverngym
+    from advisor import library
+
+    g = taverngym.Game(1, _json.dumps(train.CONFIG))
+    for _ in range(200):
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    template = next(m for p in _json.loads(g.state_json())["players"] for m in p["board"])
+    boards = []
+    for track in (1, 2):
+        for rnd in range(1, 30, 2):  # seen every other round
+            m = {**template, "atk": 100 * track + rnd, "hp": 1000, "max_hp": 1000}
+            boards.append({"round": rnd, "tier": 3, "minions": [m], "track": f"t{track}"})
+    path = tmp_path / "boards.json"
+    path.write_text(_json.dumps(boards))
+    lib = library.library([7], path, strength=0, curve={r: 100.0 * 2 ** r for r in range(40)})
+    cfg = {**train.CONFIG, "library": lib}
+    g = taverngym.Game(2, _json.dumps(cfg))
+    seen = []
+    while not g.is_over() and g.turn < 9:
+        turn = g.turn
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+        p7 = _json.loads(g.state_json())["players"][7]
+        if p7["last_board"] and g.turn != turn:
+            seen.append((turn, p7["last_board"][0]["atk"], p7["last_board"][0]["hp"]))
+    tracks = {a // 100 for _, a, h in seen if h == 1000}
+    assert seen and len(tracks) <= 1, seen
+    # an even round shows the odd round before it, its Health doubled by the curve
+    assert any(h == 2000 for _, _, h in seen), seen

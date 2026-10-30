@@ -13970,6 +13970,7 @@ fn golden_made_in_place_restarts_a_fired_treasure_parrot() {
             golden: false,
             atk: None,
             hp: None,
+            no_triple: false,
         },
     )
     .unwrap();

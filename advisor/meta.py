@@ -19,6 +19,13 @@ URL = "https://hsreplay.net/api/v1/battlegrounds/comp_guides/?format=json"
 # by MMR bracket); no stated license: for this personal tool only, never redistributed
 TRINKET_URL = "https://static.zerotoheroes.com/api/bgs/trinket-stats/past-seven/overview-from-hourly.gz.json"
 HERO_URL = "https://static.zerotoheroes.com/api/bgs/hero-stats/mmr-100/past-seven/overview-from-hourly.gz.json"
+# The same for the top 1% of players by MMR (their warband strength by turn: library seats'
+# target, advisor.library)
+TOP_HERO_URL = HERO_URL.replace("mmr-100", "mmr-1")
+# Tavern Link's catalog (tavern-link.pages.dev, from bg-db.pages.dev): 19 curated comps for the
+# current patch (from Jeef's guides) with their stages and final boards, and the card list; no
+# stated license: personal use only, never redistributed (data/ is not in the repository)
+TAVERN_LINK_URL = "https://tavern-link.pages.dev/catalog.json"
 # Firestone's minion type codes (Hearthstone's Race enum) -> TavernGym's names
 RACE_CODES = {11: "UNDEAD", 14: "MURLOC", 15: "DEMON", 17: "MECHANICAL", 18: "ELEMENTAL",
               20: "BEAST", 23: "PIRATE", 24: "DRAGON", 43: "QUILBOAR", 92: "NAGA", 126: "ABERRATION"}
@@ -26,6 +33,8 @@ META = Path(__file__).resolve().parents[1] / "data" / "meta"
 GUIDES = META / "comp_guides.json"
 TRINKETS = META / "trinket_stats.json"
 HEROES = META / "hero_stats.json"
+TOP_HEROES = META / "hero_stats_top1.json"
+TAVERN_LINK = META / "tavern_link_catalog.json"
 MAX_AGE = 24 * 3600
 
 _DBF = {c["dbf"]: c for c in json.loads(CARDS.read_text(encoding="utf-8"))["cards"]}
@@ -58,7 +67,25 @@ def fetch(force=False):
     """The comp guides and the trinket stats, downloaded when missing or older than a day."""
     _download(TRINKET_URL, TRINKETS, force)
     _download(HERO_URL, HEROES, force)
+    _download(TOP_HERO_URL, TOP_HEROES, force)
+    _download(TAVERN_LINK_URL, TAVERN_LINK, force)
     return _download(URL, GUIDES, force)
+
+
+def warband_curve(path=TOP_HEROES):
+    """turn -> average warband Attack+Health over every hero (weighted by games), from a hero
+    stats file (default: the top 1% of players); {} without it."""
+    if not Path(path).exists():
+        return {}
+    acc = {}
+    for h in json.loads(Path(path).read_text(encoding="utf-8")).get("heroStats") or []:
+        n = h.get("dataPoints") or 0
+        for w in h.get("warbandStats") or []:
+            if n and w.get("averageStats") is not None:
+                a = acc.setdefault(int(w["turn"]), [0.0, 0])
+                a[0] += w["averageStats"] * n
+                a[1] += n
+    return {t: x / n for t, (x, n) in sorted(acc.items()) if n}
 
 
 def hero_stats():

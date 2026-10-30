@@ -48,6 +48,7 @@ fn add_minion(g: &mut Game, zone: &str, id: &str) {
             golden: false,
             atk: None,
             hp: None,
+            no_triple: false,
         },
     )
     .unwrap();

@@ -98,15 +98,137 @@ def build(combats):
             if not s["board"] or gaps or len(minions) != len(s["board"][:7]):
                 skipped["empty" if not s["board"] else "missing card"] += 1
                 continue
+            who = "me" if side == "friendly" else f"p{s.get('player_id')}"
             out.append({"round": rnd, "tier": int(s["tier"] or 1), "minions": minions,
-                        "source": f"{c['log']}#{c['segment']} turn {c['turn']} {side}"})
+                        "source": f"{c['log']}#{c['segment']} turn {c['turn']} {side}",
+                        "track": f"{c['log']}#{c['segment']} {who}"})
     return out, skipped
 
 
-def library(seats, path=BOARDS):
-    """The `library` entry of a RulesConfig: `seats` fight with the boards in `path`."""
+# Library warbands are scaled toward the top 1% of players' warband strength by round (Firestone):
+# the user's lobbies (6-7k MMR) are about average through round 8, the top 1% up to 1.7x stronger
+# by then. STRENGTH 1 = that target, 0 = the boards as logged; never below the logged stats
+STRENGTH, MAX_SCALE = 1.0, 3.0
+
+
+def scale_factors(boards, strength=STRENGTH, curve=None):
+    """round -> the factor this round's boards' stats are multiplied by: toward `curve` (the top
+    1%'s average by round), from the median of the boards of that round."""
+    import statistics
+    if curve is None:
+        from advisor import meta
+        curve = meta.warband_curve()
+    by_round = collections.defaultdict(list)
+    for b in boards:
+        by_round[b["round"]].append(sum(m["atk"] + m["hp"] for m in b["minions"]))
+    out = {}
+    for r, xs in by_round.items():
+        mine, top = statistics.median(xs), curve.get(r)
+        if not top or mine <= 0:
+            out[r] = 1.0
+            continue
+        target = mine + strength * (top - mine)
+        out[r] = min(MAX_SCALE, max(1.0, target / mine))
+    return out
+
+
+def _scaled(m, f):
+    if f <= 1.0:
+        return m
+    m = dict(m)
+    for k in ("atk", "hp", "max_hp"):
+        m[k] = round(m[k] * f)
+    m["peak_atk"], m["peak_hp"] = max(m["peak_atk"], m["atk"]), max(m["peak_hp"], m["hp"])
+    return m
+
+
+# A comp seat's Tavern Tier by round (a quick top player's curve; Tier 6 from round 10)
+COMP_TIERS = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5}
+
+
+def comp_boards(path=None, curve=None, rounds=range(2, 17)):
+    """[{round, tier, minions, track, source, synthetic}]: a warband per round for each curated
+    comp in Tavern Link's catalog (advisor.meta.TAVERN_LINK): its early cards first, then its
+    midgame ones, from round 9 its final board, filled with its tribe's minions of the Tier, at
+    the top 1%'s Attack+Health for the round (shared by the cards' printed stats). A library seat
+    then plays one comp all game: poison Murlocs, Divine Shield Dragons, Undead... to read and
+    answer."""
+    from advisor import meta
+    from advisor.state import CAT, normal_form
+    path = Path(path or meta.TAVERN_LINK)
+    if not path.exists():
+        return []
+    if curve is None:
+        curve = meta.warband_curve()
+    cat = json.loads(path.read_text(encoding="utf-8"))
+    by_name = {m["name"]: m for m in cat.get("minions", [])}
+
+    def cid(m):  # a catalog minion -> TavernGym's card id (by its database id)
+        c = meta._DBF.get(m["id"])
+        x = normal_form(c["id"])[0] if c else None
+        return x if x in CAT and CAT[x]["kind"] == "minion" else None
+
+    g = recruit_game(1, GAME_CONFIG)
+    out = []
+    for comp in cat.get("comps", []):
+        stages = [st.get("cards", []) for st in comp.get("stages", [])] + [[], [], []]
+        final = [sl["choices"][0] for sl in comp.get("finalBoard", []) if sl.get("choices")]
+        tribes = set(comp.get("tribes") or [])
+        fill = sorted((m for m in cat.get("minions", []) if not m.get("duosOnly")
+                       and (set(m.get("racesZh") or []) & tribes if tribes else m.get("neutral"))),
+                      key=lambda m: (-m["tier"], m["id"]))
+        for r in rounds:
+            tier = COMP_TIERS.get(r, 6)
+            want = (stages[0] if r <= 4 else stages[1] + stages[0] if r <= 8
+                    else final + stages[2] + stages[1])
+            names = list(dict.fromkeys(want))
+            picked = [by_name[x] for x in names if x in by_name and by_name[x]["tier"] <= tier and cid(by_name[x])]
+            for m in fill:
+                if len(picked) >= min(7, r + 1):
+                    break
+                if m["tier"] <= tier and cid(m) and m not in picked:
+                    picked.append(m)
+            picked = picked[:min(7, r + 1)]
+            total = curve.get(r)
+            if not picked or not total:
+                continue
+            base = sum(m["attack"] + m["health"] for m in picked)
+            debug(g, cmd="clear_zone", p=1, zone="board")
+            for m in picked:
+                share = total * (m["attack"] + m["health"]) / base
+                a = max(m["attack"], round(share * m["attack"] / (m["attack"] + m["health"])))
+                h = max(m["health"], round(share - a), 1)
+                debug(g, cmd="add_minion", p=1, zone="board", card=cid(m), no_triple=True)
+                debug(g, cmd="edit_minion", p=1, zone="board", index=len(zone_of(g)) - 1, atk=a, hp=h)
+            out.append({"round": r, "tier": tier, "minions": json.loads(g.state_json())["players"][1]["board"],
+                        "source": f"comp {comp['name']} round {r}", "track": f"comp:{comp['id']}",
+                        "synthetic": True})
+    return out
+
+
+def zone_of(g, p=1):
+    return json.loads(g.state_json())["players"][p]["board"]
+
+
+def library(seats, path=BOARDS, strength=STRENGTH, curve=None, comps=False):
+    """The `library` entry of a RulesConfig: `seats` fight with the boards in `path`, each seat
+    following one real player (track) all game, the stats scaled toward the top 1% by round
+    (`strength`; 0 = as logged), and grown along that curve between the rounds a player was seen.
+    `comps`: the curated comps' warbands too (comp_boards), each a player to follow."""
+    if curve is None:
+        from advisor import meta
+        curve = meta.warband_curve()
     boards = json.loads(Path(path).read_text(encoding="utf-8"))
-    return {"seats": list(seats), "boards": [{k: b[k] for k in ("round", "tier", "minions")} for b in boards]}
+    factors = scale_factors(boards, strength, curve) if strength else {}
+    if comps:  # curated comps' warbands, already at the top 1%'s strength (not scaled again)
+        boards += comp_boards(curve=curve)
+    ids = {t: i + 1 for i, t in enumerate(sorted({b["track"] for b in boards if b.get("track")}))}
+    out = [{"round": b["round"], "tier": b["tier"], "track": ids.get(b.get("track"), 0),
+            "minions": [m if b.get("synthetic") else _scaled(m, factors.get(b["round"], 1.0))
+                        for m in b["minions"]]}
+           for b in boards]
+    growth = [float(curve.get(r, 0.0)) for r in range(max(curve, default=0) + 1)] if curve else []
+    return {"seats": list(seats), "boards": out, "growth": growth}
 
 
 def main():

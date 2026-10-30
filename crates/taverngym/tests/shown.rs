@@ -214,6 +214,7 @@ fn dark_gifts_on_a_minion_show_their_counters() {
             golden: false,
             atk: None,
             hp: None,
+            no_triple: false,
         },
     )
     .unwrap();

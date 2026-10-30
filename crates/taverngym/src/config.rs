@@ -232,8 +232,10 @@ pub struct RulesConfig {
 
     /// Opponents with real warbands (not a game rule: training against boards from real games,
     /// AutoTavern's "library seats"). Before each combat, each of `Library::seats` that is alive
-    /// fights with a warband of this round from `Library::boards` (the nearest round when this
-    /// one has none), at that board's Tavern Tier. None = off.
+    /// fights with a warband from `Library::boards`, at that board's Tavern Tier: the latest one
+    /// up to this round of the real player (`LibraryBoard::track`) the seat follows all game, or
+    /// a warband of this round (the nearest round when this one has none) when its player has
+    /// none close enough. None = off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library: Option<Library>,
 
@@ -247,7 +249,15 @@ pub struct RulesConfig {
 pub struct Library {
     pub seats: Vec<usize>,
     pub boards: std::sync::Arc<Vec<LibraryBoard>>,
+    /// Expected warband Attack+Health by round (index = round; empty = none): a track's board
+    /// from an earlier round is grown by `growth[now] / growth[its round]` (an opponent is seen
+    /// only every few rounds).
+    pub growth: Vec<f32>,
 }
+
+/// The most rounds a track's latest board may be behind the current one; older, a board of
+/// this round is drawn instead (its player was out, or not seen for long).
+pub const LIBRARY_TRACK_GAP: u32 = 3;
 
 /// One warband seen in a real game: the round, its owner's Tavern Tier and its minions.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -256,6 +266,8 @@ pub struct LibraryBoard {
     pub round: u32,
     pub tier: u8,
     pub minions: Vec<crate::state::Minion>,
+    /// The real player it belongs to (one game's player, or one of its opponents); 0 = none.
+    pub track: u32,
 }
 
 /// A strategy for the scripted bots (`RulesConfig::teacher`, `teacher.rs`): card ids with the
