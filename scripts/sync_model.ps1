@@ -1,6 +1,8 @@
 # Hourly at home (scheduled task "TavernAdvisor Model Sync"): copy the network the office
 # promoted (data/models/best.pt there, advisor.promote) into this repo's data/models when it
 # changed. The live advisor reloads the file by itself; a file copy is harmless while playing.
+# Then the progress page: the office's training logs and running jobs into data/progress, and
+# data/report.html remade (advisor.report).
 # Log: %LOCALAPPDATA%\TavernAdvisor\sync.log. Remove the task:
 #   Unregister-ScheduledTask -TaskName "TavernAdvisor Model Sync" -Confirm:$false
 $ErrorActionPreference = "Stop"
@@ -34,4 +36,28 @@ try {
 } catch {
     Log "failed: $($_.Exception.Message)"
     if (Test-Path $tmp) { Remove-Item $tmp -Force }
+}
+
+try {
+    $progress = Join-Path $repo "data\progress"
+    New-Item -ItemType Directory -Force $progress | Out-Null
+    $running = & ssh -o BatchMode=yes -o ConnectTimeout=20 office 'bash autotavern/scripts/office/progress.sh'
+    if ($LASTEXITCODE -eq 0) {
+        Set-Content (Join-Path $progress "running.txt") ($running -join "`n") -Encoding utf8
+        $tgz = Join-Path $progress "bgprogress.tgz"
+        & scp -q -o BatchMode=yes -o ConnectTimeout=20 "office:/tmp/bgprogress.tgz" $tgz
+        $unpack = Join-Path $progress "unpack"
+        if (Test-Path $unpack) { Remove-Item $unpack -Recurse -Force }
+        New-Item -ItemType Directory -Force $unpack | Out-Null
+        & tar.exe -xzf $tgz -C $unpack
+        $train = Join-Path $progress "train"
+        if (Test-Path $train) { Remove-Item $train -Recurse -Force }
+        Move-Item (Join-Path $unpack "data\train") $train
+        Remove-Item $unpack, $tgz -Recurse -Force
+    } else { Log "progress: office unreachable (ssh exit $LASTEXITCODE)" }
+    Set-Location $repo
+    & (Join-Path $env:USERPROFILE "anaconda3\envs\taverngym\python.exe") -X utf8 -m advisor.report | Out-Null
+    Log "progress page remade"
+} catch {
+    Log "progress failed: $($_.Exception.Message)"
 }
