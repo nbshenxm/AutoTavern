@@ -4,6 +4,24 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
+## Overnight, Oct 29-30
+
+Three training lines on the office, all against the frozen current best, competing for promotion
+(each hour, whichever clearly beats the best on one seat against seven copies of it, twice):
+
+| Run | What | Until (office time) |
+| --- | --- | --- |
+| `gen1` | generations: PPO against the best | 10:25 |
+| `gensearch1` | the same, plus the plan search's choices as targets | 09:20 |
+| `teachppo1` | from the hot start (your strategy), held near it at first; starts about 00:50 | 10:45 |
+
+The search games (12 cores) keep making targets until about 08:55. A supervisor checks every 20
+minutes and restarts a run that crashed or stopped logging. A promoted network reaches your PC
+within the hour (the home sync), and the progress page shows all of it.
+
+In the morning: which line got promoted (the table "Is training making it stronger?"), each
+line's place against the current best, and whether the search line pulls ahead.
+
 ## Latest
 
 - **Search games started.** 12 office cores play games where two seats follow the plan search;

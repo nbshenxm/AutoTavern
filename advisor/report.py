@@ -27,7 +27,9 @@ LIVE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "TavernAdvisor"
 RUNS = {  # the runs worth a line on the chart: what each one is
     "office3": "self-play, fixed rules",
     "gen1": "generations: against the frozen best",
+    "gensearch1": "generations + the search's choices",
     "teach1": "hot start: copying the teacher",
+    "teachppo1": "generations from the hot start",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 SIMULATOR = [
@@ -102,11 +104,22 @@ def _markdown(text):
         s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
         s = re.sub(r"`(.+?)`", r"<code>\1</code>", s)
         return re.sub(r"\[(.+?)\]\((.+?)\)", r"\1", s)
-    out, items, intro = [], [], True
+    out, items, rows, para, intro = [], [], [], [], True
     def flush():
+        if para:
+            out.append(f'<p class="sub">{inline(" ".join(para))}</p>')
+            para.clear()
         if items:
             out.append("<ul>" + "".join(f"<li>{inline(i)}</li>" for i in items) + "</ul>")
             items.clear()
+        if rows:
+            cells = [[x.strip() for x in r.strip().strip("|").split("|")] for r in rows
+                     if not set(r.replace("|", "").strip()) <= set("- ")]
+            head, body = cells[0], cells[1:]
+            out.append('<div class="wrap"><table><tr>' + "".join(f"<th>{inline(h)}</th>" for h in head)
+                       + "</tr>" + "".join("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in r) + "</tr>"
+                                           for r in body) + "</table></div>")
+            rows.clear()
     for line in text.splitlines():
         if line.startswith("## "):
             flush()
@@ -114,13 +127,16 @@ def _markdown(text):
             out.append(f"<h3>{inline(line[3:])}</h3>")
         elif intro:
             continue  # the title and the note about the note
+        elif line.startswith("|"):
+            rows.append(line)
         elif line.startswith("- "):
-            flush() if False else None
             items.append(line[2:])
         elif line.startswith("  ") and items:
             items[-1] += " " + line.strip()
         elif not line.strip():
             flush()
+        else:
+            para.append(line.strip())
     flush()
     return "".join(out)
 
@@ -267,7 +283,7 @@ def render():
     parts.append("<h3>The training runs</h3>")
     parts.append('<p class="sub">Each run is tested every few iterations: its network on one seat against '
                  'seven plain bots. The hot start is also tested against seven teachers (dashed).</p>')
-    series, classes = [], ["s1", "s2", "s3"]
+    series, classes = [], ["s1", "s2", "s3"]  # cycles past three runs
     for k, (run, rows) in enumerate(runs.items()):
         pts = [(r["iteration"], r["eval"]["mean_place"], f"{run} iteration {r['iteration']}: "
                 f"{r['eval']['mean_place']:.2f}") for r in rows if r.get("eval")]
@@ -286,9 +302,9 @@ def render():
         parts.append('<p class="sub">A generation run trains against the frozen current best and is tested '
                      'on one seat against seven copies of it: 4.5 is even, lower means it is pulling ahead. '
                      'Clearly under 4.5, and again on fresh games, and it is promoted.</p>')
-        parts.append(_chart([(run, "s2", [(r["iteration"], r["vs_best"]["mean_place"],
+        parts.append(_chart([(run, f"s{1 + k % 4}", [(r["iteration"], r["vs_best"]["mean_place"],
                                            f"{run} iteration {r['iteration']}: {r['vs_best']['mean_place']:.2f}")
-                                          for r in rows if r.get("vs_best")]) for run, rows in gens],
+                                          for r in rows if r.get("vs_best")]) for k, (run, rows) in enumerate(gens)],
                             "Place against the current best", lo=3.0, hi=5.5, reference=(4.5, "even")))
 
     parts.append("<h2>How good are its decisions?</h2><ul>")
