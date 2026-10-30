@@ -35,7 +35,7 @@ HEAD_TO_HEAD = {"episodes": 1000, "seed": 40_000_000}  # seeds no other gate use
 # Lobbies closer to real ones: one seat against seven copies of the current best, two of
 # them library seats (real warbands from the logs, advisor.library); candidate and best on the
 # same seeds
-LIBRARY = {"episodes": 1000, "seed": 45_000_000, "seats": [6, 7]}
+LIBRARY = {"episodes": 1000, "seed": 45_000_000, "seats": [6, 7], "bot_slack": 0.1}
 
 
 def library_pair(cand_net, cur_net, device, threads, seed):
@@ -127,7 +127,10 @@ def main():
             h2h.pop("pool", None)
             better = not_worse and h2h["mean_place"] < 4.5 - 2 * h2h["se"]
             lib = None
-            if not better and not_worse and h2h["mean_place"] <= 4.5 + 2 * h2h["se"]:
+            # (the bots' floor with 0.1 places to spare: near 1.5 against bots, a network trained
+            # against real warbands may give up a hair there)
+            lib_floor = ev["mean_place"] <= current["mean_place"] + margin + LIBRARY["bot_slack"]
+            if not better and lib_floor and h2h["mean_place"] <= 4.5 + 2 * h2h["se"]:
                 # Or: clearly better in lobbies with real warbands, and not clearly worse head to
                 # head (what real games ask of it); confirmed on fresh seeds too
                 pair = library_pair(cand_net, cur_net, a.device, a.threads, LIBRARY["seed"])
