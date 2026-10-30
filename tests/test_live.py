@@ -52,3 +52,26 @@ def test_replayed_log_gets_advice_at_every_recruit_decision():
                 assert r["badge"][0] in "TH" and r["card_id"], r
     assert max(a["ms"] for a in advice) < 1000
     json.dumps(advice)  # what the plugin reads
+
+
+def test_arrange_finds_a_better_order_or_nothing():
+    # The arrangement search returns None or an order at least min_gain better (same seeds)
+    import json as _json
+
+    from advisor import bridge, live
+
+    rows = [_json.loads(l) for l in open(ROOT / "data" / "replay" / "decisions.jsonl", encoding="utf-8")]
+    combats = [_json.loads(l) for l in open(ROOT / "data" / "replay" / "combats.jsonl", encoding="utf-8")]
+    tried = 0
+    for d in rows[::25]:
+        if d["kind"] != "options" or d["turn"] < 9:
+            continue
+        g, _ = bridge.build(d, bridge.game_combats(combats, d))
+        r = live.arrange(g)
+        tried += 1
+        if r is not None:
+            game, before, after = r
+            assert after >= before + live.ARRANGE["min_gain"]
+            assert sorted(m["id"] for m in _json.loads(game.view(0))["me"]["board"]) == \
+                sorted(m["id"] for m in _json.loads(g.view(0))["me"]["board"])
+    assert tried > 0

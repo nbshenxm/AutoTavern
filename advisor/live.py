@@ -26,6 +26,7 @@ import numpy as np
 from hearthstone.enums import CardType, GameTag as T
 from hslog import LogParser, packets
 
+import taverngym
 from advisor import bridge, decisions, display, logs, meta
 from advisor.state import CAT, debug
 
@@ -312,6 +313,48 @@ def random_outcome(before, a, after):
     return None
 
 
+ARRANGE = {"n": 200, "min_gain": 0.04, "rounds": 3}
+
+
+def arrange(g):
+    """A better order of the player's warband against the next opponent's last seen warband:
+    swaps, each judged by `n` simulated combats on the same seeds (the score: win minus loss),
+    kept while one helps. (game with the warband in that order, score before, after), or None
+    when the next opponent's warband was never seen or no order gains `min_gain`."""
+    v = json.loads(g.view(0))
+    nxt = next((o for o in v["opponents"] if o.get("is_next_opponent")), None)
+    if nxt is None or not nxt.get("seen_board") or len(v["me"]["board"]) < 2:
+        return None
+    st = json.loads(g.state_json())
+    board = st["players"][0]["board"]
+
+    def game_with(order):
+        st["players"][0]["board"] = [board[i] for i in order]
+        return taverngym.Game.from_json(json.dumps(st))
+
+    def score(order):
+        r = debug(game_with(order), cmd="combat_preview", a=0, b=nxt["id"], n=ARRANGE["n"])
+        return r["win_a"] - r["win_b"]
+
+    order = list(range(len(board)))
+    base = best = score(order)
+    for _ in range(ARRANGE["rounds"]):
+        found = None
+        for i in range(len(order)):
+            for j in range(i + 1, len(order)):
+                cand = order[:]
+                cand[i], cand[j] = cand[j], cand[i]
+                s = score(cand)
+                if s > best + 1e-9:
+                    best, found = s, cand
+        if found is None:
+            break
+        order = found
+    if best - base < ARRANGE["min_gain"]:
+        return None
+    return game_with(order), base, best
+
+
 def combat_odds(g, n=300):
     """Win / tie / loss against the next opponent's last seen warband, or None."""
     v = json.loads(g.view(0))
@@ -345,6 +388,19 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         script, _, _ = search.best_plan(g, net, 0, allowed, SEARCH["k"], SEARCH["temperature"])
         policy_name += f", plan search over {SEARCH['k'] + 1}"
     plan, rows, after = plan_turn(g, locale, net, allowed, script)
+    arranged = None
+    if net is not None and d["kind"] == "options" and plan and plan[-1][0] == 0:
+        # The plan ends the turn: before it, the order that does best against the next
+        # opponent's last seen warband, when it clearly beats the planned one
+        arranged = arrange(after)
+        if arranged is not None:
+            after = arranged[0]
+            row = display.arrange_row(json.loads(after.view(0)), locale, name_of)
+            row["note"] = display.t(locale, "arrange_gain", before=arranged[1], after=arranged[2])
+            end = [i for i, r in enumerate(rows) if r.get("verb") == display.t(locale, "end")]
+            rows.insert(end[-1] if end else len(rows), row)
+            for n, r in enumerate(rows, 1):
+                r["n"] = n
     warnings = sorted(set(gaps))
     first = plan[0] if plan else None
     if first is not None and net is None:
@@ -359,6 +415,9 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     notes = [x for x in (display.odds_note("now", odds_now, locale, turn),
                          display.odds_note("after", odds_after, locale, turn),
                          display.comp_note(comp, locale, name_of)) if x]
+    if arranged is not None:
+        notes.append(display.t(locale, "arrange") + ": " + display.t(locale, "arrange_gain", before=arranged[1],
+                                                                    after=arranged[2]))
     kind, offered = bridge.choice_options(d)
     if kind in ("hero", "trinket"):
         note = display.offer_note(offered, locale, name_of)
