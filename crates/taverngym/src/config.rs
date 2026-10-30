@@ -368,10 +368,11 @@ impl RulesConfig {
 
     /// The fields that are not written while they have their default (the default config
     /// stays the same): `from_json` knows them by name.
-    const UNWRITTEN_AT_DEFAULT: [&'static str; 4] = [
+    const UNWRITTEN_AT_DEFAULT: [&'static str; 5] = [
         "hero_bans",
         "freeze_presses_per_turn",
         "moves_per_turn",
+        "teacher",
         "experimental_mode",
     ];
 
