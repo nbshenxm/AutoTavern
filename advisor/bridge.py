@@ -47,6 +47,7 @@ COUNTER_FROM_DATA = {
 }
 
 
+FAELIN_POWER = "BG22_HERO_201p"  # Expedition Plans
 # The game's own trinket offers (the Lesser at round 6, the Greater at round 9): paid
 REGULAR_TRINKET_OFFERS = {"BG30_Trinket_1st", "BG30_Trinket_2nd"}
 
@@ -280,9 +281,16 @@ def build(d, combats=(), seed=7):
     for t in me["trinkets"]:
         if t["card"] in TRINKET_USES_LEFT and t["data"][0] == 0 and t["card"] in CAT:
             p0["turn_data"].append([CAT[t["card"]]["cid"], TRINKET_USES_LEFT[t["card"]]])
+    # Ambassador Faelin's minions wait in hand until the Tavern reaches their Tier: held by the
+    # Hero Power (TavernGym releases them on the Upgrade), not locked for a number of turns
+    faelin = next((h for h in p0["powers"] if h.get("card") == CAT.get(FAELIN_POWER, {}).get("cid")), None)
     for card, logged in zip(p0["hand"], hand_cards(me)):
         if logged.get("unplayable"):
             card["locked"] = max(1, card.get("locked", 0))
+            item = card["item"].get("Minion")
+            if faelin is not None and item is not None and                     CAT.get(normal_form(logged.get("card") or "")[0], {}).get("tier", 0) > me.get("tier", 0):
+                card["held"] = True
+                faelin.setdefault("memory", []).append(item["card"])
     g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
 
