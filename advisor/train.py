@@ -267,6 +267,44 @@ def assign_opponents(env, pool, it):
             for g in range(env.n_games) for seat in OPPONENT_SEATS}
 
 
+MODELS = Path(__file__).resolve().parents[1] / "data" / "models"  # advisor.promote's
+GEN_BEST_SEATS, GEN_PAST_SEATS = (4, 5, 6), (7,)
+
+
+class Generation:
+    """--generations: each game's seats 4-6 play the frozen current best (data/models/best.pt,
+    reloaded when a promotion replaces it), seat 7 an older promoted network (archive/), and
+    the learner the other four. A generation trains against the network it has to beat."""
+
+    def __init__(self, device, models=MODELS):
+        self.device, self.best_path, self.archive = device, models / "best.pt", models / "archive"
+        self.version, self.best, self.past = None, None, []
+
+    def refresh(self, log):
+        """Reload when a promotion replaced the best; True then."""
+        if not self.best_path.is_file():
+            return False
+        version = self.best_path.stat().st_mtime_ns
+        if version == self.version:
+            return False
+        self.best, ck = load(self.best_path, self.device)
+        self.past = [load(f, self.device)[0]
+                     for f in sorted(self.archive.glob("best_*.pt"))[-POOL_SIZE:]]
+        self.version = version
+        log({"opponents": "generation", "best": ck.get("source"), "past": len(self.past)})
+        return True
+
+    def assign(self, env, it, pool):
+        past = self.past or pool
+        out = {}
+        for g in range(env.n_games):
+            if self.best is not None:
+                out.update({g * 8 + s: self.best for s in GEN_BEST_SEATS})
+            if past:
+                out.update({g * 8 + s: past[(g + it) % len(past)] for s in GEN_PAST_SEATS})
+        return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", help="run name (data/train/RUN)")
@@ -290,6 +328,8 @@ def main():
     ap.add_argument("--snapshot-every", type=int, default=50,
                     help="iterations between pool snapshots (opponents and the league gate)")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--generations", action="store_true",
+                    help="train against the frozen current best (Generation); best.pt by place vs it")
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
                     help="the first N iterations train only the value (after a hot start)")
     ap.add_argument("--anchor", help="keep the policy close to this checkpoint (a hot start)")
@@ -334,6 +374,8 @@ def main():
     seats = [Seat() for _ in range(env.n_slots)]
     obs = env.observe()
     pool = load_pool(out, a.device)
+    gen = Generation(a.device) if a.generations else None
+    best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
     log({"start": a.run, "params": sum(p.numel() for p in net.parameters()), "device": a.device,
          "iteration": it0, "slots": env.n_slots})
     if it0 == 0:
@@ -343,7 +385,9 @@ def main():
         wait_while_playing(log)
         it += 1
         ts = time.time()
-        opponents = assign_opponents(env, pool, it)
+        if gen and gen.refresh(log):
+            best_h2h = 4.5  # a new generation: the record against the old best is void
+        opponents = gen.assign(env, it, pool) if gen else assign_opponents(env, pool, it)
         obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
@@ -359,6 +403,7 @@ def main():
             stats["critic_warmup"] = True
         net.eval()
         row = {"iteration": it, "batch": len(batch), "episodes": len(placements),
+               "place": round(float(np.mean(placements)), 3) if placements else None,
                "collect_s": round(tc - ts, 1), "update_s": round(time.time() - tc, 1),
                "decisions_per_s": round(len(batch) / max(1e-6, tc - ts)), **stats}
         if it % a.snapshot_every == 0:
@@ -373,11 +418,21 @@ def main():
             if pool:
                 row["league"] = evaluate_league(net, pool, a.device, a.eval_episodes,
                                                 threads=a.threads)
-            if ev["mean_place"] < best:
+            if gen and gen.best is not None:
+                vs = evaluate_league(net, [gen.best], a.device, a.eval_episodes, threads=a.threads)
+                vs.pop("pool", None)
+                row["vs_best"] = vs
+                if vs["mean_place"] < best_h2h:  # the candidate advisor.promote judges
+                    best_h2h = vs["mean_place"]
+                    save(net, out / "best.pt", {"iteration": it, "eval": ev, "best": best,
+                                                "vs_best": vs, "best_h2h": best_h2h})
+            elif ev["mean_place"] < best:
                 best = ev["mean_place"]
                 save(net, out / "best.pt", {"iteration": it, "eval": ev, "best": best})
+            best = min(best, ev["mean_place"])
         log(row)
-        save(net, out / "last.pt", {"iteration": it, "best": best, "opt": opt.state_dict()})
+        save(net, out / "last.pt", {"iteration": it, "best": best, "best_h2h": best_h2h,
+                                    "opt": opt.state_dict()})
         if budget == 0 and it - it0 >= 1:
             break
 

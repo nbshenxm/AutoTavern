@@ -119,3 +119,23 @@ def test_pretrain_learns_the_teachers_actions():
     for _ in range(5):
         last = pretrain.train_step(net, opt, batch, "cpu", 256, False)
     assert last["loss"] < first["loss"]
+
+
+def test_generation_opponents(tmp_path):
+    # Seats 4-6 of every game play the frozen best, seat 7 an archived one; reloaded on a change
+    from taverngym import BatchEnv
+
+    models = tmp_path / "models"
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    train.save(net, models / "best.pt")
+    train.save(net, models / "archive" / "best_1.pt")
+    gen = train.Generation("cpu", models)
+    rows = []
+    assert gen.refresh(rows.append) and not gen.refresh(rows.append)
+    env = BatchEnv(2, seed=8, controlled=list(range(8)), config=train.CONFIG)
+    opp = gen.assign(env, 1, [])
+    assert sorted(opp) == [4, 5, 6, 7, 12, 13, 14, 15]
+    assert opp[4] is gen.best and opp[7] is gen.past[0]
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    _, placements = train.collect(env, gen.best, env.observe(), seats, 256, "cpu", opp)
+    assert not any(seats[i].items for i in opp), "the frozen seats aren't learned from"
