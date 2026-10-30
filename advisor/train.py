@@ -209,7 +209,7 @@ class TrinketPrior:
 
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
            amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0,
-           prior=None, prior_coef=0.0):
+           prior=None, prior_coef=0.0, chunk=CHUNK):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
     probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
     policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
@@ -232,7 +232,7 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     for _ in range(epochs):
         for idx in torch.randperm(n).split(minibatch):
             opt.zero_grad()
-            for part in idx.split(CHUNK):  # gradients added up: one step per minibatch
+            for part in idx.split(chunk):  # gradients added up: one step per minibatch
                 w = len(part) / len(idx)
                 fp, cp, mp = f[part].to(device), c[part].to(device), m[part].to(device)
                 with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
@@ -265,7 +265,7 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                     stats[k] += x * w
             if search is not None and search_coef > 0 and len(search) and not value_only:
                 sf, sc, sm, sa = (torch.from_numpy(x).to(device)
-                                  for x in search.sample(min(len(idx), CHUNK), rng))
+                                  for x in search.sample(min(len(idx), chunk), rng))
                 with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
                     slog, _ = net(sf, sc, sm)
                 slog = slog.float()
@@ -440,6 +440,7 @@ def main():
                     help="iterations over which the anchor fades out")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--gpu-memory", type=float, default=0.4, help="the most of the GPU it takes")
+    ap.add_argument("--chunk", type=int, default=CHUNK, help="rows per forward pass in updates (memory)")
     a = ap.parse_args()
     cap_gpu_memory(a.device, a.gpu_memory)
     from advisor import meta
@@ -531,7 +532,7 @@ def main():
             sbuf.refresh()
         stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
                        anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef,
-                       prior=prior, prior_coef=a.trinket_prior)
+                       prior=prior, prior_coef=a.trinket_prior, chunk=a.chunk)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
         if warm:
