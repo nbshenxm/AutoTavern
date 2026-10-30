@@ -832,6 +832,40 @@ impl Game {
     /// eliminate, and start the next turn.
     /// Pair living players for this turn's combat (avoiding last opponents when possible)
     /// and publish each player's next opponent, so it is known during the recruit phase.
+    /// `RulesConfig::library`: the library seats take a real warband of this round (drawn from
+    /// the seed, the round and the seat, not the game's random stream).
+    fn library_boards(&mut self) {
+        let Some(lib) = self.cfg.library.clone() else { return };
+        let Some(nearest) = lib.boards.iter().map(|b| b.round.abs_diff(self.turn)).min() else {
+            return;
+        };
+        let pool: Vec<&crate::config::LibraryBoard> =
+            lib.boards.iter().filter(|b| b.round.abs_diff(self.turn) == nearest).collect();
+        for &p in &lib.seats {
+            if p >= self.players.len() || !self.players[p].alive {
+                continue;
+            }
+            let mut rng = crate::rng::Rng::new(
+                self.seed ^ 0x11B2_A27C_0000_0000 ^ ((self.turn as u64) << 8) ^ p as u64,
+            );
+            let b = pool[rng.below(pool.len())];
+            let minions: Vec<Minion> = b
+                .minions
+                .iter()
+                .take(self.cfg.board_size)
+                .map(|m| {
+                    let mut m = m.clone();
+                    m.eid = self.alloc_eid();
+                    m
+                })
+                .collect();
+            let pl = &mut self.players[p];
+            pl.board = minions.clone();
+            pl.last_board = minions;
+            pl.tier = b.tier.max(1);
+        }
+    }
+
     pub fn decide_pairs(&mut self) {
         let alive: Vec<PlayerId> = (0..self.players.len())
             .filter(|p| self.players[*p].alive)
@@ -917,6 +951,7 @@ impl Game {
     pub fn combat_round(&mut self) {
         // Records (and replay frames) describe only the most recent round.
         self.last_combats.clear();
+        self.library_boards();
         let alive: Vec<PlayerId> = (0..self.players.len())
             .filter(|p| self.players[*p].alive)
             .collect();

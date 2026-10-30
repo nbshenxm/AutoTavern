@@ -194,3 +194,35 @@ def test_a_non_finite_batch_skips_the_step(tmp_path):
     stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128, search=buf, search_coef=1.0)
     assert stats["skipped"] >= 1
     assert all(torch.isfinite(p).all() for p in net.parameters())
+
+
+def test_library_seats_fight_with_real_warbands(tmp_path):
+    # A library seat's warband at combat is one of the library's boards of that round
+    import json as _json
+
+    import taverngym
+    from advisor import library
+
+    g = taverngym.Game(1, _json.dumps(train.CONFIG))
+    for _ in range(200):
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    st = _json.loads(g.state_json())
+    template = next(m for p in st["players"] for m in p["board"])
+    boards = []
+    for rnd in range(1, 30):
+        m = {**template, "atk": 100 + rnd, "hp": 200 + rnd}
+        boards.append({"round": rnd, "tier": 3, "minions": [m, dict(m)]})
+    path = tmp_path / "boards.json"
+    path.write_text(_json.dumps(boards))
+    cfg = {**train.CONFIG, "library": library.library([7], path)}
+    g = taverngym.Game(2, _json.dumps(cfg))
+    while not g.is_over() and g.turn < 6:
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    p7 = _json.loads(g.state_json())["players"][7]
+    seen = [(m["atk"], m["hp"]) for m in p7["last_board"]]
+    assert seen and all(a - 100 == h - 200 and 1 <= a - 100 <= g.turn for a, h in seen), seen
+    assert p7["tier"] == 3

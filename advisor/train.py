@@ -256,10 +256,12 @@ def evaluate(net, device, episodes=200, games=32, seed=10_000_000, threads=8, co
 
 
 @torch.no_grad()
-def evaluate_league(net, pool, device, episodes=200, games=32, seed=30_000_000, threads=8):
+def evaluate_league(net, pool, device, episodes=200, games=32, seed=30_000_000, threads=8,
+                    config=None):
     """Mean placement of the greedy network on seat 0 against seven pool snapshots (greedy too):
-    under 4.5 beats its own past versions."""
-    env = BatchEnv(games, seed=seed, controlled=list(range(8)), config=CONFIG, threads=threads)
+    under 4.5 beats its own past versions. `config`: other rules (library seats...)."""
+    env = BatchEnv(games, seed=seed, controlled=list(range(8)), config=config or CONFIG,
+                   threads=threads)
     net_of = {i: pool[(i // 8 + i % 8) % len(pool)] for i in range(env.n_slots) if i % 8}
     net_of.update({i: net for i in range(env.n_slots) if i % 8 == 0})
     obs = env.observe()
@@ -366,6 +368,8 @@ def main():
                     help="search games (advisor.search_games): also learn the search's choices")
     ap.add_argument("--search-coef", type=float, default=0.2)
     ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
+    ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
+                    help="these seats fight with real warbands from the logs (advisor.library)")
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
                     help="the first N iterations train only the value (after a hot start)")
     ap.add_argument("--anchor", help="keep the policy close to this checkpoint (a hot start)")
@@ -414,8 +418,12 @@ def main():
     if a.search_data:
         from advisor.search_games import SearchBuffer
         sbuf = SearchBuffer(a.search_data, a.search_buffer)
+    train_config = CONFIG
+    if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
+        from advisor import library
+        train_config = {**CONFIG, "library": library.library(a.library)}
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=list(range(8)),
-                   config=CONFIG, threads=a.threads)
+                   config=train_config, threads=a.threads)
     seats = [Seat() for _ in range(env.n_slots)]
     obs = env.observe()
     pool = load_pool(out, a.device)
@@ -476,6 +484,11 @@ def main():
                 vs = evaluate_league(net, [gen.best], a.device, a.eval_episodes, threads=a.threads)
                 vs.pop("pool", None)
                 row["vs_best"] = vs
+                if a.library:  # one seat against the best and real warbands: closest to a lobby
+                    vl = evaluate_league(net, [gen.best], a.device, a.eval_episodes,
+                                         threads=a.threads, config=train_config)
+                    vl.pop("pool", None)
+                    row["vs_library"] = vl
                 if vs["mean_place"] < best_h2h:  # the candidate advisor.promote judges
                     best_h2h = vs["mean_place"]
                     save(net, out / "best.pt", {"iteration": it, "eval": ev, "best": best,

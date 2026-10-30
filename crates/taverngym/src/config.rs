@@ -230,8 +230,32 @@ pub struct RulesConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub teacher: Option<TeacherConfig>,
 
+    /// Opponents with real warbands (not a game rule: training against boards from real games,
+    /// AutoTavern's "library seats"). Before each combat, each of `Library::seats` that is alive
+    /// fights with a warband of this round from `Library::boards` (the nearest round when this
+    /// one has none), at that board's Tavern Tier. None = off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library: Option<Library>,
+
     /// Record a structured event log (debugging; costs speed).
     pub record_log: bool,
+}
+
+/// Real warbands for library seats (`RulesConfig::library`), shared between games.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Library {
+    pub seats: Vec<usize>,
+    pub boards: std::sync::Arc<Vec<LibraryBoard>>,
+}
+
+/// One warband seen in a real game: the round, its owner's Tavern Tier and its minions.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibraryBoard {
+    pub round: u32,
+    pub tier: u8,
+    pub minions: Vec<crate::state::Minion>,
 }
 
 /// A strategy for the scripted bots (`RulesConfig::teacher`, `teacher.rs`): card ids with the
@@ -328,6 +352,7 @@ impl Default for RulesConfig {
             moves_per_turn: 0,
             max_turns: max_turns(),
             teacher: None,
+            library: None,
             record_log: false,
         }
     }
@@ -368,11 +393,12 @@ impl RulesConfig {
 
     /// The fields that are not written while they have their default (the default config
     /// stays the same): `from_json` knows them by name.
-    const UNWRITTEN_AT_DEFAULT: [&'static str; 5] = [
+    const UNWRITTEN_AT_DEFAULT: [&'static str; 6] = [
         "hero_bans",
         "freeze_presses_per_turn",
         "moves_per_turn",
         "teacher",
+        "library",
         "experimental_mode",
     ];
 
