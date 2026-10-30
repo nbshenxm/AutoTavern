@@ -17,8 +17,10 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 - **Arrange advice.** When the plan ends the turn and the next opponent's warband has been
   seen, the advisor tries other orders of your warband in simulated combats and adds an Arrange
   step when one clearly does better (the network itself rarely rearranges).
-- **A simulator rule fixed:** with equal warbands, who attacks first is random, not the higher
-  Tavern Tier (your logs: the higher Tier went first in only 17 of 29 such combats).
+- **Four simulator mistakes fixed,** found by comparing the logged attacks of your combats
+  with the simulator's: who attacks first with equal warbands (random, not the higher Tier),
+  that it's settled after Start of Combat, Dark Gifts the log numbers differently (an
+  Admiration's +153 Attack was lost), and rebuilt hands forming triples that hadn't happened.
 - **More of your games' data used:** gold next turn and the free Refresh count are now read
   from the log; three sessions the first export had missed are in (95.8% of 2,603 logged
   decisions now match the client's options exactly).
