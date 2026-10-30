@@ -17,7 +17,8 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
   every game: the home sync sends them). A new number, `vs_best_real`, plays the network in your
   seat from every one of them (paired with the best's own result).
 - **The live advisor ran over all your games** (2,603 decisions, plan search on): no errors,
-  median 0.6 s. One decision took 6 minutes (beside a heavy job); being tracked down.
+  median 0.6 s beside a heavy job. Timed again on a quiet PC: median 0.4 s, 95% under 1.0 s,
+  the slowest of 2,818 decisions 8.3 s (a 6-minute one in the first run didn't come back).
 - **The larger network** (8.6M parameters, distilled from the best) continues as `big2`
   (PPO, search targets, real starts), in `lib2`'s place: the library seats alone didn't help.
 
