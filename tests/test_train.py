@@ -359,3 +359,28 @@ def test_evaluate_real_plays_each_start_once():
     net = EntityNet()
     r = train.evaluate_real(net, net, [st, st, st], "cpu", games=2, threads=1)
     assert r["n"] == 3 and 1 <= r["mean_place"] <= 8
+
+
+def test_the_real_positions_promotion_pair(monkeypatch):
+    import json as _json
+
+    import taverngym
+    from advisor import promote
+
+    g = taverngym.Game(6, _json.dumps(train.CONFIG))
+    while g.turn < 4:
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    st = _json.loads(g.state_json())
+
+    class Starts:
+        def __init__(self, *a, **k):
+            self.states = [st, st]
+
+    monkeypatch.setattr(promote, "RealStarts", Starts)
+    monkeypatch.setitem(promote.REAL, "reps", 2)
+    net = EntityNet()
+    r = promote.real_pair(net, net, "cpu", 1, 47_000_000)
+    # the same network on the same seeds: the very same games
+    assert r["n"] == 4 and r["diff"] == 0 and not promote.real_better(r)

@@ -411,10 +411,12 @@ def load_start(env, i, state):
                             "finished": [not p["alive"] for p in st["players"]]}))
 
 
-def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads=8):
+def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads=8,
+                  places_out=None):
     """From every stored real position once (RealStarts.states): mean placement of the greedy
     network in the player's seat (0) with `other` (greedy) in the seven others. Paired: the
-    same starts and seeds for every network, so two networks' numbers compare directly."""
+    same starts and seeds for every network, so two networks' numbers compare directly.
+    `places_out` (a list) gets each start's placement, in order."""
     places = []
     for k in range(0, len(states), games):
         chunk = states[k:k + games]
@@ -425,17 +427,21 @@ def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads
         net_of = {i: (net if i % 8 == 0 else other) for i in range(env.n_slots)}
         obs = env.observe()
         got = {}
-        while len(got) < len(chunk):
+        for _ in range(100_000):  # a guard: games end long before
+            if len(got) == len(chunk):
+                break
             ready = np.flatnonzero(obs["ready"] & obs["action_mask"].any(1))
             ready = np.array([i for i in ready if i // 8 not in got], dtype=np.int64)
             actions = np.zeros(env.n_slots, dtype=np.int64)
             play_frozen(obs, ready, net_of, actions, device)
             _, done, info = env.step(actions)
             for i in np.flatnonzero(done):
-                if i % 8 == 0 and info["placement"][i] and i // 8 not in got:
-                    got[i // 8] = int(info["placement"][i])
+                if i % 8 == 0 and i // 8 not in got:  # a stopped game has no placement: 4.5
+                    got[i // 8] = int(info["placement"][i]) or 4.5
             obs = env.observe()
-        places += got.values()
+        places += [got.get(i, 4.5) for i in range(len(chunk))]
+    if places_out is not None:
+        places_out.extend(places)
     return {"mean_place": round(float(np.mean(places)), 3),
             "se": round(float(np.std(places) / np.sqrt(len(places))), 3), "n": len(places)}
 

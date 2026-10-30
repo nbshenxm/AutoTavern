@@ -8,7 +8,9 @@ clearly worse either; against bots alone strong networks all place near 2 and ca
 apart. A winner must then win again on 1,000 games of seeds no gate has used (winner's curse: with
 many candidates judged on the same seeds, the luckiest one wins). A candidate not clearly better
 head to head (but not clearly worse) can also win in lobbies with real warbands (two library
-seats, advisor.library): clearly better there than the current best on the same seeds, twice.
+seats, advisor.library): clearly better there than the current best on the same seeds, twice;
+or from the player's own positions (every logged round start, advisor.train.evaluate_real):
+clearly better than the best there, paired start by start, twice.
 The replaced network is kept in data/models/archive/, every decision is logged in
 data/models/promotions.jsonl, and a checkpoint already judged at its current version is not
 judged again.
@@ -29,7 +31,7 @@ import torch
 import taverngym
 
 from advisor.policy import load
-from advisor.train import CONFIG, evaluate, evaluate_league
+from advisor.train import CONFIG, RealStarts, evaluate, evaluate_league, evaluate_real
 
 MODELS = Path(__file__).resolve().parents[1] / "data" / "models"
 # A gate is only comparable under one set of rules and one simulator build (a fixed card or
@@ -41,6 +43,31 @@ HEAD_TO_HEAD = {"episodes": 1000, "seed": 40_000_000}  # seeds no other gate use
 # them library seats (real warbands from the logs, advisor.library); candidate and best on the
 # same seeds
 LIBRARY = {"episodes": 1000, "seed": 45_000_000, "seats": [6, 7], "bot_slack": 0.1}
+# From the player's own positions: each logged round start `reps` times (other seeds), the
+# candidate and the best each in the player's seat with the best in the seven others
+REAL = {"reps": 3, "seed": 47_000_000}
+
+
+def real_pair(cand_net, cur_net, device, threads, seed):
+    """{candidate, current, diff, se, n}: mean placements from the logged round starts and
+    the paired difference (candidate minus best); None without starts."""
+    states = RealStarts(1.0, 0, log=lambda r: None).states
+    if not states:
+        return None
+    places = ([], [])
+    for r in range(REAL["reps"]):
+        for n, out in zip((cand_net, cur_net), places):
+            evaluate_real(n, cur_net, states, device, seed=seed + r * 1000, threads=threads,
+                          places_out=out)
+    d = [a - b for a, b in zip(*places)]
+    mean = sum(d) / len(d)
+    sd = math.sqrt(sum((x - mean) ** 2 for x in d) / max(1, len(d) - 1))
+    return {"candidate": round(sum(places[0]) / len(d), 3), "current": round(sum(places[1]) / len(d), 3),
+            "diff": round(mean, 3), "se": round(sd / math.sqrt(len(d)), 3), "n": len(d)}
+
+
+def real_better(r):
+    return r is not None and r["diff"] < -2 * r["se"]
 
 
 def library_pair(cand_net, cur_net, device, threads, seed):
@@ -148,6 +175,14 @@ def main():
                 elif pair:
                     lib = {"candidate": pair[0], "current": pair[1]}
                 h2h["library"] = lib
+                if not better:
+                    # Or: clearly better from the player's own positions; confirmed on fresh seeds
+                    real = real_pair(cand_net, cur_net, a.device, a.threads, REAL["seed"])
+                    if real_better(real):
+                        fresh = 80_000_000 + (int(time.time()) % 1_000_000) * 1000
+                        real["confirm"] = real_pair(cand_net, cur_net, a.device, a.threads, fresh)
+                        better = real_better(real["confirm"])
+                    h2h["real"] = real
             elif better:
                 # Winner's curse: many candidates judged on the same seeds, the luckiest wins.
                 # A winner must win again on seeds no gate has used.
