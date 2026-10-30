@@ -42,7 +42,7 @@ def collect(env, obs, teacher, n, device):
     return [np.concatenate(r) for r in rows], obs
 
 
-def train_step(net, opt, batch, device, minibatch, amp, vf=0.5):
+def train_step(net, opt, batch, device, minibatch, amp, vf=0.5, chunk=CHUNK):
     f, c, m, p, v = batch
     order = np.random.permutation(len(v))
     stats = {"kl": 0.0, "v": 0.0, "agree": 0.0}
@@ -50,8 +50,8 @@ def train_step(net, opt, batch, device, minibatch, amp, vf=0.5):
     for s in range(0, len(v), minibatch):
         j = order[s:s + minibatch]
         opt.zero_grad()
-        for k in range(0, len(j), CHUNK):  # gradients added up: one step per minibatch
-            jj = j[k:k + CHUNK]
+        for k in range(0, len(j), chunk):  # gradients added up: one step per minibatch
+            jj = j[k:k + chunk]
             ft, ct, mt = (torch.from_numpy(x[jj]).to(device) for x in (f, c, m))
             pt = torch.from_numpy(p[jj].astype(np.float32)).to(device)
             vt = torch.from_numpy(v[jj]).to(device)
@@ -91,6 +91,7 @@ def main():
     ap.add_argument("--resume")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--gpu-memory", type=float, default=0.3)
+    ap.add_argument("--chunk", type=int, default=CHUNK, help="rows per forward pass (memory, not the step)")
     a = ap.parse_args()
     cap_gpu_memory(a.device, a.gpu_memory)
     out = Path(a.out) / a.run
@@ -125,7 +126,7 @@ def main():
         ts = time.time()
         batch, obs = collect(env, obs, teacher, a.transitions, a.device)
         tc = time.time() - ts
-        stats = train_step(net, opt, batch, a.device, a.minibatch, a.amp)
+        stats = train_step(net, opt, batch, a.device, a.minibatch, a.amp, chunk=a.chunk)
         row = {"iteration": it, "batch": len(batch[4]), "collect_s": round(tc, 1),
                "update_s": round(time.time() - ts - tc, 1), **stats}
         if it % a.eval_every == 0:
