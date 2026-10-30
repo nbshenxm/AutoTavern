@@ -150,6 +150,8 @@ def main():
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument("--hours", type=float, default=0)
     ap.add_argument("--seed", type=int, default=80_000_000)
+    ap.add_argument("--stop-if-playing", action="store_true",
+                    help="stop when Hearthstone runs (a run on the home PC)")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -159,6 +161,11 @@ def main():
         for r in range(10**9):
             if a.hours and time.time() - t0 > a.hours * 3600:
                 break
+            if a.stop_if_playing:
+                from advisor.train import hearthstone_running
+                if hearthstone_running():
+                    print("Hearthstone started: stopping", flush=True)
+                    break
             jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature) for i in range(batch)]
             for rows, pl in pool.imap_unordered(play, jobs):
                 pending += rows
