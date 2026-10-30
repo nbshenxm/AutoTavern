@@ -4,23 +4,19 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
-## Overnight, Oct 29-30
+## Overnight results (Oct 30 morning)
 
-Three training lines on the office, all against the frozen current best, competing for promotion
-(each hour, whichever clearly beats the best on one seat against seven copies of it, twice):
-
-| Run | What | Until (office time) |
-| --- | --- | --- |
-| `gen1` | generations: PPO against the best | 10:25 |
-| `gensearch1` | the same, plus the plan search's choices as targets | 09:20 |
-| `teachppo1` | from the hot start (your strategy), held near it at first; starts about 00:50 | 10:45 |
-
-The search games (12 cores) keep making targets until about 08:55. A supervisor checks every 20
-minutes and restarts a run that crashed or stopped logging. A promoted network reaches your PC
-within the hour (the home sync), and the progress page shows all of it.
-
-In the morning: which line got promoted (the table "Is training making it stronger?"), each
-line's place against the current best, and whether the search line pulls ahead.
+- **Your hot start worked.** The line that started by copying your strategy (`teachppo1`) made
+  the best network: promoted at 05:23, it beat the previous best head to head (4.22, again 4.20
+  on fresh games; 4.5 is even) and places 1.61 against the plain bots. It is in your overlay.
+- `gen1` was promoted once (23:24), then got slightly worse than its own promoted copy as it kept
+  training (4.9-5.6 head to head). PPO after a promotion wanders: progress isn't steady.
+- The search-guided line (`gensearch1`) never beat the best and then broke: a few stored
+  decisions had numbers too large for the storage format, which ruined the network. Fixed; the
+  test of search-guided training is still open.
+- `teachppo1`'s restart at 07:20 (after a crash) put its pull toward the teacher back at full
+  strength, which set it back. Fixed; it continues without it.
+- Your PC slept from about 23:20, so the overlay only got the new network this morning.
 
 ## Latest
 
