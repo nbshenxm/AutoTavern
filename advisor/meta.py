@@ -3,7 +3,6 @@
 advice), and the one a player's cards are closest to.
 
     python -X utf8 -m advisor.meta          # fetch (at most once a day) and list the comps
-    python -X utf8 -m advisor.meta --bot-config comp_bots.json   # and write a bot config
 """
 
 import gzip
@@ -100,23 +99,10 @@ def closest(cards, guides=None):
             "missing": [c for c in g["core"] if c not in owned]}
 
 
-TIER_WEIGHT = {1: 3.0, 2: 2.0, 3: 1.0}  # how often a bot takes a comp of each HSReplay tier
-
-
-def bot_comps(guides=None):
-    """The comps for TavernGym's scripted bots (RulesConfig.bot_comps), weighted by tier."""
-    return [{"core": g["core"], "addon": g["addon"], "weight": TIER_WEIGHT.get(g["tier"], 1.0)}
-            for g in (guides if guides is not None else comps())]
-
-
 def main():
     fetch(force="--force" in sys.argv)
     for g in sorted(comps(), key=lambda g: g["tier"]):
         print(g["tier"], g["name"], g["core"])
-    if "--bot-config" in sys.argv:  # a RulesConfig for examples/comp_bots.rs
-        from advisor.state import GAME_CONFIG
-        out = Path(sys.argv[sys.argv.index("--bot-config") + 1])
-        out.write_text(json.dumps({**GAME_CONFIG, "bot_comps": bot_comps(), "bot_comp_pct": 50}))
 
 
 if __name__ == "__main__":

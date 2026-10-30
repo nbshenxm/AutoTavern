@@ -32,6 +32,7 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "teachppo1": "generations from the hot start",
     "safe1": "generations, small steps from the best",
     "lib1": "generations + real warbands from your logs",
+    "search2": "generations + learning the plan search's choices",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 SIMULATOR = [

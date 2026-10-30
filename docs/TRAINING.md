@@ -3,69 +3,91 @@
 ```bash
 python -X utf8 -m advisor.train --run NAME --minutes 10          # home: short runs only
 ssh office 'bash -s' < scripts/office/setup.sh                          # office: pull + build
-ssh office "RUN=NAME HOURS=6 THREADS=8 bash -s" < scripts/office/train.sh  # office: run, detached
+ssh office "RUN=NAME HOURS=6 THREADS=10 EXTRA='...' bash -s" < scripts/office/train.sh   # detached
 ```
 
-`advisor.train` is PPO self-play: TavernGym's batched environment with all eight seats
-played by the current network (`advisor.policy.PolicyNet`: an embedding per card slot plus the
-observation floats through a signed log, an MLP, a policy head over the 245 actions with
-illegal ones masked, a value head; 8.1M parameters). A seat's episode ends with the placement
-reward (1st = 1, 8th = -1); seats act asynchronously, so each keeps its own trajectory (GAE,
-gamma 0.995, lambda 0.95). Every 10 iterations the greedy network plays seat 0 against seven
-scripted bots on fresh seeds: mean placement over 200 games (bots against bots: 4.5).
-Checkpoints: `data/train/NAME/last.pt` (resumable) and `best.pt` (best gate result). It waits
-while Hearthstone runs.
+Results of every experiment are in [EXPERIMENTS.md](EXPERIMENTS.md); the plain-words state of
+things in [STATUS.md](STATUS.md); the numbers over time on the progress page
+(`data/report.html`, `advisor.report`).
 
-**League.** Every 50 iterations a frozen snapshot joins a pool (the newest 6, kept in
-`data/train/NAME/pool`). In training, seats 6 and 7 of every game are played by pool snapshots
-(not learned from), so the network keeps meeting its past versions, not only itself; the gate
-adds the network on seat 0 against seven pool snapshots (`league` in the log: under 4.5 beats its
-past versions). `python -m advisor.train --evaluate CKPT --eval-episodes 1000` runs the bot gate
-alone on seeds no training gate uses.
+## The network
 
-The rules are `advisor.state.GAME_CONFIG`, shared with the live advisor (a network planning
-without the cap it learned with would move minions for ever). Two rules keep the games moving: a per-turn action cap a little above the most the player
-took in a logged turn (`turn_action_caps`: 8, 8, 12, 12, 20, 40, 40, then 60), and
-a new network starting unlikely to move minions (49 of the 245 actions are moves, which never
-advance the game: an untrained policy chose them 99.8% of the time and no game ended).
-`hero_choices` is 4, the player's offer.
+`advisor.policy.EntityNet` (0.86M parameters): a token per card slot (its learned card embedding
+plus the card table, with that slot's floats: stats, keywords, types, counters, prices) and a
+global token, a 3-layer transformer, and pointer heads: an action on a Tavern, hand or warband
+slot is scored from that slot's token; a value head.
 
-**Promotion.** The live advisor uses `data/models/best.pt` when it exists and the scripted
-bot otherwise. Copy a network there only when its gate result beats the bots (mean placement
-clearly under 4.5; the first target is under 3.0) on 1,000 fresh games.
+- **The card table** (`card_table`): what each card is, from TavernGym's card data, rebuilt at
+  every load: kind, minion types, printed mechanics (Battlecry, Deathrattle, Avenge, Rally...),
+  keywords, Tier, cost, stats, the types a trinket or hero goes with, and a trinket's public
+  average placement and pick rate (Firestone, `advisor.meta`). It is added to the embedding
+  through zero-initialized weights.
+- **Observation layout** (`taverngym.layout()`, obs.rs). Version 2 (2026-10-30) added a minion's
+  counter, the turn's actions and moves left, the damage cap, streak and last damage, and how
+  old each opponent's last seen warband is. A network saved for an older layout or a narrower
+  card table is adapted at load (`policy.adapt`: zero weights for what is new): it computes
+  exactly what it did, then learns to use the rest.
 
-## Runs
+## PPO
 
-| Run | Where | Length | Decisions | Gate (mean placement vs bots) |
-| --- | --- | --- | ---: | --- |
-| smoke1 | home, RTX 5090, 8 threads | 10 min, 211 iterations | 7.0M (about 4,100 games) | 7.97 untrained → 5.52, top 4 in 27.5%; still falling |
-| smoke1 (resumed) | home | +50 min, to iteration 1535 | 50.7M in all (about 21,700 games) | best at iteration 1170: **3.53 ± 0.06 on 1,000 unseen games** (top 4 in 71%); flat around 3.5-3.7 after iteration 800 |
-| office1 | office, RTX 4080 (shared), 8 threads | 6 h from 16:45, league from iteration 600 | running | about 4.0 vs bots and 4.3-4.4 in the league by iteration 800 |
-| entity1 | home, `--arch entity` | 30 min, 160 iterations | about 5M | best at iteration 70: **3.30 ± 0.05 on 1,000 unseen games** (top 4 in 76%) after 10 minutes; then worse (4.9 at 30 min) while the entropy rose 2.4 → 3.0 |
-| entity2 | home, `--arch entity --lr 1e-4 --ent 0.0025` | 30 min | running | |
+`advisor.train`: TavernGym's batched environment, every seat's decisions in trajectories (GAE,
+gamma 0.995, lambda 0.95), the placement reward (1st = 1, 8th = -1), updates in chunks of 1,024
+rows (same step, less GPU memory), bf16 with `--amp`. A non-finite step is skipped. The rules
+are `advisor.state.GAME_CONFIG`, shared with the live advisor: `turn_action_caps` (8, 8, 12, 12,
+20, 40, 40, then 60 actions a turn), moves outside that budget at most 7 a turn
+(`moves_per_turn`), `hero_choices` 4. Ending a turn with gold while a Refresh is possible and
+the Tavern unfrozen costs 0.003 reward per gold. It waits while Hearthstone runs (home).
 
-The entity network learns far faster for the time: at equal minutes the MLP was at 5.8 (10
-min), 4.8 (15), 4.4 (20) and 3.8 (30). Its update costs more (3.8 s against 0.6 s per
-iteration), its collection the same.
+Opponents and extras, by option:
 
-**Promoted** (2026-10-29): first smoke1 iteration 1170 (MLP, 3.53), then entity1 iteration 70
-(entity network, 3.30; live advice 109 ms median) as `data/models/best.pt`; the MLP is kept as
-`best_mlp_smoke1_it1170.pt`. Both beat the scripted bots, which is all they have been measured
-against: early networks, not yet advice to rely on.
+- **`--generations`**: seats 4-6 of every game are the frozen current best (`data/models/best.pt`,
+  reloaded when a promotion replaces it), seat 7 an archived earlier best, the learner the other
+  four. The run's `best.pt` is the network that placed best against the current best.
+- **`--library 6 7`**: those seats fight with real warbands from the logs (library seats,
+  `advisor.library`: both sides of every logged combat as TavernGym minions, the round and Tier
+  kept; the home sync rebuilds them after new games and the run takes them up). Tested each
+  time against the best plus two library seats (`vs_library`).
+- **`--search-data DIR...`**: also learn the plan search's choices: 0.2 x the cross-entropy to the
+  newest 200,000 searched decisions (`advisor.search_games` makes them on the office's CPUs).
+- **`--anchor CKPT`, `--anchor-best COEF`, `--critic-warmup N`**: stay near a checkpoint (KL,
+  fading) or near the current best; train only the value first (after a hot start).
+- **`--trinket-prior COEF`**: pull trinket picks toward the public preference. Off: the
+  public averages lose to the network's own picks in the simulator (EXPERIMENTS.md).
 
-Throughput at home: about 22,000-34,000 decisions per second collecting, 2.8 s per iteration
-of 33,000 decisions.
+**Hot start.** `advisor.pretrain` trains a network to copy the teacher bot (`teacher.rs`, the
+player's strategy: leveling curve, Dark Gifts, triples, spending all gold, meta comps) before
+PPO; `teachppo1`, PPO from it in generations, made the best networks of Oct 30.
 
-## Keeping the overlay's network current
+## Promotion
 
-1. **Office, hourly at :10** (user crontab): `scripts/office/promote.sh` runs `advisor.promote`
-   on every run's `best.pt`. Each candidate plays the bot gate on the same 1,000 unseen seeds as
-   the current network and replaces `data/models/best.pt` only when its mean placement is lower
-   by more than twice the combined standard error (about 0.15 at present). Replaced networks go
-   to `data/models/archive/`; every decision is in `data/models/promotions.jsonl`
-   (`promote.log` holds the output); a checkpoint is judged once per version.
-2. **Home, hourly at :20** (scheduled task "TavernAdvisor Model Sync"): `scripts/sync_model.ps1`
-   copies the office's `best.pt` and `promotions.jsonl` into this repository's `data/models`
-   when they changed (the old network archived). Log: `%LOCALAPPDATA%\TavernAdvisor\sync.log`.
-   Remove: `Unregister-ScheduledTask -TaskName "TavernAdvisor Model Sync" -Confirm:$false`.
-3. **The advisor** reloads `data/models/best.pt` whenever the file changes, mid-session too.
+Hourly on the office (`scripts/office/promote.sh` → `advisor.promote`), every run's `best.pt`:
+
+1. against seven plain bots on 1,000 unseen seeds: not clearly worse than the current network
+   (measured again whenever the rules or the simulator build change);
+2. one seat against seven copies of the current network, 1,000 games: clearly under 4.5, then
+   again on 1,000 fresh seeds (a winner of many judged candidates is partly luck); **or**
+3. in lobbies with two library seats: clearly better than the current network on the same
+   seeds, twice, and not clearly worse head to head (the bots' floor with 0.1 places to spare).
+
+The replaced network goes to `data/models/archive/`; every decision is in
+`data/models/promotions.jsonl`.
+
+## Keeping things going
+
+- **Office supervisor** (cron, every 20 minutes, `scripts/office/supervise.sh`): the runs in
+  `data/overnight.conf` (`RUN|END|THREADS|EXTRA`) are restarted from their `last.pt` when they
+  crashed or logged nothing for 30 minutes before their end.
+- **Training processes** take at most 40% of the GPU each (`--gpu-memory`); the promotion uses
+  the CPU when the GPU is full. Two training runs fit the office's 30 GB of RAM, not three.
+- **Home sync** (scheduled task "TavernAdvisor Model Sync", hourly at :20,
+  `scripts/sync_model.ps1`): the promoted network, the training logs for the progress page,
+  and, while Hearthstone is closed, the library rebuilt from new logs and sent to the office.
+  Log: `%LOCALAPPDATA%\TavernAdvisor\sync.log`.
+- **The live advisor** reloads `data/models/best.pt` when it changes.
+
+## History
+
+Day one (2026-10-29): the MLP (smoke1, 3.53 against the bots), the entity network (3.30 in 10
+minutes), `office2` (self-play, 2.49 → 2.08). Day two: generations, the hot start (`teach1` →
+`teachppo1`, promoted at 05:23, 09:25 and 10:21: 1.52 against the bots), library seats (`lib1`),
+search-guided training (`search2`). Every row with numbers is in EXPERIMENTS.md.
