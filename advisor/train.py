@@ -369,6 +369,9 @@ def main():
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
                     help="the first N iterations train only the value (after a hot start)")
     ap.add_argument("--anchor", help="keep the policy close to this checkpoint (a hot start)")
+    ap.add_argument("--anchor-best", type=float, default=0.0, metavar="COEF",
+                    help="with --generations: keep the policy this close (KL) to the frozen current "
+                         "best, all along (small steps from the best instead of wandering)")
     ap.add_argument("--anchor-coef", type=float, default=0.1)
     ap.add_argument("--anchor-iters", type=int, default=200,
                     help="iterations over which the anchor fades out")
@@ -441,10 +444,13 @@ def main():
         warm = it - it0 <= a.critic_warmup
         fade = max(0, it - anchor_from) / a.anchor_iters  # from the warmup's end
         coef = a.anchor_coef * max(0.0, 1 - fade) if anchor else 0.0
+        step_anchor = anchor
+        if a.anchor_best and gen and gen.best is not None:
+            step_anchor, coef = gen.best, a.anchor_best
         if sbuf is not None:
             sbuf.refresh()
         stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
-                       anchor=anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef)
+                       anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
         if warm:
