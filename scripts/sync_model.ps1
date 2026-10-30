@@ -49,7 +49,7 @@ try {
         $unpack = Join-Path $progress "unpack"
         if (Test-Path $unpack) { Remove-Item $unpack -Recurse -Force }
         New-Item -ItemType Directory -Force $unpack | Out-Null
-        & tar.exe -xzf $tgz -C $unpack
+        & (Join-Path $env:SystemRoot "System32\tar.exe") -xzf $tgz -C $unpack
         $train = Join-Path $progress "train"
         if (Test-Path $train) { Remove-Item $train -Recurse -Force }
         Move-Item (Join-Path $unpack "data\train") $train

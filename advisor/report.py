@@ -194,7 +194,7 @@ def _running():
     path = PROGRESS / "running.txt"
     if not path.is_file():
         return [], None
-    lines = [l for l in path.read_text(encoding="utf-8", errors="replace").splitlines() if l.strip()]
+    lines = [l for l in path.read_text(encoding="utf-8-sig", errors="replace").splitlines() if l.strip()]
     synced = datetime.fromtimestamp(path.stat().st_mtime)
     jobs = []
     for l in lines:
