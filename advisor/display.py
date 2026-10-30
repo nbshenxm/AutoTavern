@@ -22,6 +22,8 @@ TEXT = {
         "odds_stale": "Next opponent's warband last seen on turn {turn}: no odds",
         "trinket_stats": " · avg {place:.2f} when picked · picked {pick:.0%}",
         "offer": "Players who picked them placed on average: {items}",
+        "hero_offer": "Heroes (public = average place of players who picked it, 7 days; ours = the network's estimate): {items}",
+        "hero_item": "{name} public {public} · ours {ours}",
         "arrange_gain": "against their last seen warband: win minus loss {before:+.0%} → {after:+.0%}",
         "comp": "Closest meta comp: {name} (HSReplay tier {tier}), {have} of {of} core cards",
         "comp_missing": "; missing {cards}",
@@ -41,6 +43,8 @@ TEXT = {
         "odds_stale": "下一个对手的阵容最后见于第{turn}回合：不计算胜率",
         "trinket_stats": " · 选取者平均{place:.2f}名 · 选取率{pick:.0%}",
         "offer": "选取者的平均名次：{items}",
+        "hero_offer": "英雄（公共=近7天选取者平均名次，我们=网络估计名次）：{items}",
+        "hero_item": "{name} 公共{public} · 我们{ours}",
         "arrange_gain": "对其上次阵容：胜负差 {before:+.0%} → {after:+.0%}",
         "comp": "最接近的流行流派：{name}（HSReplay {tier}级），核心卡 {have}/{of}",
         "comp_missing": "；缺少 {cards}",
@@ -194,6 +198,15 @@ def offer_note(cards, locale, name_of):
     if len(known) < 2:
         return None
     return t(locale, "offer", items=" · ".join(f"{name_of(c, locale)} {p:.2f}" for p, c in known))
+
+
+def hero_note(ranking, locale, name_of):
+    """The offered heroes, recommended first: public average placement and the network's
+    estimate for each (advisor.live.hero_ranking)."""
+    fmt = lambda x: f"{x:.2f}" if x is not None else "-"
+    return t(locale, "hero_offer", items=" · ".join(
+        t(locale, "hero_item", name=name_of(h["card"], locale), public=fmt(h["public"]), ours=fmt(h["ours"]))
+        for h in ranking))
 
 
 def collapse(rows, locale):

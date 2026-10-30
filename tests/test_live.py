@@ -75,3 +75,26 @@ def test_arrange_finds_a_better_order_or_nothing():
             assert sorted(m["id"] for m in _json.loads(game.view(0))["me"]["board"]) == \
                 sorted(m["id"] for m in _json.loads(g.view(0))["me"]["board"])
     assert tried > 0
+
+
+def test_the_hero_offer_reaches_the_advice_live():
+    # The heroes offered at the start sit inside the game's opening block until picked: the
+    # live reader still reports them, and the advice ranks them with public data and the network
+    sys.path.insert(0, str(ROOT))
+    import torch
+
+    from advisor import bridge, live, logs
+    from advisor.policy import EntityNet
+
+    tracker = live.Tracker(logs.skin_parents(CARDS), name=LOG.parent.name)
+    offers = []
+    with open(LOG, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            d = tracker.feed(line)
+            if d is not None and bridge.choice_options(d)[0] == "hero":
+                offers.append(d)
+    assert offers, "no hero offer reported"
+    torch.manual_seed(0)
+    a = live.advise(offers[0], [], locale="enUS", net=EntityNet().eval())
+    assert a["plan"] and a["plan"][0].startswith("Choose")
+    assert a["display"]["notes"][0].startswith("Heroes (public")

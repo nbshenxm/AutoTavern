@@ -147,6 +147,18 @@ class Tracker:
                 choice = None  # answered
         if choice is None or (self.reported_choice == (self.segment, choice.id)):
             return None
+        # The heroes offered at the start: their choice stays inside the game's opening block
+        # until it is answered, so the exporter never sees it in time
+        kinds = {info.get(eid, {}).get(int(T.CARDTYPE)) for eid in choice.choices}
+        if kinds == {int(CardType.HERO)} and getattr(choice.type, "name", choice.type) == "MULLIGAN":
+            options = [{"eid": eid, "card": self.skins.get(info[eid].get("card"), info[eid].get("card")),
+                        "type": "HERO", "zone": "HAND", "pos": i + 1, "owner": "friendly"}
+                       for i, eid in enumerate(choice.choices)]
+            if not all(o["card"] for o in options):
+                return None
+            self.reported_choice = (self.segment, choice.id)
+            return {**self.exporter.meta, "kind": "choices", "turn": 0, "choice_type": "MULLIGAN",
+                    "options": options, "state": self.exporter._recruit_state(), "chosen": None}
         options = []
         for eid in choice.choices:
             e = info.get(eid, {})
@@ -369,6 +381,47 @@ def combat_odds(g, n=300):
             "seen_turn": nxt.get("seen_turn")}
 
 
+# The hero pick: public data first (Firestone's average placement of players who picked the
+# hero), the network's own estimate beside it; this share of the score is the public number's
+# until our estimates prove themselves (EXPERIMENTS.md)
+HERO_PUBLIC_WEIGHT = 0.7
+
+
+def hero_ranking(g, net):
+    """The heroes offered at the start, best first: [{index, card, public, ours, score}] with
+    `public` the average placement of players who picked it (None when unknown) and `ours` the
+    network's expected placement after picking it (its value at the first recruit turn)."""
+    from advisor import search
+    v = json.loads(g.view(0))
+    pend = v["me"]["pending"] or {}
+    options = pend.get("options") or []
+    if pend.get("kind") != "hero" and not options:
+        return []
+    choose = v["actions"]["CHOOSE"]
+    stats = display.public_stats()
+    out = []
+    for i, o in enumerate(options):
+        card = o.get("id") if isinstance(o, dict) else o
+        g2 = g.copy()
+        g2.step(0, choose + i)
+        for _ in range(64):  # the others pick too; then the first recruit turn
+            waiting = [p for p in range(1, g2.num_players) if g2.needs_action(p)]
+            if g2.needs_action(0) or not waiting:
+                break
+            for p in waiting:
+                g2.step(p, g2.bot_action(p))
+        ours = None
+        if g2.needs_action(0):
+            _, value = search._policy(net, g2, 0)
+            ours = 1 + 3.5 * (1 - float(value))
+        public = (stats.get(card) or {}).get("place")
+        known = [x for x in (public, ours) if x is not None]
+        score = (HERO_PUBLIC_WEIGHT * public + (1 - HERO_PUBLIC_WEIGHT) * ours
+                 if public is not None and ours is not None else (known[0] if known else 9.0))
+        out.append({"index": i, "card": card, "public": public, "ours": ours, "score": score})
+    return sorted(out, key=lambda h: h["score"])
+
+
 COMPS = []  # meta comps (advisor.meta), loaded by main
 SEARCH = {"k": 0, "temperature": 1.0}  # plan search (advisor.search): k sampled plans, 0 = off
 
@@ -383,7 +436,11 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         client = bridge.client_actions(d)
         allowed = bridge.allowed_mask(mask, d)
     script = None
-    if net is not None and SEARCH["k"] > 0:
+    kind, offered = bridge.choice_options(d)
+    heroes = hero_ranking(g, net) if kind == "hero" and net is not None else []
+    if heroes:  # the hero pick: public data and the network's estimate (hero_ranking)
+        script = [json.loads(g.view(0))["actions"]["CHOOSE"] + heroes[0]["index"]]
+    elif net is not None and SEARCH["k"] > 0:
         from advisor import search
         script, _, _ = search.best_plan(g, net, 0, allowed, SEARCH["k"], SEARCH["temperature"])
         policy_name += f", plan search over {SEARCH['k'] + 1}"
@@ -418,8 +475,9 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     if arranged is not None:
         notes.append(display.t(locale, "arrange") + ": " + display.t(locale, "arrange_gain", before=arranged[1],
                                                                     after=arranged[2]))
-    kind, offered = bridge.choice_options(d)
-    if kind in ("hero", "trinket"):
+    if heroes:
+        notes.insert(0, display.hero_note(heroes, locale, name_of))
+    elif kind in ("hero", "trinket"):
         note = display.offer_note(offered, locale, name_of)
         if note:
             notes.insert(0, note)
