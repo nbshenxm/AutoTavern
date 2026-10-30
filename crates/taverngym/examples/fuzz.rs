@@ -114,13 +114,21 @@ fn main() {
     let trace = args.next().is_some();
     let mut failed = false;
     for mode in [ContentMode::Implemented, ContentMode::AllVanilla] {
-        // (forced Aberrations, Timewarped Tavern system on)
-        for (forced, timewarp) in [(false, false), (true, false), (false, true)] {
+        // (forced Aberrations, Timewarped Tavern system on, the advisor's training caps: actions
+        // per turn and a separate move budget, advisor/state.py GAME_CONFIG)
+        for (forced, timewarp, capped) in [
+            (false, false, false),
+            (true, false, false),
+            (false, true, false),
+            (false, false, true),
+        ] {
             let cfg = RulesConfig {
                 content: mode,
                 aberration_forced: forced,
                 timewarp_enabled: timewarp,
                 record_log: trace,
+                turn_action_caps: if capped { vec![8, 8, 12, 12, 20, 40, 40, 60] } else { vec![] },
+                moves_per_turn: if capped { 7 } else { 0 },
                 ..RulesConfig::default()
             };
             let mut t = Tally {
@@ -141,7 +149,7 @@ fn main() {
                 }
             }
             println!(
-                "{mode:?} aberration_forced={forced} timewarp={timewarp}: {} games, {} actions, {} finished, \
+                "{mode:?} aberration_forced={forced} timewarp={timewarp} capped={capped}: {} games, {} actions, {} finished, \
                  {panics} panics, {} problems, {:.1}s",
                 t.games,
                 t.actions,

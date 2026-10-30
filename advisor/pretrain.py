@@ -19,7 +19,7 @@ import numpy as np
 import torch
 
 from advisor import teacher
-from advisor.policy import make, save
+from advisor.policy import load, make, save
 from advisor.train import CONFIG, evaluate, wait_while_playing
 from taverngym import BatchEnv
 
@@ -82,6 +82,7 @@ def main():
     ap.add_argument("--eval-episodes", type=int, default=200)
     ap.add_argument("--amp", action="store_true")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--resume", help="continue from this checkpoint (its last.pt)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args()
     out = Path(a.out) / a.run
@@ -96,16 +97,22 @@ def main():
         print(json.dumps(row), flush=True)
 
     torch.manual_seed(a.seed)
-    net = make({"arch": a.arch}).to(a.device)
+    best, it = 9.0, 0
+    if a.resume:
+        net, ck = load(a.resume, a.device)
+        best, it = ck.get("best", 9.0), ck.get("iteration", 0)
+    else:
+        net = make({"arch": a.arch}).to(a.device)
     net.train()
     opt = torch.optim.Adam(net.parameters(), lr=a.lr)
-    env = BatchEnv(a.games, seed=a.seed * 1_000_003, controlled=list(range(8)),
+    if a.resume and "opt" in ck:
+        opt.load_state_dict(ck["opt"])
+    env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=list(range(8)),
                    config=TEACHER_CONFIG, threads=a.threads)
     obs = env.observe()
     budget = a.minutes * 60 + a.hours * 3600
     log({"start": a.run, "pretrain": True, "teacher": TEACHER_CONFIG["teacher"]["level_turns"],
          "params": sum(p.numel() for p in net.parameters())})
-    best, it = 9.0, 0
     while budget == 0 or time.time() - t0 < budget:
         wait_while_playing(log)
         it += 1
@@ -124,7 +131,8 @@ def main():
             if row["eval"]["mean_place"] < best:
                 best = row["eval"]["mean_place"]
                 save(net, out / "best.pt", {"iteration": it, "best": best, "pretrain": True})
-        save(net, out / "last.pt", {"iteration": it, "best": best, "pretrain": True})
+        save(net, out / "last.pt", {"iteration": it, "best": best, "pretrain": True,
+                                    "opt": opt.state_dict()})
         log(row)
 
 

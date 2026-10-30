@@ -434,6 +434,10 @@ fn moves_have_their_own_budget() {
     g.apply(0, Action::Freeze).unwrap();
     assert!(g.legal_mask(0)[mv.encode()], "moves stay legal past the action cap");
     g.apply(0, mv).unwrap();
+    // Choices can take a seat past the cap (they always answer): moves stay as the mask says.
+    g.players[0].actions_this_turn = 9;
+    assert!(g.legal_mask(0)[mv.encode()]);
+    g.apply(0, mv).unwrap();
     // 0 (the default): moves are actions.
     g.cfg.moves_per_turn = 0;
     assert!(g.apply(0, mv).is_err());

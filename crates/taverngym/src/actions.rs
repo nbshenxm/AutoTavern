@@ -174,8 +174,10 @@ impl Game {
             Action::Cancel => self.cancel(p),
             _ if self.phase == Phase::HeroSelect => Err("choose a hero first"),
             Action::EndTurn => self.end_turn(p),
+            // (Moves under `moves_per_turn` have their own budget, checked in `apply`.)
             _ if !self.players[p].uncapped
-                && self.players[p].actions_this_turn > self.action_cap_of(p) =>
+                && self.players[p].actions_this_turn > self.action_cap_of(p)
+                && !(matches!(a, Action::Move { .. }) && self.cfg.moves_per_turn > 0) =>
             {
                 Err("action limit for this turn reached")
             }
