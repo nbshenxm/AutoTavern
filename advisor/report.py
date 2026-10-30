@@ -35,6 +35,7 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "search2": "generations + learning the plan search's choices",
     "lib2": "real warbands + a longer horizon (gamma 1, lambda 0.995)",
     "big1": "a larger network (8.6M) copying the best",
+    "big2": "the larger network in PPO, 30% of games from your real round starts",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 SIMULATOR = [
@@ -443,6 +444,21 @@ def render():
                                                      for r in rows if r.get("vs_library")])
                              for k, (run, rows) in enumerate(libs)],
                             "Place in lobbies with real warbands", lo=3.0, hi=6.0, reference=None))
+
+    reals = [(run, rows) for run, rows in runs.items() if any(r.get("vs_best_real") for r in rows)]
+    if reals:
+        base = [r["vs_best_real"]["best"] for _, rows in reals for r in rows if r.get("vs_best_real")][-1]
+        parts.append("<h3>From your own positions</h3>")
+        parts.append('<p class="sub">From the start of every round of your logged games, the network plays '
+                     'your seat on and copies of the current best play the others: its mean final place, '
+                     f'lower is better. The line is the current best in your seat ({base:.2f}). Clearly under '
+                     'it, twice, also earns a promotion.</p>')
+        parts.append(_chart([(run, f"s{1 + k % 4}", [(r["iteration"], r["vs_best_real"]["mean_place"],
+                                                      f"{run} iteration {r['iteration']}: "
+                                                      f"{r['vs_best_real']['mean_place']:.2f}")
+                                                     for r in rows if r.get("vs_best_real")])
+                             for k, (run, rows) in enumerate(reals)],
+                            "Place from your positions", lo=1.5, hi=4.5, reference=(base, "the best")))
 
     parts.append("<h2>How good are its decisions?</h2><ul>")
     parts.append("<li><strong>Plan search</strong>: the network alone 2.47, with plan search 1.99, in 200 "
