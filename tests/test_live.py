@@ -50,7 +50,8 @@ def test_replayed_log_gets_advice_at_every_recruit_decision():
         for r in rows:
             if r["verb"] in ("Buy", "Play"):
                 assert r["badge"][0] in "TH" and r["card_id"], r
-    assert max(a["ms"] for a in advice) < 1000
+    # (the first advice of a session loads the card data and the public stats: seconds, once)
+    assert max(a["ms"] for a in advice[1:]) < 1000
     json.dumps(advice)  # what the plugin reads
 
 
@@ -98,3 +99,36 @@ def test_the_hero_offer_reaches_the_advice_live():
     a = live.advise(offers[0], [], locale="enUS", net=EntityNet().eval())
     assert a["plan"] and a["plan"][0].startswith("Choose")
     assert a["display"]["notes"][0].startswith("Heroes (public")
+
+
+def test_a_plan_does_not_sell_a_minion_to_play_the_same_card():
+    # After selling a Battlecry-less minion, its copy in hand can't be played in the same plan;
+    # after playing one from hand, the warband's copy can't be sold (search.detour_mask)
+    sys.path.insert(0, str(ROOT))
+    import json as _json
+
+    import taverngym
+
+    from advisor import search
+    from advisor.state import debug, recruit_game
+
+    L = dict(taverngym.layout())
+    g = recruit_game(1)
+    debug(g, cmd="set_player", p=0, gold=10)
+    debug(g, cmd="add_minion", p=0, zone="board", card="BG26_152")
+    debug(g, cmd="add_minion", p=0, zone="hand", card="BG26_152", no_triple=True)
+    v = _json.loads(g.view(0))
+    seen = {}
+    search.note_sold(v, L["A_SELL"] + 0, seen)
+    g.step(0, L["A_SELL"] + 0)
+    m = search.detour_mask(_json.loads(g.view(0)), seen)
+    assert m is not None and not m[L["A_PLAY"]:L["A_PLAY"] + L["N_POS"]].any()
+    g2 = recruit_game(1)
+    debug(g2, cmd="add_minion", p=0, zone="board", card="BG26_152")
+    debug(g2, cmd="add_minion", p=0, zone="hand", card="BG26_152", no_triple=True)
+    seen = {}
+    v = _json.loads(g2.view(0))
+    search.note_sold(v, L["A_PLAY"] + 1, seen)
+    g2.step(0, L["A_PLAY"] + 1)
+    m = search.detour_mask(_json.loads(g2.view(0)), seen)
+    assert m is not None and not m[L["A_SELL"]] and not m[L["A_SELL"] + 1]

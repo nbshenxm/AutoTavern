@@ -264,8 +264,9 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
     the overlay's (advisor.display): a target joins the step that asked for it, and a run of
     moves is one "Arrange" step with the warband's order after it. `script`: these actions
     instead (a plan the search chose), then the plan ends."""
+    from advisor import search
     c = g.copy()
-    out, rows = [], []
+    out, rows, sold = [], [], {}
     after = json.loads(c.view(0))
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
@@ -282,8 +283,12 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
             a = c.bot_action(0)
         else:
             from advisor.policy import act
-            a, _, _ = act(net, c, 0, np.array(allowed) if step == 0 and allowed is not None else None)
+            mask = search.detour_mask(after, sold)  # no "sell X, play X" (search.detour_mask)
+            if step == 0 and allowed is not None:
+                mask = np.array(allowed) & (mask if mask is not None else True)
+            a, _, _ = act(net, c, 0, mask)
         view = after  # one view per step: the last step's result is this one's start
+        search.note_sold(view, a, sold)
         text = describe(view, a, locale)
         row = display.row_for(view, a, locale, name_of)
         if row is None:

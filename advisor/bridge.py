@@ -47,6 +47,10 @@ COUNTER_FROM_DATA = {
 }
 
 
+# The game's own trinket offers (the Lesser at round 6, the Greater at round 9): paid
+REGULAR_TRINKET_OFFERS = {"BG30_Trinket_1st", "BG30_Trinket_2nd"}
+
+
 def seats(d):
     """PLAYER_ID -> seat: the player on 0, the others in PLAYER_ID order on 1-7."""
     me = d.get("player_id") or d["state"]["friendly"].get("player_id")
@@ -196,8 +200,16 @@ def build(d, combats=(), seed=7):
     cids = ([CAT[normal_form(c)[0]]["cid"] for c in cards if normal_form(c)[0] in CAT]
             if kind in ("trinket", "spell") else [])
     if kind == "trinket" and len(cids) == len(cards):
-        # A trinket offer: TavernGym prices each one as the game does (discounts included)
-        p0["pending"] = [{"Trinket": {"options": cids, "free": False, "replace": None}}]
+        # A trinket offer. The regular ones (rounds 6 and 9) are paid: TavernGym prices each one
+        # as the game does (discounts included). Any other source (a trinket's or a Hero Power's
+        # offer, Trip Vouchers) is free; one of the player's trinkets offering them is replaced
+        source = d.get("source")
+        source = (source.get("card") if isinstance(source, dict) else source) or ""
+        paid = source in REGULAR_TRINKET_OFFERS
+        owned = [CAT[t["card"]]["cid"] for t in me["trinkets"] if t["card"] in CAT]
+        src = CAT.get(normal_form(source)[0], {})
+        replace = src.get("cid") if not paid and src.get("cid") in owned else None
+        p0["pending"] = [{"Trinket": {"options": cids, "free": not paid, "replace": replace}}]
     elif kind == "spell" and len(cids) == len(cards):
         source = d.get("source")
         source = source.get("card") if isinstance(source, dict) else source

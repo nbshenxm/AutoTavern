@@ -51,15 +51,62 @@ def _policy(net, g, p, mask=None):
     return torch.softmax(logits[0], 0).numpy(), float(value[0])
 
 
+def _no_battlecry(card):
+    from advisor.state import CAT, normal_form
+    return "BATTLECRY" not in (CAT.get(normal_form(card or "")[0], {}).get("mech") or [])
+
+
+def detour_mask(view, seen):
+    """The legal actions minus this plan's detours, or None when there are none: a plan doesn't
+    both sell a minion and play the same card (golden or not) from hand, in either order (sell
+    the warband's copy and play the hand's, or the other way round: one gold for what the sold
+    one had gained), unless the card has a Battlecry to trigger again. `seen`: what note_sold
+    recorded."""
+    from advisor.policy import L
+    sold, played = seen.setdefault("sold", set()), seen.setdefault("played", set())
+    if not sold and not played:
+        return None
+    mask = np.array(view["mask"], bool)
+    changed = False
+    for h, card in enumerate(view["me"]["hand"]):
+        if card.get("id") in sold and _no_battlecry(card.get("id")):
+            lo = L["A_PLAY"] + h * L["N_POS"]
+            changed |= bool(mask[lo:lo + L["N_POS"]].any())
+            mask[lo:lo + L["N_POS"]] = False
+    for i, m in enumerate(view["me"]["board"]):
+        if m.get("id") in played and mask[L["A_SELL"] + i]:
+            mask[L["A_SELL"] + i] = False
+            changed = True
+    return mask if changed and mask.any() else None
+
+
+def note_sold(view, a, seen):
+    """Record in `seen` the card action `a` sells in `view`, or plays from hand when it has no
+    Battlecry."""
+    from advisor.policy import L
+    me = view["me"]
+    if L["A_SELL"] <= a < L["A_SELL"] + L["N_BOARD"] and a - L["A_SELL"] < len(me["board"]):
+        seen.setdefault("sold", set()).add(me["board"][a - L["A_SELL"]].get("id"))
+    elif L["A_PLAY"] <= a < L["A_MAGNETIZE"]:
+        h = (a - L["A_PLAY"]) // L["N_POS"]
+        if h < len(me["hand"]) and me["hand"][h].get("type", "minion") == "minion"                 and _no_battlecry(me["hand"][h].get("id")):
+            seen.setdefault("played", set()).add(me["hand"][h].get("id"))
+
+
 def rollout(g, net, p=0, allowed=None, temperature=0.0, rng=None, max_steps=80):
     """One plan on a copy: [actions], the value where it ends. `temperature` 0 is the
-    network's most likely action at each step; above 0, sampled (sharpened or flattened)."""
+    network's most likely action at each step; above 0, sampled (sharpened or flattened).
+    No detours (`detour_mask`)."""
     c = g.copy()
-    actions, value = [], None
+    actions, value, sold = [], None, {}
     for step in range(max_steps):
         if not c.needs_action(p):
             break
-        probs, value = _policy(net, c, p, np.array(allowed) if step == 0 and allowed is not None else None)
+        view = json.loads(c.view(p))
+        mask = detour_mask(view, sold)
+        if step == 0 and allowed is not None:
+            mask = np.array(allowed) & (mask if mask is not None else True)
+        probs, value = _policy(net, c, p, mask)
         if temperature <= 0:
             a = int(probs.argmax())
         else:
@@ -70,6 +117,7 @@ def rollout(g, net, p=0, allowed=None, temperature=0.0, rng=None, max_steps=80):
             actions.append(a)
             break
         before = c.view(p) if not (30 <= a <= 45) else None
+        note_sold(view, a, sold)
         c.step(p, a)
         actions.append(a)
         if a == 1 or _opened_offer(before, c.view(p)):
@@ -99,3 +147,4 @@ def best_plan(g, net, p=0, allowed=None, k=8, temperature=1.0, seed=None):
     scored = sorted(((float(np.mean(vs)), list(a)) for a, vs in seen.items()), reverse=True)
     best_value, best_actions = scored[0]
     return best_actions, best_value, candidates
+
