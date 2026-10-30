@@ -220,10 +220,15 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                 (search_coef * ce).backward()
                 stats["search_ce"] += ce.item()
                 stats["search_acc"] += (slog.argmax(1) == sa).float().mean().item()
+            grads = [p.grad for p in net.parameters() if p.grad is not None]
+            if not all(torch.isfinite(g).all() for g in grads):
+                opt.zero_grad()  # a bad batch must not ruin the network: skip the step
+                stats["skipped"] = stats.get("skipped", 0) + 1
+                continue
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
             steps += 1
-    return {k: round(v / max(1, steps), 4) for k, v in stats.items()}
+    return {k: v if k == "skipped" else round(v / max(1, steps), 4) for k, v in stats.items()}
 
 
 @torch.no_grad()
@@ -413,6 +418,8 @@ def main():
     pool = load_pool(out, a.device)
     gen = Generation(a.device) if a.generations else None
     best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
+    # The anchor fades from where it was first applied, across restarts
+    anchor_from = (ck.get("anchor_from") if a.resume else None) or it0 + a.critic_warmup
     log({"start": a.run, "params": sum(p.numel() for p in net.parameters()), "device": a.device,
          "iteration": it0, "slots": env.n_slots})
     if it0 == 0:
@@ -432,7 +439,7 @@ def main():
         tc = time.time()
         net.train()
         warm = it - it0 <= a.critic_warmup
-        fade = max(0, it - it0 - a.critic_warmup) / a.anchor_iters  # from the warmup's end
+        fade = max(0, it - anchor_from) / a.anchor_iters  # from the warmup's end
         coef = a.anchor_coef * max(0.0, 1 - fade) if anchor else 0.0
         if sbuf is not None:
             sbuf.refresh()
@@ -473,6 +480,7 @@ def main():
             best = min(best, ev["mean_place"])
         log(row)
         save(net, out / "last.pt", {"iteration": it, "best": best, "best_h2h": best_h2h,
+                                    "anchor_from": anchor_from if anchor else None,
                                     "opt": opt.state_dict()})
         if budget == 0 and it - it0 >= 1:
             break

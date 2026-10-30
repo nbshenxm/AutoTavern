@@ -169,3 +169,28 @@ def test_search_targets_flow_into_ppo(tmp_path):
         last = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128, search=buf,
                             search_coef=1.0)
     assert last["search_ce"] < first["search_ce"]
+
+
+def test_a_non_finite_batch_skips_the_step(tmp_path):
+    # Searched decisions with an infinite feature: the step is skipped, the network stays finite
+    from advisor import search_games
+    from taverngym import BatchEnv
+
+    torch.manual_seed(0)
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    env = BatchEnv(2, seed=10, controlled=list(range(8)), config=train.CONFIG)
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    train.collect(env, net, env.observe(), seats, 256, "cpu")
+    items = [it for s in seats for it in s.items][:64]
+    rows = [(f.copy(), c, m.astype(bool), int(np.flatnonzero(m)[-1])) for f, c, m, *_ in items]
+    rows[0][0][7] = 1e6  # clipped on write
+    search_games.write_shard(tmp_path, rows)
+    buf = search_games.SearchBuffer([tmp_path], 100)
+    buf.refresh()
+    assert np.isfinite(buf.data[0]).all() and len(buf) == 64
+    buf.data[0][:] = np.inf  # as an unclipped old shard would be after loading
+    batch = train.advantages(seats, 0.995, 0.95)
+    opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+    stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128, search=buf, search_coef=1.0)
+    assert stats["skipped"] >= 1
+    assert all(torch.isfinite(p).all() for p in net.parameters())

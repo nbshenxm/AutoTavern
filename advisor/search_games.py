@@ -29,6 +29,7 @@ from advisor.state import GAME_CONFIG
 
 SEARCHED = (0, 1)
 SHARD = 4096  # decisions per file
+F16_MAX = 65000.0
 _NET = {"path": None, "version": None, "net": None}
 
 
@@ -84,7 +85,9 @@ def write_shard(out, rows):
     f, c, m, a = zip(*rows)
     name = out / f"shard_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}_{len(rows)}.npz"
     tmp = name.with_suffix(".tmp.npz")
-    np.savez(tmp, features=np.stack(f).astype(np.float16), cards=np.stack(c).astype(np.int32),
+    # float16 ends at 65504: late-game stats can pass it (inf, then NaN in training)
+    f16 = np.clip(np.stack(f), -F16_MAX, F16_MAX).astype(np.float16)
+    np.savez(tmp, features=f16, cards=np.stack(c).astype(np.int32),
              mask=np.packbits(np.stack(m), axis=1), actions=np.array(a, dtype=np.int16))
     os.replace(tmp, name)
     return name
@@ -119,6 +122,10 @@ class SearchBuffer:
         self.loaded = {f: self.loaded[f] for f in keep if f in self.loaded}
         parts = list(self.loaded.values())
         self.data = tuple(np.concatenate(x) for x in zip(*parts)) if parts else None
+        if self.data is not None:  # shards written before features were clipped
+            ok = np.isfinite(self.data[0]).all(1)
+            if not ok.all():
+                self.data = tuple(x[ok] for x in self.data)
         return True
 
     def __len__(self):
