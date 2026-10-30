@@ -1550,7 +1550,8 @@ impl Game {
                 Some((price, health || crate::content::sargeras_ready(pl), None))
             }
             Item::Spell { .. } => {
-                let price = self.spell_price(p, card);
+                // (a slot's own price: a discount the state was rebuilt with, the live bridge's)
+                let price = s.price.unwrap_or_else(|| self.spell_price(p, card));
                 // Bazaar Sticker: one Tavern spell each turn costs Health.
                 let bazaar = crate::cardid!("BG32_MagicItem_822");
                 if crate::content::is_tavern_spell(card)
