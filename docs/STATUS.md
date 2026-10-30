@@ -16,6 +16,11 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
   where you stood at the start of a logged round (168 positions from your 10 games, more with
   every game: the home sync sends them). A new number, `vs_best_real`, plays the network in your
   seat from every one of them (paired with the best's own result).
+- **First result of training from your positions: no change yet, and why.** After ~1.5 hours
+  big2 still stalls from your round-10 positions. Its own estimate there is that it's winning
+  (1st-2nd): the simulated opponents are copies of it and don't scale either, so ending a turn
+  with 10 gold costs nothing. Since 18:00 two seats of big2's games also play real warbands from
+  your lobbies at that round (library seats), so a late start now meets real late-game strength.
 - **The live advisor ran over all your games** (2,603 decisions, plan search on): no errors,
   median 0.6 s beside a heavy job. Timed again on a quiet PC: median 0.4 s, 95% under 1.0 s,
   the slowest of 2,818 decisions 8.3 s (a 6-minute one in the first run didn't come back).
