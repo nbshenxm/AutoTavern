@@ -161,11 +161,12 @@ CHUNK = 1024  # rows per forward pass in an update: the GPU's memory, not the st
 
 
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
-           amp=False, value_only=False, anchor=None, anchor_coef=0.0):
+           amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
     probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
     policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
-    `anchor_coef` times KL(anchor || policy)."""
+    `anchor_coef` times KL(anchor || policy). `search`: a SearchBuffer (advisor.search_games);
+    each step also adds `search_coef` times the cross-entropy to the search's choices."""
     f = torch.from_numpy(np.stack([b[0][0] for b in batch]))
     c = torch.from_numpy(np.stack([b[0][1] for b in batch]))
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
@@ -176,6 +177,9 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     adv = (adv - adv.mean()) / (adv.std() + 1e-8)
     n = len(batch)
     stats = {"pi": 0.0, "v": 0.0, "ent": 0.0, "kl": 0.0}
+    if search is not None:
+        stats.update(search_ce=0.0, search_acc=0.0)
+        rng = np.random.default_rng()
     steps = 0
     for _ in range(epochs):
         for idx in torch.randperm(n).split(minibatch):
@@ -206,6 +210,16 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                     kl = (old_lp[part].to(device) - lp).mean().item()
                 for k, x in (("pi", pi_loss.item()), ("v", v_loss.item()), ("ent", entropy.item()), ("kl", kl)):
                     stats[k] += x * w
+            if search is not None and search_coef > 0 and len(search) and not value_only:
+                sf, sc, sm, sa = (torch.from_numpy(x).to(device)
+                                  for x in search.sample(min(len(idx), CHUNK), rng))
+                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
+                    slog, _ = net(sf, sc, sm)
+                slog = slog.float()
+                ce = torch.nn.functional.cross_entropy(slog, sa)
+                (search_coef * ce).backward()
+                stats["search_ce"] += ce.item()
+                stats["search_acc"] += (slog.argmax(1) == sa).float().mean().item()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
             steps += 1
@@ -343,6 +357,10 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--generations", action="store_true",
                     help="train against the frozen current best (Generation); best.pt by place vs it")
+    ap.add_argument("--search-data", nargs="*", metavar="DIR",
+                    help="search games (advisor.search_games): also learn the search's choices")
+    ap.add_argument("--search-coef", type=float, default=0.2)
+    ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
                     help="the first N iterations train only the value (after a hot start)")
     ap.add_argument("--anchor", help="keep the policy close to this checkpoint (a hot start)")
@@ -384,6 +402,10 @@ def main():
     if a.resume and "opt" in ck:
         opt.load_state_dict(ck["opt"])
     anchor = load(a.anchor, a.device)[0] if a.anchor else None
+    sbuf = None
+    if a.search_data:
+        from advisor.search_games import SearchBuffer
+        sbuf = SearchBuffer(a.search_data, a.search_buffer)
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=list(range(8)),
                    config=CONFIG, threads=a.threads)
     seats = [Seat() for _ in range(env.n_slots)]
@@ -412,8 +434,12 @@ def main():
         warm = it - it0 <= a.critic_warmup
         fade = max(0, it - it0 - a.critic_warmup) / a.anchor_iters  # from the warmup's end
         coef = a.anchor_coef * max(0.0, 1 - fade) if anchor else 0.0
+        if sbuf is not None:
+            sbuf.refresh()
         stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
-                       anchor=anchor, anchor_coef=coef)
+                       anchor=anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef)
+        if sbuf is not None:
+            stats["search_buffer"] = len(sbuf)
         if warm:
             stats["critic_warmup"] = True
         net.eval()

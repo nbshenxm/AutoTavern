@@ -1,5 +1,6 @@
 """advisor.train: per-seat advantages and a tiny end-to-end PPO step."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -139,3 +140,32 @@ def test_generation_opponents(tmp_path):
     seats = [train.Seat() for _ in range(env.n_slots)]
     _, placements = train.collect(env, gen.best, env.observe(), seats, 256, "cpu", opp)
     assert not any(seats[i].items for i in opp), "the frozen seats aren't learned from"
+
+
+def test_search_targets_flow_into_ppo(tmp_path):
+    # Searched decisions go to shards, the buffer reads the newest, and an update learns them
+    from advisor import search_games
+    from taverngym import BatchEnv
+
+    torch.manual_seed(0)
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    env = BatchEnv(2, seed=9, controlled=list(range(8)), config=train.CONFIG)
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    train.collect(env, net, env.observe(), seats, 256, "cpu")
+    items = [it for s in seats for it in s.items]
+    rows = [(f, c, m.astype(bool), int(np.flatnonzero(m)[-1])) for f, c, m, *_ in items[:300]]
+    assert len(rows) >= 250
+    old = search_games.write_shard(tmp_path, rows[:80])
+    os.utime(old, (1, 1))  # older
+    search_games.write_shard(tmp_path, rows[80:])
+    buf = search_games.SearchBuffer([tmp_path], 150)
+    assert buf.refresh() and len(buf) == len(rows) - 80 and not buf.refresh(), "the newest covers 150"
+    f, c, m, a = buf.sample(64, np.random.default_rng(0))
+    assert m[np.arange(64), a].all() and f.dtype == np.float32
+    batch = train.advantages(seats, 0.995, 0.95)
+    opt = torch.optim.Adam(net.parameters(), lr=3e-3)
+    first = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128, search=buf, search_coef=1.0)
+    for _ in range(4):
+        last = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128, search=buf,
+                            search_coef=1.0)
+    assert last["search_ce"] < first["search_ce"]
