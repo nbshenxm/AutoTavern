@@ -343,3 +343,19 @@ def test_real_starts_replace_new_games(tmp_path):
         places += [int(info["placement"][j]) for j in np.flatnonzero(done) if j < 8]
         obs = env.observe()
     assert sorted(places) == list(range(1, 8))
+
+
+def test_evaluate_real_plays_each_start_once():
+    import json as _json
+
+    import taverngym
+
+    g = taverngym.Game(5, _json.dumps(train.CONFIG))
+    while g.turn < 4:
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    st = _json.loads(g.state_json())
+    net = EntityNet()
+    r = train.evaluate_real(net, net, [st, st, st], "cpu", games=2, threads=1)
+    assert r["n"] == 3 and 1 <= r["mean_place"] <= 8

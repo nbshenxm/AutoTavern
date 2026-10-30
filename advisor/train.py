@@ -399,6 +399,47 @@ class Generation:
         return out
 
 
+def load_start(env, i, state):
+    """Game `i` of `env` replaced by the stored position `state` (Game.state_json), with the
+    env's rules (library seats and all) and the logged lobby's tribes, and the random state of
+    the game it replaces."""
+    fresh = json.loads(env.save(i))
+    st = json.loads(json.dumps(state))
+    st["cfg"] = {**fresh["game"]["cfg"], "lobby_types": st["cfg"].get("lobby_types")}
+    st["rng"] = fresh["game"]["rng"]
+    env.load(i, json.dumps({"game": st, "index": fresh["index"],
+                            "finished": [not p["alive"] for p in st["players"]]}))
+
+
+def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads=8):
+    """From every stored real position once (RealStarts.states): mean placement of the greedy
+    network in the player's seat (0) with `other` (greedy) in the seven others. Paired: the
+    same starts and seeds for every network, so two networks' numbers compare directly."""
+    places = []
+    for k in range(0, len(states), games):
+        chunk = states[k:k + games]
+        env = BatchEnv(len(chunk), seed=seed + k, controlled=list(range(8)), config=CONFIG,
+                       threads=threads)
+        for i, st in enumerate(chunk):
+            load_start(env, i, st)
+        net_of = {i: (net if i % 8 == 0 else other) for i in range(env.n_slots)}
+        obs = env.observe()
+        got = {}
+        while len(got) < len(chunk):
+            ready = np.flatnonzero(obs["ready"] & obs["action_mask"].any(1))
+            ready = np.array([i for i in ready if i // 8 not in got], dtype=np.int64)
+            actions = np.zeros(env.n_slots, dtype=np.int64)
+            play_frozen(obs, ready, net_of, actions, device)
+            _, done, info = env.step(actions)
+            for i in np.flatnonzero(done):
+                if i % 8 == 0 and info["placement"][i] and i // 8 not in got:
+                    got[i // 8] = int(info["placement"][i])
+            obs = env.observe()
+        places += got.values()
+    return {"mean_place": round(float(np.mean(places)), 3),
+            "se": round(float(np.std(places) / np.sqrt(len(places))), 3), "n": len(places)}
+
+
 class RealStarts:
     """--real-starts P: a share P of the new games start where the player stood at the start of a
     logged round (advisor.library.starts, made into games by the bridge) instead of at round 1.
@@ -445,13 +486,7 @@ class RealStarts:
         for i, (was, now) in enumerate(zip(self.seen, idx)):
             if was == now or not self.states or self.rng.random() >= self.p:
                 continue
-            fresh = json.loads(env.save(i))
-            st = json.loads(json.dumps(self.states[self.rng.integers(len(self.states))]))
-            # The run's rules (library seats and all) with the logged lobby's tribes
-            st["cfg"] = {**fresh["game"]["cfg"], "lobby_types": st["cfg"].get("lobby_types")}
-            st["rng"] = fresh["game"]["rng"]
-            env.load(i, json.dumps({"game": st, "index": fresh["index"],
-                                    "finished": [not p["alive"] for p in st["players"]]}))
+            load_start(env, i, self.states[self.rng.integers(len(self.states))])
             n += 1
         self.seen = idx
         return n
@@ -556,6 +591,7 @@ def main():
     pool = load_pool(out, a.device)
     gen = Generation(a.device) if a.generations else None
     starts = RealStarts(a.real_starts, a.seed + it0, log=log) if a.real_starts else None
+    real_base = (None, None)  # evaluate_real of the best itself, per best and starts file
     best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
     # The anchor fades from where it was first applied, across restarts
     anchor_from = (ck.get("anchor_from") if a.resume else None) or it0 + a.critic_warmup
@@ -624,6 +660,13 @@ def main():
                 vs = evaluate_league(net, [gen.best], a.device, a.eval_episodes, threads=a.threads)
                 vs.pop("pool", None)
                 row["vs_best"] = vs
+                if starts is not None and starts.states:  # the player's own positions
+                    if real_base[0] != (gen.version, starts.version):
+                        real_base = ((gen.version, starts.version),
+                                     evaluate_real(gen.best, gen.best, starts.states, a.device,
+                                                   threads=a.threads))
+                    vr = evaluate_real(net, gen.best, starts.states, a.device, threads=a.threads)
+                    row["vs_best_real"] = {**vr, "best": real_base[1]["mean_place"]}
                 if a.library:  # one seat against the best and real warbands: closest to a lobby
                     vl = evaluate_league(net, [gen.best], a.device, a.eval_episodes,
                                          threads=a.threads, config=train_config)
