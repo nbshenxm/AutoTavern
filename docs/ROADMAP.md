@@ -65,8 +65,8 @@ built. M6 runs at every patch.
 | --- | --- |
 | M0 | done |
 | M1 | done: every recruit rule checked agrees ([REPLAY.md](REPLAY.md#recruit-rules)); train with `hero_choices: 4` for the player's seat |
-| M2 | done: the whole lobby is built from the log; the player's legal actions match the client's in 94% of decisions ([REPLAY.md](REPLAY.md#live-bridge)) |
-| M3 | done: `advisor.live` advises at every recruit decision of a replayed log, under 160 ms ([REPLAY.md](REPLAY.md#live-advisor)); policy = scripted bot |
-| M4 | installed (`scripts/install_hdt_plugin.ps1`); waiting for a real game with the user |
-| M5 | in progress: PPO self-play works ([TRAINING.md](TRAINING.md)): 10 minutes at home took the network from 7.97 to 5.52 mean placement vs the bots; long runs wait for the go-ahead on the office machine |
+| M2 | done: the whole lobby is built from the log, its minion types inferred from what the Tavern shows; the player's legal actions match the client's in 95.8% of 2,603 logged decisions ([REPLAY.md](REPLAY.md#live-bridge)) |
+| M3 | done: advice at every recruit decision, Discover (minions, Tavern spells, Dark Discovery), trinket offer and hero offer; the trained network with plan search and an Arrange step, about 0.1-1.3 s |
+| M4 | done: in use in the user's games (constructed-advisor rows with card tiles, middle of the screen, Ctrl+Shift+B flags bad advice); the network synced hourly |
+| M5 | in progress ([TRAINING.md](TRAINING.md)): 1.49 against the bots; generations against the frozen best with promotions hourly; hot start, real-warband opponents, search-guided training (the current best), a larger network being distilled. The gap: late-game scaling against real lobbies (the progress page's strength curve) |
 | M6 | not started |
