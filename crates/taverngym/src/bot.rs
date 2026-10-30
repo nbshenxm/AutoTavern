@@ -28,7 +28,7 @@ pub fn minion_value(m: &Minion) -> i32 {
     v
 }
 
-fn item_value(i: &Item) -> i32 {
+pub(crate) fn item_value(i: &Item) -> i32 {
     match i {
         Item::Minion(m) => minion_value(m),
         Item::Spell { card, .. } => 2 + db().get(*card).tier as i32,
@@ -37,6 +37,11 @@ fn item_value(i: &Item) -> i32 {
 
 /// Choose one action for `p` (always legal when `game.needs_action(p)`).
 pub fn choose_action(g: &mut Game, p: PlayerId) -> Action {
+    if let Some(t) = &g.cfg.teacher
+        && (t.seats.is_empty() || t.seats.contains(&p))
+    {
+        return crate::teacher::choose_action(g, p);
+    }
     if let Some(top) = g.players[p].pending.last().cloned() {
         return Action::Choose(pick_option(g, p, &top));
     }
@@ -139,7 +144,7 @@ pub fn choose_action(g: &mut Game, p: PlayerId) -> Action {
     Action::EndTurn
 }
 
-fn pair_bonus(g: &Game, p: PlayerId, item: &Item) -> bool {
+pub(crate) fn pair_bonus(g: &Game, p: PlayerId, item: &Item) -> bool {
     let Item::Minion(m) = item else { return false };
     if m.golden {
         return false;
@@ -150,7 +155,7 @@ fn pair_bonus(g: &Game, p: PlayerId, item: &Item) -> bool {
     n >= 1
 }
 
-fn pick_option(g: &mut Game, p: PlayerId, top: &Pending) -> usize {
+pub(crate) fn pick_option(g: &mut Game, p: PlayerId, top: &Pending) -> usize {
     match top {
         // First affordable trinket.
         Pending::Trinket { options, .. } => (0..options.len())

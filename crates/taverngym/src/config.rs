@@ -225,8 +225,41 @@ pub struct RulesConfig {
     #[serde(default, skip_serializing_if = "is_zero")]
     pub moves_per_turn: u32,
 
+    /// The scripted bots play `teacher::choose_action` with this plan instead of the plain bot
+    /// (not a game rule: a stronger opponent and a policy to learn from). None = plain bots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub teacher: Option<TeacherConfig>,
+
     /// Record a structured event log (debugging; costs speed).
     pub record_log: bool,
+}
+
+/// A strategy for the scripted bots (`RulesConfig::teacher`, `teacher.rs`): card ids with the
+/// value they add, a leveling curve, and the comps to build toward.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TeacherConfig {
+    /// The turn by which to reach Tavern Tier 2, 3, 4, 5 and 6.
+    pub level_turns: Vec<u32>,
+    /// Through this turn the economy and early Dark Gift values apply.
+    pub early_turns: u32,
+    /// Early: cards that make gold or Refreshes (Southsea Busker, Decoy Conjurer...).
+    pub economy: std::collections::BTreeMap<String, i32>,
+    /// Dark Gifts (the card attached to an offered minion): free Refreshes, early combat.
+    pub gifts: std::collections::BTreeMap<String, i32>,
+    /// From this turn the bot builds toward the comp its cards are closest to.
+    pub commit_turn: u32,
+    pub comps: Vec<TeacherComp>,
+    /// The seats that play it (empty = every scripted seat); the others play the plain bot.
+    pub seats: Vec<usize>,
+}
+
+/// A final comp (`TeacherConfig::comps`): card ids.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TeacherComp {
+    pub core: Vec<String>,
+    pub addon: Vec<String>,
 }
 
 impl Default for RulesConfig {
@@ -294,6 +327,7 @@ impl Default for RulesConfig {
             freeze_presses_per_turn: freeze_presses(),
             moves_per_turn: 0,
             max_turns: max_turns(),
+            teacher: None,
             record_log: false,
         }
     }

@@ -35,6 +35,7 @@ pub mod recruit;
 pub mod rng;
 pub mod script;
 pub mod state;
+pub mod teacher;
 pub mod types;
 pub mod workers;
 
