@@ -205,6 +205,19 @@ class CombatExporter(EntityTreeExporter):
                 c["first_attack"] = self._snapshot()
                 f, _ = self._sides()
                 c["first_attacker"] = "friendly" if attacker.tags.get(T.CONTROLLER) == f else "opponent"
+            if attacker is not None and _type(attacker) == CardType.MINION:
+                # Every attack as it starts: who attacked whom, both with their stats then
+                # (advisor.combat_diff compares them with the simulator's)
+                dfd = next((p.value for p in _walk(block) if isinstance(p, packets.TagChange)
+                            and p.tag == T.PROPOSED_DEFENDER), None)
+                d = self.game.find_entity_by_id(dfd) if dfd else None
+                f, _ = self._sides()
+                c.setdefault("attacks", []).append({
+                    "side": "friendly" if attacker.tags.get(T.CONTROLLER) == f else "opponent",
+                    "attacker": attacker.card_id, "atk": attacker.tags.get(T.ATK, 0), "hp": _hp(attacker),
+                    "defender": getattr(d, "card_id", None) if d is not None else None,
+                    "datk": d.tags.get(T.ATK, 0) if d is not None else None,
+                    "dhp": _hp(d) if d is not None else None})
         self.depth += 1
         try:
             super().handle_block(block)

@@ -6,6 +6,7 @@ counters are set before the minions, so minions created afterwards carry them.
 """
 
 import json
+import re
 from pathlib import Path
 
 import taverngym
@@ -91,13 +92,19 @@ def normal_form(cid):
 
 
 def attachment(ench):
-    """The TavernGym card an enchantment stands for, if it carries behaviour: a Dark Gift or
-    a magnetized minion ("<card>e"). Stat-only enchantments are in the logged stats."""
-    base = ench[:-1] if ench.endswith("e") else None
-    c = CAT.get(base) if base else None
+    """The TavernGym card an enchantment stands for, if it carries behaviour: a Dark Gift
+    ("<gift>e", also "<gift>e2", "e3": the log numbers some gifts' enchantments) or a magnetized
+    minion ("<card>e"). Stat-only enchantments are in the logged stats."""
+    m = re.match(r"^(.+?)e(\d*)$", ench)
+    if not m:
+        return None
+    base, n = m.groups()
+    c = CAT.get(base)
     if c is None:
         return None
-    if c["kind"] == "dark_gift" or (c["kind"] == "minion" and "MAGNETIC" in KEYWORDS.get(base, ())):
+    if c["kind"] == "dark_gift":
+        return base
+    if not n and c["kind"] == "minion" and "MAGNETIC" in KEYWORDS.get(base, ()):
         return base
     return None
 
@@ -146,9 +153,11 @@ def add_minion(g, p, where, m, gaps, label):
         gaps.append(f"{label} minion {m['card']}: {e}")
         return False
     idx = len(zone(g, p, where)) - 1
+    gifts = set()
     for e in m["ench"]:
         a = attachment(e["card"])
-        if a:
+        if a and not (a in gifts and CAT[a]["kind"] == "dark_gift"):  # a gift once, its e2/e3 too
+            gifts.add(a)
             debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=a)
     kept = [k for k in zone(g, p, where)[idx].get("keywords", []) if k not in LOGGED_KW]
     debug(g, cmd="edit_minion", p=p, zone=where, index=idx, atk=m["atk"], hp=max(1, m["hp"]),
