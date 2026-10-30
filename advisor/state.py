@@ -47,7 +47,7 @@ PLAYER_ENCHANTMENTS = {
     "BG26_159pe": ("gem_atk", "gem_hp"),  # Blood Gem size: a gem gives 1 more than these
     "BG_ShopBuff": ("tavern_atk", "tavern_hp"),  # Tavern minions have +a/+h this game
     "BG_ShopBuff_Elemental": ("tavern_elemental_atk", "tavern_elemental_hp"),
-    "BG31_816pe": ("ballers_sold", None),  # Ballers sold
+    "BG31_816pe": ("baller_bonus", None),  # Ballers improved (each sale: +1 to the next ones)
 }
 TASTY_LOBSTER = "BG36_202"
 BLOOD_GEM = "BG20_GEM"
