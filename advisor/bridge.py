@@ -31,8 +31,19 @@ TRINKET_USES_LEFT = {
     "BG32_MagicItem_822": 1,  # Bazaar Sticker: one Tavern spell a turn costs Health
 }
 # Minion -> the TAG_SCRIPT_DATA_NUM index holding TavernGym's `counter` for it
+# A minion's counter from what the log shows on it (its script data: the "(N left!)" number
+# first, for some the goal second); TavernGym's counters mostly count up toward the goal
+# (advisor.recruit_diff found an Unbound Tempest firing at the wrong time without them)
 COUNTER_FROM_DATA = {
-    "BG26_524": 0,  # Malchezaar, Prince of Dance: Refreshes paid with Health left this turn
+    "BG26_524": lambda d: d[0],  # Malchezaar, Prince of Dance: Health-paid Refreshes left
+    "BG31_327": lambda d: d[0],  # Thorned Trailblazer: combined cards left this turn
+    "BG33_891": lambda d: d[0],  # Magicfin Mycologist: uses left this turn
+    "BG36_352": lambda d: d[1] - d[0],  # Unbound Tempest: Elementals played toward 4
+    "BG28_633": lambda d: d[1] - d[0],  # Felboar: spells cast toward 3
+    "BG36_763": lambda d: d[1] - d[0],  # Treasure Parrot: damage dealt toward 35
+    "BG34_858": lambda d: 7 - d[0],  # Air Revenant: Gold spent toward 7
+    "BG36_523": lambda d: 6 - d[0],  # Enterprising Escapee: Gold spent toward 6
+    "BG36_367": lambda d: 3 - d[0],  # Auto Reveille: cards bought toward 3
 }
 
 
@@ -234,9 +245,9 @@ def build(d, combats=(), seed=7):
     # Per-minion counters the log shows in the card's script data
     if len(p0["board"]) == len(me["board"]):
         for m, logged in zip(p0["board"], me["board"]):
-            k = COUNTER_FROM_DATA.get(normal_form(logged["card"])[0])
-            if k is not None:
-                m["counter"] = logged["data"][k]
+            f = COUNTER_FROM_DATA.get(normal_form(logged["card"])[0])
+            if f is not None and len(logged.get("data") or []) >= 2:
+                m["counter"] = max(0, f(logged["data"]))
     # Trinkets with a per-turn use the log counts down ("(1 left!)"): spent ones marked used
     for t in me["trinkets"]:
         if t["card"] in TRINKET_USES_LEFT and t["data"][0] == 0 and t["card"] in CAT:
