@@ -5,7 +5,8 @@ it is clearly better head to head: on one seat against seven copies of the curre
 mean placement over 1,000 unseen games is under 4.5 by more than twice its standard error. The bot
 gate (seven scripted bots, the same 1,000 unseen seeds as the current network's) must not be
 clearly worse either; against bots alone strong networks all place near 2 and can't be told
-apart. The replaced network is kept in data/models/archive/, every decision is logged in
+apart. A winner must then win again on 1,000 games of seeds no gate has used (winner's curse: with
+many candidates judged on the same seeds, the luckiest one wins). The replaced network is kept in data/models/archive/, every decision is logged in
 data/models/promotions.jsonl, and a checkpoint already judged at its current version is not
 judged again.
 
@@ -83,6 +84,15 @@ def main():
                                   seed=HEAD_TO_HEAD["seed"], threads=a.threads)
             h2h.pop("pool", None)
             better = not_worse and h2h["mean_place"] < 4.5 - 2 * h2h["se"]
+            if better:
+                # Winner's curse: many candidates judged on the same seeds, the luckiest wins.
+                # A winner must win again on seeds no gate has used.
+                fresh = 60_000_000 + (int(time.time()) % 1_000_000) * 1000
+                confirm = evaluate_league(cand_net, [cur_net], a.device, HEAD_TO_HEAD["episodes"],
+                                          seed=fresh, threads=a.threads)
+                confirm.pop("pool", None)
+                h2h["confirm"] = {**confirm, "seed": fresh}
+                better = confirm["mean_place"] < 4.5 - 2 * confirm["se"]
         log({"candidate": str(cand), "iteration": ck.get("iteration"), "arch": ck["config"].get("arch"),
              "gate": ev, "current": current, "head_to_head": h2h, "promoted": better})
         if not better:
