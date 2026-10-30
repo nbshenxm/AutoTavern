@@ -249,6 +249,39 @@ def _overview(rows):
     return "".join(out) + legend
 
 
+def _curve_chart(curve):
+    """Warband Attack+Health by round on a log scale: the network's own games, the real lobbies
+    in your logs, the public average."""
+    import math
+    rows = curve.get("rounds") or []
+    series = [("network", "s1", "the network"), ("your_lobbies", "s2", "your lobbies"),
+              ("public", "s3", "public average")]
+    w, h, left, right, top, bottom = 760, 280, 52, 190, 12, 30
+    pw, ph = w - left - right, h - top - bottom
+    lo, hi = 0.0, 5.0  # 1 .. 100,000
+    x = lambda r: left + pw * (r - 1) / 15
+    y = lambda v: top + ph * (1 - (math.log10(max(v, 1)) - lo) / (hi - lo))
+    out = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Warband strength by round" class="chart">']
+    for k in range(6):
+        out.append(f'<line x1="{left}" x2="{left + pw}" y1="{y(10 ** k):.1f}" y2="{y(10 ** k):.1f}" class="grid"/>'
+                   f'<text x="{left - 6}" y="{y(10 ** k) + 4:.1f}" class="tick" text-anchor="end">{10 ** k:,}</text>')
+    for r in range(1, 17, 2):
+        out.append(f'<text x="{x(r):.1f}" y="{h - 10}" class="tick" text-anchor="middle">{r}</text>')
+    for key, cls, label in series:
+        pts = [(row["round"], row[key]["stats"]) for row in rows if row.get(key)]
+        if len(pts) < 2:
+            continue
+        d = " ".join(f'{"M" if i == 0 else "L"}{x(a):.1f},{y(b):.1f}' for i, (a, b) in enumerate(pts))
+        out.append(f'<path d="{d}" class="line {cls}"/>')
+        for a, b in pts:
+            out.append(f'<circle cx="{x(a):.1f}" cy="{y(b):.1f}" r="6" class="hit"><title>round {a}: '
+                       f'{_esc(label)} {b:,.0f}</title></circle>')
+        a, b = pts[-1]
+        out.append(f'<text x="{x(a) + 8:.1f}" y="{y(b) + 4:.1f}" class="direct">{_esc(label)} {b:,.0f}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
 def _network():
     path = DATA / "models" / "best.pt"
     if not path.is_file():
@@ -342,6 +375,15 @@ def render():
                  'the curve flattens near the top as networks get strong, so each promotion also shows '
                  'how it did head to head against the network it replaced: under 4.5 means stronger.</p>')
     parts.append(_overview(_jsonl(DATA / "models" / "promotions.jsonl")))
+    curve_path = PROGRESS / "curve.json"
+    if curve_path.exists():
+        curve = json.loads(curve_path.read_text(encoding="utf-8"))
+        parts.append("<h3>Warband strength by round, against real lobbies</h3>")
+        parts.append(f'<p class="sub">Median Attack+Health of the warbands, by round (log scale): the network '
+                     f'in its own games ({_esc(curve.get("network") or "")}), the real lobbies in your logs, '
+                     f'and the public average over all players. Real lobbies scale explosively late; the '
+                     f'network has to learn to keep up (the real-warband training is aimed at this).</p>')
+        parts.append(_curve_chart(curve))
 
     if status.is_file():
         parts.append("<h2>In plain words</h2>" + _markdown(status.read_text(encoding="utf-8")))

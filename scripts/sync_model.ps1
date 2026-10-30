@@ -86,3 +86,20 @@ try {
 } catch {
     Log "library failed: $($_.Exception.Message)"
 }
+
+# The progress page's strength curve (advisor.study --curve: 16 games of the overlay's network,
+# a few minutes of CPU): remade when the network is newer than it, never while Hearthstone runs.
+try {
+    $best = Join-Path $repo "data\models\best.pt"
+    $curve = Join-Path $repo "data\progress\curve.json"
+    $stale = (Test-Path $best) -and (-not (Test-Path $curve) -or (Get-Item $curve).LastWriteTime -lt (Get-Item $best).LastWriteTime)
+    if ($stale -and -not (Get-Process -Name Hearthstone -ErrorAction SilentlyContinue)) {
+        Set-Location $repo
+        $py = Join-Path $env:USERPROFILE "anaconda3\envs\taverngym\python.exe"
+        & $py -X utf8 -m advisor.study $best --games 16 --curve $curve 2>&1 | Out-Null
+        & $py -X utf8 -m advisor.report | Out-Null
+        Log "strength curve remade"
+    }
+} catch {
+    Log "curve failed: $($_.Exception.Message)"
+}

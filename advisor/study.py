@@ -6,6 +6,7 @@ Power or Dark Gift). `--trace N` prints the first N games turn by turn for seat 
 
     python -X utf8 -m advisor.study data/models/best.pt --games 40 --trace 2
     python -X utf8 -m advisor.study --teacher --games 40      # the teacher bot, for comparison
+    python -X utf8 -m advisor.study data/models/best.pt --curve data/progress/curve.json
 """
 
 import argparse
@@ -110,6 +111,50 @@ def summarize(all_recs, label):
                                     for i, x in enumerate(vals)))
 
 
+def warband_stats(r):
+    return sum(int(a) + int(b) for a, b in (x.rsplit(" ", 1)[1].split("/") for x in r["warband"]))
+
+
+def curve(net, games=16, seed=92_000_000):
+    """By round: the median warband Attack+Health and mean Tavern Tier of the network's seats in
+    its own games, with the same for the real lobbies in the logs (both warbands of every
+    combat) and the public average (Firestone's warband stats over all heroes)."""
+    import collections
+    from pathlib import Path
+    sim = collections.defaultdict(list)
+    for i in range(games):
+        recs, _, _ = play(seed + i, net, True)
+        for (_, turn), r in recs.items():
+            if "tier" in r:
+                sim[turn].append((warband_stats(r), r["tier"]))
+    real = collections.defaultdict(list)
+    combats = Path(__file__).resolve().parents[1] / "data" / "replay" / "combats.jsonl"
+    if combats.exists():
+        for line in open(combats, encoding="utf-8"):
+            c = json.loads(line)
+            for side in ("friendly", "opponent"):
+                b = c["start"][side]["board"]
+                real[(c["turn"] + 1) // 2].append((sum(m["atk"] + m["hp"] for m in b),
+                                                   c["start"][side]["tier"]))
+    from advisor import meta
+    public = collections.defaultdict(list)
+    for h in meta.hero_stats().values():
+        for t, v in h["warband"].items():
+            public[int(t)].append((v, h["n"]))
+    out = []
+    for t in range(1, 17):
+        row = {"round": t}
+        for name, d in (("network", sim), ("your_lobbies", real)):
+            if len(d.get(t, ())) >= 3:
+                row[name] = {"stats": float(np.median([x[0] for x in d[t]])),
+                             "tier": float(np.mean([x[1] for x in d[t]])), "n": len(d[t])}
+        if public.get(t):
+            v, w = zip(*public[t])
+            row["public"] = {"stats": float(np.average(v, weights=w))}
+        out.append(row)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("checkpoint", nargs="?")
@@ -118,7 +163,16 @@ def main():
     ap.add_argument("--greedy", action="store_true", help="the network's first choice (default: sampled)")
     ap.add_argument("--trace", type=int, default=0)
     ap.add_argument("--seed", type=int, default=90_000_000)
+    ap.add_argument("--curve", metavar="OUT", help="only the strength curve, as JSON (curve())")
     a = ap.parse_args()
+    if a.curve:
+        torch.set_num_threads(4)
+        net, ck = load(a.checkpoint, "cpu")
+        from datetime import datetime
+        from pathlib import Path
+        Path(a.curve).write_text(json.dumps({"network": ck.get("source"), "made": datetime.now().isoformat(timespec="seconds"),
+                                             "rounds": curve(net, a.games)}), encoding="utf-8")
+        return
     torch.set_num_threads(4)
     net, teacher_config = None, None
     if a.teacher:
