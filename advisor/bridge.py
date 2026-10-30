@@ -20,9 +20,12 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import CAT, GAME_CONFIG, add_minion, debug, normal_form, recruit_game, set_side
+from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, debug, normal_form, recruit_game,
+                           set_side)
 
 SPELL_TYPES = ("SPELL", "BATTLEGROUND_SPELL")
+RACE_NAMES = ("BEAST", "DEMON", "DRAGON", "ELEMENTAL", "MECHANICAL", "MURLOC", "PIRATE", "QUILBOAR",
+              "UNDEAD", "ABERRATION", "NAGA")  # TavernGym's Races::NAMES
 # Trinket -> its uses per turn; its TAG_SCRIPT_DATA_NUM_1 is the uses left this turn
 TRINKET_USES_LEFT = {
     "BG32_MagicItem_822": 1,  # Bazaar Sticker: one Tavern spell a turn costs Health
@@ -46,13 +49,35 @@ def game_combats(combats, d):
             and c["turn"] < d["turn"]]
 
 
+def lobby_types(d, combats=()):
+    """The lobby's minion types as far as the player has seen them: those of the single-type
+    minions in the Tavern now and earlier this game (`d["tavern_seen"]`, kept by the live
+    Tracker), on the player's warband and hand, and on the warbands met in combat. A Tavern
+    only offers the lobby's types; the most seen first, at most the lobby's number. The game
+    can't tell them itself (no tag in the log), so the rest stay random."""
+    s = d["state"]
+    me = s["friendly"]
+    cards = [x["card"] for x in s.get("shop", [])] + list(d.get("tavern_seen", ()))
+    cards += [m["card"] for m in me["board"]] + [h.get("card") for h in hand_cards(me)]
+    for c in combats:
+        for side in ("friendly", "opponent"):
+            cards += [m["card"] for m in c["start"][side]["board"]]
+    count = collections.Counter()
+    for card in cards:
+        c = CAT.get(normal_form(card)[0]) if card else None
+        races = (c or {}).get("races") or []
+        if c and c.get("kind") == "minion" and len(races) == 1 and races[0] in RACE_NAMES:
+            count[races[0]] += 1
+    return [r for r, _ in count.most_common(RULES["lobby_races"])]
+
+
 def build(d, combats=(), seed=7):
     """(game, gaps) for decision `d`; `combats` are the game's earlier combats
     (`game_combats`), which give the opponents' last seen warbands."""
     s = d["state"]
     me = s["friendly"]
     gaps = []
-    g = recruit_game(seed, GAME_CONFIG)
+    g = recruit_game(seed, {**GAME_CONFIG, "lobby_types": lobby_types(d, combats)})
     turn = max(1, (d["turn"] + 1) // 2)
     debug(g, cmd="set_turn", turn=turn)
     seat_of = seats(d)
@@ -110,8 +135,10 @@ def build(d, combats=(), seed=7):
     # Fields no debug command reaches: patched in the saved state
     st = json.loads(g.state_json())
     p0 = st["players"][0]
-    # At an Options packet the player is not in a choice: drop what the stand-in hero opened
+    # At an Options packet the player is not in a choice: drop what the stand-in hero opened,
+    # and a turn it skipped (A. F. Kay) or the actions it took (the turn's budget starts now)
     p0["pending"] = []
+    p0["skipping"], p0["actions_this_turn"], p0["moves_this_turn"] = False, 0, 0
     if offer:
         holder = st["players"][spare]
         options = [h["item"] for h in holder["hand"]]
@@ -133,6 +160,9 @@ def build(d, combats=(), seed=7):
     combat_pids = [c["start"]["opponent"].get("player_id") for c in sorted(combats, key=lambda c: c["turn"])]
     p0["last_opponent"] = seat_of.get(combat_pids[-1]) if combat_pids else None
     p0["next_opponent"] = seat_of.get(me.get("next_opponent"))
+    if combats:  # the last combat's result (the network reads it)
+        winner = max(combats, key=lambda c: c["turn"])["winner"]
+        p0["stats"]["won_last"], p0["stats"]["lost_last"] = winner == "friendly", winner == "opponent"
     if costs.get("dark_gift_exhausted"):
         p0["dark_gift_used_turn"] = True
     for slot, x in zip(p0["shop"], s["shop"]):

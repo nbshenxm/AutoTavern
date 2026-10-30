@@ -50,3 +50,20 @@ def test_each_action_kind_agrees(result, kind):
     if total == 0:
         pytest.skip(f"no {kind} options in these decisions")
     assert both / total >= 0.95, (kind, by_kind[kind], examples.get(kind))
+
+
+def test_lobby_types_from_what_was_seen():
+    # The Tavern only offers the lobby's types: single-type minions seen tell them, most seen
+    # first, at most five; dual-type and Amalgam minions don't count
+    from advisor.bridge import lobby_types
+    from advisor.state import CAT
+
+    by_race = {}
+    for c in CAT.values():
+        r = c.get("races") or []
+        if c.get("kind") == "minion" and c.get("in_pool") and len(r) == 1 and not c.get("normal_id"):
+            by_race.setdefault(r[0], []).append(c["id"])
+    shop = [{"card": by_race["MURLOC"][0]}, {"card": by_race["BEAST"][0]}]
+    d = {"state": {"shop": shop, "friendly": {"board": [{"card": by_race["MURLOC"][1]}], "hand": []}},
+         "tavern_seen": [by_race["UNDEAD"][0]]}
+    assert lobby_types(d) == ["MURLOC", "BEAST", "UNDEAD"]

@@ -60,6 +60,7 @@ class Tracker:
         self.history = {}  # player_id -> combats of that game so far (across reconnects)
         self.combat = False  # the combat phase is on (the overlay hides the advice)
         self.reported_choice = None  # (segment, choice id) of the last open choice advised
+        self.tavern_seen = set()  # Tavern cards seen this game: the lobby's types (bridge)
 
     def feed(self, line):
         """Parse one line; returns a decision ready for advice, or None."""
@@ -71,6 +72,7 @@ class Tracker:
             self.parser = LogParser()
             self.exporter = None
             self.exported = 0
+            self.tavern_seen = set()
         if self.parser is None:
             return None
         m = re.search(r"DebugPrintGame\(\) - PlayerID=(\d+), PlayerName=(.*)$", line)
@@ -105,7 +107,7 @@ class Tracker:
         if self.exported < len(pk):  # a Discover waits inside the block of what caused it
             d = self.open_choice(pk[self.exported])
             if d is not None:
-                return d
+                return self._seen(d)
         d = self.exporter.pending
         if d is None or d["turn"] % 2 == 0 or d is self.reported:
             return None
@@ -113,6 +115,12 @@ class Tracker:
         if d["kind"] != "options" and not bridge.discover_options(d):
             return None
         self.reported = d
+        return self._seen(d)
+
+    def _seen(self, d):
+        """Note the Tavern's cards (the lobby's types) and attach all seen so far."""
+        self.tavern_seen.update(x["card"] for x in d["state"].get("shop", []) if x.get("card"))
+        d["tavern_seen"] = sorted(self.tavern_seen)
         return d
 
     def open_choice(self, block):
