@@ -20,6 +20,8 @@ TEXT = {
         "odds_seen": " (their warband from turn {turn})", "now": "Now", "after": "After the plan",
         "more": "… {n} more",
         "odds_stale": "Next opponent's warband last seen on turn {turn}: no odds",
+        "comp": "Closest meta comp: {name} (HSReplay tier {tier}), {have} of {of} core cards",
+        "comp_missing": "; missing {cards}",
     },
     "zhCN": {
         "buy": "购买", "sell": "出售", "play": "打出", "magnetize": "磁力吸附",
@@ -34,6 +36,8 @@ TEXT = {
         "odds_seen": "（对手阵容来自第{turn}回合）", "now": "现在", "after": "按计划之后",
         "more": "… 还有{n}步",
         "odds_stale": "下一个对手的阵容最后见于第{turn}回合：不计算胜率",
+        "comp": "最接近的流行流派：{name}（HSReplay {tier}级），核心卡 {have}/{of}",
+        "comp_missing": "；缺少 {cards}",
     },
 }
 
@@ -148,6 +152,16 @@ def odds_note(label, odds, locale, turn=None):
           loss=odds["loss"])
     if odds.get("seen_turn"):
         s += t(locale, "odds_seen", turn=odds["seen_turn"])
+    return s
+
+
+def comp_note(comp, locale, name_of):
+    """The meta comp the player's cards are closest to (advisor.meta.closest), or None."""
+    if not comp:
+        return None
+    s = t(locale, "comp", name=comp["name"], tier=comp["tier"], have=comp["have"], of=comp["of"])
+    if comp["missing"]:
+        s += t(locale, "comp_missing", cards=", ".join(name_of(c, locale) for c in comp["missing"]))
     return s
 
 

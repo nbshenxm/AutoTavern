@@ -132,6 +132,18 @@ impl Game {
         if self.phase == Phase::GameOver {
             return Err("game over");
         }
+        // Moves under `moves_per_turn` have their own budget instead of the turn's.
+        let own_budget = matches!(a, Action::Move { .. }) && self.cfg.moves_per_turn > 0;
+        if own_budget {
+            if self.players[p].moves_this_turn >= self.cfg.moves_per_turn {
+                return Err("no moves left this turn");
+            }
+            let r = self.apply_inner(p, a);
+            if r.is_ok() {
+                self.players[p].moves_this_turn += 1;
+            }
+            return r;
+        }
         self.players[p].actions_this_turn += 1;
         let r = self.apply_inner(p, a);
         if r.is_err() {
@@ -229,11 +241,17 @@ impl Game {
         m[A_FREEZE] = self.can_freeze(p);
         // Past the per-turn action cap only End Turn stays legal (`apply` agrees), in a
         // skipped turn too.
-        if !pl.uncapped && pl.actions_this_turn >= self.action_cap_of(p) {
-            m[A_FREEZE] = false;
+        if pl.skipping {
+            if !pl.uncapped && pl.actions_this_turn >= self.action_cap_of(p) {
+                m[A_FREEZE] = false;
+            }
             return m;
         }
-        if pl.skipping {
+        if !pl.uncapped && pl.actions_this_turn >= self.action_cap_of(p) {
+            m[A_FREEZE] = false;
+            if self.cfg.moves_per_turn > 0 {
+                self.move_mask(p, &mut m);
+            }
             return m;
         }
         m[A_REFRESH] = pl.gold >= self.refresh_price(p) || self.malchezaar(p).is_some();
@@ -276,6 +294,16 @@ impl Game {
                 }
             }
         }
+        self.move_mask(p, &mut m);
+        m
+    }
+
+    fn move_mask(&self, p: PlayerId, m: &mut [bool]) {
+        let pl = &self.players[p];
+        let cap = self.cfg.moves_per_turn;
+        if cap > 0 && pl.moves_this_turn >= cap {
+            return;
+        }
         let n = pl.board.len().min(N_BOARD);
         for f in 0..n {
             for t in 0..n {
@@ -284,7 +312,6 @@ impl Game {
                 }
             }
         }
-        m
     }
 
     pub fn legal_actions(&self, p: PlayerId) -> Vec<usize> {

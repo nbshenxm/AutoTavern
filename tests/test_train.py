@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import numpy as np
+
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -69,3 +71,16 @@ def test_entity_network_trains_a_step():
     opt = torch.optim.Adam(net.parameters(), lr=1e-3)
     stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=128)
     assert all(abs(v) < 1e6 for v in stats.values())
+
+
+def test_wasted_gold():
+    # Ending the turn with gold and a legal Refresh costs reward; not when the Tavern is frozen,
+    # nor for any other action
+    f = np.zeros((1, 64), np.float32)
+    m = np.zeros((1, 245), bool)
+    f[0, train.F_GOLD], m[0, train.A_REFRESH] = 0.4, True
+    obs = {"features": f, "action_mask": m}
+    assert train.wasted_gold(obs, 0, train.A_END) == pytest.approx(4 * train.WASTED_GOLD)
+    assert train.wasted_gold(obs, 0, train.A_REFRESH) == 0.0
+    f[0, train.F_FROZEN] = 1.0
+    assert train.wasted_gold(obs, 0, train.A_END) == 0.0

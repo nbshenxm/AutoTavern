@@ -19,7 +19,14 @@ GAME_CONFIG = {
     # Moves and Freeze never advance the game: a turn ends after this many actions, a little
     # above the most the player took in a logged turn (6, 5, 10, 10, 18, 38, 28, 49, 58...)
     "turn_action_caps": [8, 8, 12, 12, 20, 40, 40, 60],
+    # Moves outside that budget, at most 7 a turn (any order of 7 minions takes 6): the network
+    # spent most of its turns rearranging and ended them, budget gone, with gold left
+    "moves_per_turn": 7,
 }
+try:  # a module built before moves_per_turn (rebuilt only while nothing has it loaded)
+    taverngym.Game(0, json.dumps(GAME_CONFIG))
+except ValueError:
+    del GAME_CONFIG["moves_per_turn"]
 CARDS = Path(__file__).resolve().parents[1] / "crates" / "taverngym" / "data" / "cards.json"
 KEYWORDS = {c["id"]: c["keywords"]
             for c in json.loads(CARDS.read_text(encoding="utf-8"))["cards"]}

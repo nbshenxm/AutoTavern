@@ -962,6 +962,9 @@ pub struct Player {
     /// Presses of the Freeze button this turn (`RulesConfig::freeze_presses_per_turn`).
     #[serde(default)]
     pub freezes_this_turn: u32,
+    /// Minion moves this turn (`RulesConfig::moves_per_turn`).
+    #[serde(default)]
+    pub moves_this_turn: u32,
     /// This seat is exempt from `RulesConfig::turn_action_caps` (e.g. a person's seat in a
     /// game whose other seats are capped). Set by the host (`DebugCmd::ActionCap`); without
     /// a cap table nobody is capped anyway.
@@ -1098,6 +1101,7 @@ impl Player {
             uncapped: false,
             actions_this_turn: 0,
             freezes_this_turn: 0,
+            moves_this_turn: 0,
             skipping: false,
             turn_data: Vec::new(),
             greater_turn: 0,

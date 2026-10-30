@@ -412,6 +412,34 @@ fn the_action_cap_can_differ_by_turn() {
 }
 
 #[test]
+fn moves_have_their_own_budget() {
+    // `moves_per_turn`: moves don't use up the turn's actions (they stay legal past the cap)
+    // and are limited by themselves; the next turn starts fresh.
+    let mut g = game(303);
+    g.cfg.turn_action_caps = vec![2];
+    g.cfg.freeze_presses_per_turn = 0;
+    g.cfg.moves_per_turn = 3;
+    set_board(&mut g, 0, &["BGS_004", "BGS_039", "BGS_043"]);
+    let mv = Action::Move { from: 0, to: 2 };
+    for _ in 0..3 {
+        g.apply(0, mv).unwrap();
+    }
+    assert!(g.apply(0, mv).is_err(), "no moves left");
+    assert!(!g.legal_mask(0)[mv.encode()]);
+    g.apply(0, Action::Freeze).unwrap();
+    g.apply(0, Action::Freeze).unwrap();
+    assert!(g.apply(0, Action::Freeze).is_err(), "the moves didn't use the 2 actions");
+    end_turn_all(&mut g);
+    g.apply(0, Action::Freeze).unwrap();
+    g.apply(0, Action::Freeze).unwrap();
+    assert!(g.legal_mask(0)[mv.encode()], "moves stay legal past the action cap");
+    g.apply(0, mv).unwrap();
+    // 0 (the default): moves are actions.
+    g.cfg.moves_per_turn = 0;
+    assert!(g.apply(0, mv).is_err());
+}
+
+#[test]
 fn dark_gift_offers_distinct_gifts() {
     let mut g = game(13);
     // Fast-forward to turn 3 with bots.

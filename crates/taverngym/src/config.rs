@@ -218,6 +218,12 @@ pub struct RulesConfig {
         skip_serializing_if = "is_default_freeze_presses"
     )]
     pub freeze_presses_per_turn: u32,
+    /// 0 (the default): moving a minion is an action like any other. Above 0: moves don't count
+    /// toward `turn_action_caps` and a seat may move at most this many times a turn. The order of
+    /// seven minions takes at most six moves; a policy that spends the turn's budget rearranging
+    /// is left without actions for buying (not a game rule: whoever drives a policy sets it).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub moves_per_turn: u32,
 
     /// Record a structured event log (debugging; costs speed).
     pub record_log: bool,
@@ -286,6 +292,7 @@ impl Default for RulesConfig {
             max_actions_per_turn: max_actions(),
             turn_action_caps: Vec::new(),
             freeze_presses_per_turn: freeze_presses(),
+            moves_per_turn: 0,
             max_turns: max_turns(),
             record_log: false,
         }
@@ -327,8 +334,12 @@ impl RulesConfig {
 
     /// The fields that are not written while they have their default (the default config
     /// stays the same): `from_json` knows them by name.
-    const UNWRITTEN_AT_DEFAULT: [&'static str; 3] =
-        ["hero_bans", "freeze_presses_per_turn", "experimental_mode"];
+    const UNWRITTEN_AT_DEFAULT: [&'static str; 4] = [
+        "hero_bans",
+        "freeze_presses_per_turn",
+        "moves_per_turn",
+        "experimental_mode",
+    ];
 
     pub fn validate(&self) -> Result<(), String> {
         let (b, h, s) = (self.board_size, self.hand_size, 7 + self.shop_spell_slots);
@@ -544,6 +555,10 @@ fn max_turns() -> u32 {
 
 fn freeze_presses() -> u32 {
     10
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 fn is_default_freeze_presses(n: &u32) -> bool {

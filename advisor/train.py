@@ -27,6 +27,12 @@ from advisor.state import GAME_CONFIG
 from taverngym import BatchEnv
 
 CONFIG = GAME_CONFIG  # advisor.state: shared with the live advisor
+# Ending a turn with gold left while Refresh is legal and the Tavern isn't frozen costs this much
+# reward per gold: gold doesn't carry over, so a Refresh is free then. Self-play alone left the
+# network ending late turns with 4-9 gold (advisor.train docstring)
+WASTED_GOLD = 0.003
+F_GOLD, F_FROZEN = 7, 15  # global observation features (obs.rs): gold / 10, Tavern frozen
+A_END, A_REFRESH = 0, 1  # taverngym.layout()
 
 
 def hearthstone_running():
@@ -54,6 +60,14 @@ class Seat:
         self.items = []
 
 
+def wasted_gold(obs, i, a):
+    """The shaping cost of slot `i` taking action `a` (WASTED_GOLD)."""
+    f, m = obs["features"][i], obs["action_mask"][i]
+    if a != A_END or not m[A_REFRESH] or f[F_FROZEN] > 0.5:
+        return 0.0
+    return WASTED_GOLD * round(float(f[F_GOLD]) * 10)
+
+
 def collect(env, net, obs, seats, n_transitions, device, opponent_of=None):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
@@ -78,7 +92,7 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None):
             for j, i in enumerate(own):
                 seats[i].items.append([obs["features"][i], obs["cards"][i],
                                        obs["action_mask"][i], int(a[j]), float(lp[j]),
-                                       float(v[j]), 0.0, False])
+                                       float(v[j]), -wasted_gold(obs, i, int(a[j])), False])
             stored += len(own)
         play_frozen(obs, ready, opponent_of, actions, device, sample=True)
         rew, done, info = env.step(actions)

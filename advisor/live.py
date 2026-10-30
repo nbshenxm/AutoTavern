@@ -26,7 +26,7 @@ import numpy as np
 from hearthstone.enums import CardType, GameTag as T
 from hslog import LogParser, packets
 
-from advisor import bridge, decisions, display, logs
+from advisor import bridge, decisions, display, logs, meta
 from advisor.state import CAT, debug
 
 HS_LOGS = Path(r"D:\Program Files (x86)\Hearthstone\Logs")
@@ -312,6 +312,7 @@ def combat_odds(g, n=300):
             "seen_turn": nxt.get("seen_turn")}
 
 
+COMPS = []  # meta comps (advisor.meta), loaded by main
 SEARCH = {"k": 0, "temperature": 1.0}  # plan search (advisor.search): k sampled plans, 0 = off
 
 
@@ -338,8 +339,12 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
             warnings.append("the first step is not offered by the client")
     odds_now, odds_after = combat_odds(g), combat_odds(after)
     turn = (d["turn"] + 1) // 2
+    me = d["state"]["friendly"]
+    owned = [m["card"] for m in me["board"]] + [h.get("card") for h in bridge.hand_cards(me)]
+    comp = meta.closest([c for c in owned if c], COMPS)
     notes = [x for x in (display.odds_note("now", odds_now, locale, turn),
-                         display.odds_note("after", odds_after, locale, turn)) if x]
+                         display.odds_note("after", odds_after, locale, turn),
+                         display.comp_note(comp, locale, name_of)) if x]
     advice = {
         "display": {"title": display.t(locale, "title", turn=turn), "subtitle": policy_name,
                     "style": "normal", "rows": rows, "notes": notes, "warnings": warnings},
@@ -351,6 +356,7 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         "plan": [t for _, t in plan],
         "odds_now": odds_now,
         "odds_after_plan": odds_after,
+        "comp": comp,
         "gold": d["state"]["friendly"].get("gold"),
         "warnings": warnings,
     }
@@ -466,6 +472,8 @@ def main():
         sys.stdout = sys.stderr = open(a.log_file, "a", encoding="utf-8", buffering=1)
     skins = logs.skin_parents(a.cards)
     SEARCH["k"] = a.search
+    meta.fetch()
+    COMPS[:] = meta.comps()
     policy = Policy(a.model)
     if a.replay:
         replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit,

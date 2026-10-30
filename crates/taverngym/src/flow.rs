@@ -379,6 +379,7 @@ impl Game {
         pl.ended_turn = false;
         pl.actions_this_turn = 0;
         pl.freezes_this_turn = 0;
+        pl.moves_this_turn = 0;
         pl.skipping = false;
         pl.turn_data.clear();
         // Refill: the natural amount plus max-Gold bonuses, capped at 99; Gold gained on top at the
