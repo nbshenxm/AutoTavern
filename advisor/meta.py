@@ -18,9 +18,14 @@ URL = "https://hsreplay.net/api/v1/battlegrounds/comp_guides/?format=json"
 # Firestone's public trinket stats (the last 7 days: average placement and pick rate, overall and
 # by MMR bracket); no stated license: for this personal tool only, never redistributed
 TRINKET_URL = "https://static.zerotoheroes.com/api/bgs/trinket-stats/past-seven/overview-from-hourly.gz.json"
+HERO_URL = "https://static.zerotoheroes.com/api/bgs/hero-stats/mmr-100/past-seven/overview-from-hourly.gz.json"
+# Firestone's minion type codes (Hearthstone's Race enum) -> TavernGym's names
+RACE_CODES = {11: "UNDEAD", 14: "MURLOC", 15: "DEMON", 17: "MECHANICAL", 18: "ELEMENTAL",
+              20: "BEAST", 23: "PIRATE", 24: "DRAGON", 43: "QUILBOAR", 92: "NAGA", 126: "ABERRATION"}
 META = Path(__file__).resolve().parents[1] / "data" / "meta"
 GUIDES = META / "comp_guides.json"
 TRINKETS = META / "trinket_stats.json"
+HEROES = META / "hero_stats.json"
 MAX_AGE = 24 * 3600
 
 _DBF = {c["dbf"]: c for c in json.loads(CARDS.read_text(encoding="utf-8"))["cards"]}
@@ -52,7 +57,33 @@ def _download(url, path, force=False):
 def fetch(force=False):
     """The comp guides and the trinket stats, downloaded when missing or older than a day."""
     _download(TRINKET_URL, TRINKETS, force)
+    _download(HERO_URL, HEROES, force)
     return _download(URL, GUIDES, force)
+
+
+def hero_stats():
+    """hero card id -> {"place": average placement, "pick": pick rate when offered, "n": games,
+    "types": {type: change in average placement when that type is in the lobby},
+    "warband": {turn: average warband Attack+Health}} (the last 7 days, all MMRs); {} without
+    the file."""
+    if not HEROES.exists():
+        return {}
+    out = {}
+    for h in json.loads(HEROES.read_text(encoding="utf-8")).get("heroStats") or []:
+        if not h.get("heroCardId"):
+            continue
+        out[h["heroCardId"]] = {
+            "place": h["averagePosition"], "n": h["dataPoints"],
+            "pick": h["totalPicked"] / h["totalOffered"] if h.get("totalOffered") else None,
+            "types": {RACE_CODES[t["tribe"]]: t.get("impactAveragePosition", 0)
+                      for t in h.get("tribeStats") or [] if t.get("tribe") in RACE_CODES},
+            "warband": {w["turn"]: w["averageStats"] for w in h.get("warbandStats") or []}}
+    return out
+
+
+def hero_place(stats, lobby=()):
+    """A hero's expected placement, its type impacts added for the lobby's known types."""
+    return stats["place"] + sum(stats["types"].get(t, 0) for t in lobby)
 
 
 def trinket_stats():

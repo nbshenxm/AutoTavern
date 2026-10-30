@@ -71,9 +71,40 @@ def lobby_types(d, combats=()):
     return [r for r, _ in count.most_common(RULES["lobby_races"])]
 
 
+_SKINS = None
+
+
+def base_hero(card):
+    """A hero skin's base hero (CardDefs' BACON_SKIN_PARENT_ID), else the card itself."""
+    global _SKINS
+    if _SKINS is None:
+        from advisor import logs
+        from advisor.live import CARDS
+        try:
+            _SKINS = logs.skin_parents(CARDS)
+        except OSError:
+            _SKINS = {}
+    return _SKINS.get(card, card)
+
+
+def hero_game(d, seed=7):
+    """(game, gaps) at the game's start: the player choosing among the logged heroes (the
+    other seats' offers stay random; the lobby isn't known yet)."""
+    g = taverngym.Game(seed, json.dumps(GAME_CONFIG))
+    st = json.loads(g.state_json())
+    heroes = [base_hero(o.get("card") or "") for o in d["options"]]
+    cids = [CAT[h]["cid"] for h in heroes if h in CAT and CAT[h]["kind"] == "hero"]
+    gaps = [f"hero {h}" for h in heroes if h not in CAT]
+    if len(cids) == len(heroes):
+        st["players"][0]["pending"] = [{"HeroSelect": {"options": cids}}]
+    return taverngym.Game.from_json(json.dumps(st)), gaps
+
+
 def build(d, combats=(), seed=7):
     """(game, gaps) for decision `d`; `combats` are the game's earlier combats
     (`game_combats`), which give the opponents' last seen warbands."""
+    if choice_options(d)[0] == "hero":
+        return hero_game(d, seed)
     s = d["state"]
     me = s["friendly"]
     gaps = []
@@ -219,9 +250,9 @@ def build(d, combats=(), seed=7):
 
 def choice_options(d):
     """(kind, offered) at a choice decision the advice can rebuild: "minion" (a Discover of
-    minions: the logged minions), "trinket" (a trinket offer: card ids) or "spell" (a Discover
-    of Tavern spells: card ids); (None, []) for an Options decision and other choices (heroes,
-    Hero Powers, mixed offers)."""
+    minions: the logged minions), "trinket" (a trinket offer: card ids), "spell" (a Discover of
+    Tavern spells: card ids) or "hero" (the heroes offered at the start: base hero ids);
+    (None, []) for an Options decision and other choices (Hero Powers, mixed offers)."""
     if d.get("kind") != "choices":
         return None, []
     opts = d.get("options") or []
@@ -229,6 +260,8 @@ def choice_options(d):
         return None, []
     if all("minion" in o for o in opts):
         return "minion", [o["minion"] for o in opts]
+    if d.get("choice_type") == "MULLIGAN" and all(o.get("type") == "HERO" for o in opts):
+        return "hero", [base_hero(o.get("card") or "") for o in opts]
     kinds = {(CAT.get(normal_form(o.get("card") or "")[0]) or {}).get("kind") for o in opts}
     if kinds <= {"trinket_lesser", "trinket_greater"}:
         return "trinket", [o["card"] for o in opts]

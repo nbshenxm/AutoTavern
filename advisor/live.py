@@ -109,7 +109,8 @@ class Tracker:
             if d is not None:
                 return self._seen(d)
         d = self.exporter.pending
-        if d is None or d["turn"] % 2 == 0 or d is self.reported:
+        hero_offer = d is not None and bridge.choice_options(d)[0] == "hero"
+        if d is None or (d["turn"] % 2 == 0 and not hero_offer) or d is self.reported:
             return None
         # Recruit Options, or a choice the bridge can rebuild (a Discover of minions or Tavern
         # spells, Dark Discovery, a trinket offer): they get advice
@@ -358,6 +359,11 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     notes = [x for x in (display.odds_note("now", odds_now, locale, turn),
                          display.odds_note("after", odds_after, locale, turn),
                          display.comp_note(comp, locale, name_of)) if x]
+    kind, offered = bridge.choice_options(d)
+    if kind in ("hero", "trinket"):
+        note = display.offer_note(offered, locale, name_of)
+        if note:
+            notes.insert(0, note)
     advice = {
         "display": {"title": display.t(locale, "title", turn=turn), "subtitle": policy_name,
                     "style": "normal", "rows": rows, "notes": notes, "warnings": warnings},

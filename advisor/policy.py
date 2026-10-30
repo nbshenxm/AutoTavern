@@ -86,7 +86,7 @@ def card_table():
     """(N_CARDS + 1, CARD_F) float32: row 1 + cid is that card (row 0: no card)."""
     t = np.zeros((N_CARDS + 1, CARD_F), np.float32)
     from advisor import meta
-    public = meta.trinket_stats()
+    public = {**meta.trinket_stats(), **meta.hero_stats()}
     for c in json.loads(taverngym.catalog_json()):
         row = t[c["cid"] + 1]
         i = 0
@@ -104,11 +104,11 @@ def card_table():
         for j, n in enumerate(CARD_RACES):
             row[i + j] = n in (c.get("assoc") or [])
         i += len(CARD_RACES)
-        # Public play data (advisor.meta, Firestone): a trinket's average placement against the
-        # field (4.5 = average) and how often it's picked; known or not
+        # Public play data (advisor.meta, Firestone): a trinket's or hero's average placement
+        # (4.5 = average) and how often it's picked when offered; known or not
         s = public.get(c["id"])
         if s:
-            row[i:i + 3] = [(4.5 - s["place"]) / 0.5, s["pick"], 1.0]
+            row[i:i + 3] = [(4.5 - s["place"]) / 0.5, s.get("pick") or 0.0, 1.0]
     return t
 
 

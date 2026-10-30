@@ -84,3 +84,20 @@ def test_a_trinket_offer_is_rebuilt_for_advice():
                                 "tier": 3, "hero": None},
                    "shop": [], "leaderboard": {}, "costs": {}}}
     assert bridge.choice_options(d) == ("trinket", tr)
+
+
+def test_a_hero_offer_is_rebuilt_at_the_games_start():
+    # The four heroes offered (a skin counts as its base hero) are the player's hero choice
+    import json as _json
+
+    from advisor import bridge
+    from advisor.state import CAT
+
+    heroes = [c["id"] for c in CAT.values() if c.get("kind") == "hero" and c.get("in_pool")][:4]
+    d = {"kind": "choices", "turn": 0, "choice_type": "MULLIGAN",
+         "options": [{"card": h, "type": "HERO"} for h in heroes], "state": {}}
+    assert bridge.choice_options(d) == ("hero", heroes)
+    g, gaps = bridge.build(d)
+    v = _json.loads(g.view(0))
+    assert not gaps and v["me"]["pending"]["kind"] == "hero"
+    assert [o["id"] for o in v["me"]["pending"]["options"]] == heroes
