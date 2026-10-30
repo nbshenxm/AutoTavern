@@ -37,13 +37,16 @@ linear in the late game). Each item has a measurement; results go to EXPERIMENTS
 
 | Check | Result | Found and fixed |
 | --- | --- | --- |
-| Legal actions vs the client's options (2,651 decisions) | 95.9% identical; TavernGym never allows what the client refuses | Bile Spitter playable at a full warband in one game (unexplained, left); discounted Tavern spells priced at base (fix needs a rebuild) |
+| Legal actions vs the client's options (2,651 decisions) | 95.9% identical; TavernGym never allows what the client refuses | Bile Spitter playable at a full warband in one game (unexplained, left); discounted Tavern spells priced at base (fixed) |
 | One action at a time (advisor.recruit_diff, 1,550 actions) | 94.5% exact | player bonuses, minion counters |
-| Whole turns (advisor.turn_replay, 182 turns) | 84.6% never part from the log | free trinket offers charged; Faelin's locked hand never unlocks (to fix) |
+| Whole turns (advisor.turn_replay, 182 turns) | 84.6% never part from the log; the rest random draws (Dark Gift offers, Fishbait Taverns, Tea Set's random minions) | free trinket offers charged; Faelin's held minions never released; Baller improvements dropped (a Baller sold at round 14 gave +2/+2, the game +14/+14) |
+| Turn transitions (advisor.transition_check, 126) | the rest: the stand-ins' trinket pick at rounds 6 and 9, combat outcomes | maximum Gold bonuses dropped (16 transitions a Gold or two short) |
 | Combat replay (149 combats) | 0.88 mean probability of the logged result | first attacker, Start of Combat order, Dark Gifts |
 | Live advice | — | Activate offered twice in a turn; sell-and-replay detours; no hero advice |
 
-Next audits: the turn transition (end of turn, combat and the next turn's start against the log:
-gold income, end-of-turn effects, Tavern refill); the remaining warband-stat drifts in whole
-turns (Air/Fire Baller, Snarky Shark, Hoarding Hyena, Misplaced Tea Set, Mind Muck); Lurking
-Lionfish's Activate; opponents' trinket and hero power counters (observation version 4).
+Most of these were in the bridge (the rebuilt state), not in TavernGym's rules: training games
+are TavernGym's own, but the real starts and the live advice go through the bridge, so each fix
+reaches both. Next audits: combat effects that last (warband stats after combat against the
+log's, with the logged opponent's warband instead of a stand-in); opponents' trinket and hero
+power counters (observation version 4); the turn replay for Tavern targets (Mind Muck) and
+warband order.
