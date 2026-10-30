@@ -148,7 +148,9 @@ def add_minion(g, p, where, m, gaps, label):
         gaps.append(f"{label} minion {m['card']}")
         return False
     try:
-        debug(g, cmd="add_minion", p=p, zone=where, card=cid, golden=golden or m["golden"])
+        # (no_triple: the log shows the zones as they were; three copies there hadn't combined)
+        debug(g, cmd="add_minion", p=p, zone=where, card=cid, golden=golden or m["golden"],
+              no_triple=True)
     except ValueError as e:  # full zone and the like
         gaps.append(f"{label} minion {m['card']}: {e}")
         return False

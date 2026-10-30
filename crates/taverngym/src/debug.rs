@@ -1018,6 +1018,10 @@ pub enum DebugCmd {
         golden: bool,
         atk: Option<i32>,
         hp: Option<i32>,
+        /// Into the hand as it is, with no triple formed (rebuilding a logged state: the log
+        /// shows whether three copies had combined).
+        #[serde(default)]
+        no_triple: bool,
     },
     /// Add a spell to hand or shop.
     AddSpell {
@@ -1221,6 +1225,7 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
             golden,
             atk,
             hp,
+            no_triple,
         } => {
             check(p)?;
             let mut c = card(&id)?;
@@ -1247,7 +1252,24 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                     if pl.hand.len() >= g.cfg.hand_size {
                         return Err("hand is full".into());
                     }
-                    g.with_recruit(p, |ctx| ctx.add_to_hand(0, Item::Minion(m)));
+                    if no_triple {
+                        let hid = m.eid;
+                        g.players[p].hand.push(crate::state::HandCard {
+                            hid,
+                            item: Item::Minion(m),
+                            locked: 0,
+                            link: 0,
+                            group: 0,
+                            group_left: 0,
+                            temporary: false,
+                            src: 0,
+                            combined: false,
+                            held: false,
+                            held_gold: 0,
+                        });
+                    } else {
+                        g.with_recruit(p, |ctx| ctx.add_to_hand(0, Item::Minion(m)));
+                    }
                 }
                 "shop" => pl
                     .shop

@@ -219,9 +219,16 @@ fn run(ctx: &mut Ctx, initialize: bool) -> CombatOutcome {
     if initialize {
         start_of_combat(ctx);
         ctx.flush_waiting();
+        // Who attacks first is settled after Start of Combat: the side with more minions then
+        // (the pick before it only orders the Start of Combat effects; on a tie it stands). In
+        // the logged 37.0 combats whose sizes Start of Combat changed, the size before it
+        // missed 5 of 8 first attackers, the size after it none.
+        let (a, b) = (ctx.boards[0].len(), ctx.boards[1].len());
+        if a != b {
+            ctx.first = usize::from(b > a);
+        }
     }
     ctx.frame();
-    // Decided once, before Start of Combat.
     let mut side = ctx.first;
     let mut attacks = 0u32;
     let mut truncated = false;
