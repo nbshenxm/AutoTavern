@@ -30,6 +30,8 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "gensearch1": "generations + the search's choices",
     "teach1": "hot start: copying the teacher",
     "teachppo1": "generations from the hot start",
+    "safe1": "generations, small steps from the best",
+    "lib1": "generations + real warbands from your logs",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 SIMULATOR = [

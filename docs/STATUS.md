@@ -4,6 +4,21 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
+## Today (Oct 30)
+
+- **Case study: why the advice is weak in real games.** In its own games the network stays on
+  Tier 1-2 and stacks stats, ahead of real lobbies early (84 vs 56 Attack+Health at round 5) and
+  far behind late (963 vs 16,760 at round 13; Tier 4.2 vs 5.8). Nothing in self-play punishes
+  it: every opponent is a copy. Your logs' real warbands, by round, are the calibration.
+- **Opponents with real warbands (`lib1`).** Two seats of every training game now fight with a
+  real warband from your logs for that round (209 so far; every game you play adds about 26).
+  In lobbies of the current network such seats place 3.33 on average, the network's own 4.89.
+- **Live bridge fixed:** the lobby's five minion types (read from what your Tavern shows), the
+  last combat's result, and a stand-in that could leave you in a skipped turn. The network and
+  the plan search now see your real lobby.
+- `teachppo1` was promoted again at 09:25 (head to head 4.28): the hot-start line still leads.
+  The cautious line (`safe1`) didn't gain and made room for `lib1`.
+
 ## Overnight results (Oct 30 morning)
 
 - **Your hot start worked.** The line that started by copying your strategy (`teachppo1`) made
@@ -63,6 +78,10 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
   opponents calibrated to real games: the boards of the opponents you meet are in your logs.
 
 ## Next
+
+- Watch `lib1` against real warbands (its "vs best + library" test) and head to head.
+- One observation upgrade: card mechanics from the card data, minion counters and attachments,
+  opponents' board age, the turn's action budget (a network conversion, then fine-tuning).
 
 - PPO from the hot start (`teach1`, ends about 00:50), in generations too, held near the teacher
   at first; it then races `gen1` head to head.
