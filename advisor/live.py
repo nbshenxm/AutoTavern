@@ -234,19 +234,24 @@ def describe(view, a, locale):
     return f"action {a}"
 
 
-def plan_turn(g, locale, net=None, allowed=None):
+def plan_turn(g, locale, net=None, allowed=None, script=None):
     """The policy's actions on a copy until it ends the turn: ([(action, text)], rows, the copy
     at the end). With a network, its most likely action at each step; the first step only among
     `allowed` (what the client offers too). Without one, TavernGym's scripted bot. `rows` are
     the overlay's (advisor.display): a target joins the step that asked for it, and a run of
-    moves is one "Arrange" step with the warband's order after it."""
+    moves is one "Arrange" step with the warband's order after it. `script`: these actions
+    instead (a plan the search chose), then the plan ends."""
     c = g.copy()
     out, rows = [], []
     after = json.loads(c.view(0))
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
             break
-        if net is None:
+        if script is not None:
+            if step >= len(script):
+                break
+            a = script[step]
+        elif net is None:
             a = c.bot_action(0)
         else:
             from advisor.policy import act
@@ -307,6 +312,9 @@ def combat_odds(g, n=300):
             "seen_turn": nxt.get("seen_turn")}
 
 
+SEARCH = {"k": 0, "temperature": 1.0}  # plan search (advisor.search): k sampled plans, 0 = off
+
+
 def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)"):
     t0 = time.perf_counter()
     g, gaps = bridge.build(d, bridge.game_combats(combats, d) if combats else ())
@@ -316,7 +324,12 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     else:
         client = bridge.client_actions(d)
         allowed = bridge.allowed_mask(mask, d)
-    plan, rows, after = plan_turn(g, locale, net, allowed)
+    script = None
+    if net is not None and SEARCH["k"] > 0:
+        from advisor import search
+        script, _, _ = search.best_plan(g, net, 0, allowed, SEARCH["k"], SEARCH["temperature"])
+        policy_name += f", plan search over {SEARCH['k'] + 1}"
+    plan, rows, after = plan_turn(g, locale, net, allowed, script)
     warnings = sorted(set(gaps))
     first = plan[0] if plan else None
     if first is not None and net is None:
@@ -443,6 +456,8 @@ def main():
     ap.add_argument("--live-dir", default=str(LIVE_DIR))
     ap.add_argument("--locale", default="enUS", choices=["enUS", "zhCN"])
     ap.add_argument("--log-file", help="write output here (the plugin runs pythonw, no console)")
+    ap.add_argument("--search", type=int, default=0, metavar="K",
+                    help="plan search over the greedy plan and K sampled ones (0: off)")
     ap.add_argument("--model", default=str(MODEL),
                     help="policy network (advisor.train checkpoint); the scripted bot without one")
     a = ap.parse_args()
@@ -450,6 +465,7 @@ def main():
         Path(a.log_file).parent.mkdir(parents=True, exist_ok=True)
         sys.stdout = sys.stderr = open(a.log_file, "a", encoding="utf-8", buffering=1)
     skins = logs.skin_parents(a.cards)
+    SEARCH["k"] = a.search
     policy = Policy(a.model)
     if a.replay:
         replay(a.replay, skins, a.locale, Path(a.live_dir) if a.limit else None, a.limit,
