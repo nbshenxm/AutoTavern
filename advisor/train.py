@@ -452,6 +452,11 @@ def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads
             "se": round(float(np.std(places) / np.sqrt(len(places))), 3), "n": len(places)}
 
 
+# RealStarts draws a round from 8 on this many times as often as an earlier one: self-play
+# covers the early game, and the late game is where the network stalled
+LATE_ROUND, LATE_WEIGHT = 8, 3.0
+
+
 class RealStarts:
     """--real-starts P: a share P of the new games start where the player stood at the start of a
     logged round (advisor.library.starts, made into games by the bridge) instead of at round 1.
@@ -485,7 +490,10 @@ class RealStarts:
                 continue
             states.append(json.loads(g.state_json()))
         self.states = states
-        self.log({"real_starts": len(states), "skipped": skipped})
+        w = np.array([LATE_WEIGHT if st["turn"] >= LATE_ROUND else 1.0 for st in states])
+        self.weights = w / w.sum() if len(w) else w
+        self.log({"real_starts": len(states), "skipped": skipped,
+                  "late": int(sum(st["turn"] >= LATE_ROUND for st in states))})
 
     def apply(self, env):
         """After env.step: the games that just began anew start from a real position instead,
@@ -498,7 +506,7 @@ class RealStarts:
         for i, (was, now) in enumerate(zip(self.seen, idx)):
             if was == now or not self.states or self.rng.random() >= self.p:
                 continue
-            load_start(env, i, self.states[self.rng.integers(len(self.states))])
+            load_start(env, i, self.states[self.rng.choice(len(self.states), p=self.weights)])
             n += 1
         self.seen = idx
         return n

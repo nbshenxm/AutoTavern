@@ -330,7 +330,7 @@ def test_real_starts_replace_new_games(tmp_path):
     st["players"][3].update(alive=False, placement=8, health=0)
     st["eliminated"] = [3]
     rs = train.RealStarts(1.0, 0, path=tmp_path / "none.jsonl", log=lambda r: None)
-    rs.states = [st]
+    rs.states, rs.weights = [st], np.array([1.0])
     env = train.BatchEnv(2, seed=9, controlled=list(range(8)), config=train.CONFIG, threads=1)
     assert rs.apply(env) == 0  # the first call only notes where the games are
     rs.seen = [-1, -1]
