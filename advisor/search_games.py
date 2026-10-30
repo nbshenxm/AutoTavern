@@ -56,10 +56,14 @@ def _init():
 
 def play(args):
     """One game; the searched seats' (features, cards, mask, action) and their placements."""
-    seed, path, k, temperature, real = args
+    seed, path, k, temperature, real, lib = args
     net = _net(path)
     rng = np.random.default_rng(seed)
-    g = taverngym.Game(seed, json.dumps(GAME_CONFIG))
+    config = GAME_CONFIG
+    if lib:
+        from advisor import library
+        config = {**GAME_CONFIG, "library": library.library(lib)}
+    g = taverngym.Game(seed, json.dumps(config))
     if real and rng.random() < real:
         if _STARTS["rs"] is None:
             from advisor.train import RealStarts
@@ -67,7 +71,9 @@ def play(args):
         rs = _STARTS["rs"]
         if rs.states:
             st = json.loads(json.dumps(rs.states[rng.choice(len(rs.states), p=rs.weights)]))
-            st["rng"] = json.loads(g.state_json())["rng"]  # this game's own random draws
+            fresh = json.loads(g.state_json())
+            st["rng"] = fresh["rng"]  # this game's own random draws
+            st["cfg"] = {**fresh["cfg"], "lobby_types": st["cfg"].get("lobby_types")}
             g = taverngym.Game.from_json(json.dumps(st))
     rows, n = [], 0
     for _ in range(200_000):
@@ -166,6 +172,8 @@ def main():
     ap.add_argument("--seed", type=int, default=80_000_000)
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
                     help="this share of games start from the player's logged round starts")
+    ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
+                    help="these seats fight with real warbands (advisor.library), as in training")
     ap.add_argument("--stop-if-playing", action="store_true",
                     help="stop when Hearthstone runs (a run on the home PC)")
     a = ap.parse_args()
@@ -182,7 +190,7 @@ def main():
                 if hearthstone_running():
                     print("Hearthstone started: stopping", flush=True)
                     break
-            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts)
+            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts, a.library)
                     for i in range(batch)]
             for rows, pl in pool.imap_unordered(play, jobs):
                 pending += rows
