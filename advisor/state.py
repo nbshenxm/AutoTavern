@@ -17,9 +17,11 @@ RULES = json.loads(taverngym._core.default_config_json())
 # or the network plays a game it never learned
 GAME_CONFIG = {
     "hero_choices": 4,  # the player's season-pass offer (docs/REPLAY.md, recruit rules)
-    # Moves and Freeze never advance the game: a turn ends after this many actions, a little
-    # above the most the player took in a logged turn (6, 5, 10, 10, 18, 38, 28, 49, 58...)
-    "turn_action_caps": [8, 8, 12, 12, 20, 40, 40, 60],
+    # Moves and Freeze never advance the game: a turn ends after this many actions. Set with room
+    # above the most the player took in a logged turn (by round 6, 6, 11, 11, 16, 36, 37, 47, 57,
+    # 60...: round 10 hit the old cap of 60): strong players' economy turns buy, play and sell
+    # more; Freeze presses (10) and moves (moves_per_turn) have their own limits
+    "turn_action_caps": [10, 10, 16, 16, 24, 50, 60, 80, 100],
     # Moves outside that budget, at most 7 a turn (any order of 7 minions takes 6): the network
     # spent most of its turns rearranging and ended them, budget gone, with gold left
     "moves_per_turn": 7,
