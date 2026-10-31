@@ -37,6 +37,15 @@ def test_replayed_log_gets_advice_at_every_recruit_decision():
             if d is not None:
                 advice.append(live.advise(d, tr.combats()))
                 kinds.append(d["kind"])
+                if d["kind"] == "options":  # the plan's actions, every move kept, replay as given
+                    from advisor import bridge
+                    g, gaps = bridge.build(d, tr.combats())
+                    if not gaps:
+                        for x in advice[-1]["actions"]:
+                            g.step(0, x)
+                        if not advice[-1]["arranged"]:  # the warband in the plan's order
+                            board = [m["id"] for m in json.loads(g.view(0))["me"]["board"]]
+                            assert board == [e["card_id"] for e in advice[-1]["display"]["lineup"]]
     # Every recruit Options decision, and the Discovers between minions on top
     assert kinds.count("options") == len(offline)
     assert kinds.count("choices") >= 1
@@ -163,3 +172,34 @@ def test_a_step_that_draws_at_random_ends_the_plan():
     c = g.copy()
     c.step(0, L["A_PLAY"])
     assert live.random_cards(alt, L["A_PLAY"], _json.loads(c.view(0))) is None
+
+
+def test_a_plans_actions_keep_every_move():
+    # A run of moves is one "Arrange" entry of the plan, but the actions (what the review and
+    # the end-of-turn Gold replay) keep every move: replayed, they give the plan's warband
+    sys.path.insert(0, str(ROOT))
+    import json as _json
+
+    import numpy as np
+    import taverngym
+
+    from advisor import live
+    from advisor.state import debug, recruit_game
+
+    L = dict(taverngym.layout())
+    g = recruit_game(1)
+    for card in ("BG26_152", "BGS_004", "BGS_039"):
+        debug(g, cmd="add_minion", p=0, zone="board", card=card, no_triple=True)
+    c, script = g.copy(), []
+    for _ in range(2):  # two different legal moves in a row
+        moves = np.flatnonzero(np.array(_json.loads(c.view(0))["mask"][L["A_MOVE"]:])) + L["A_MOVE"]
+        a = int(moves[len(script)])
+        c.step(0, a)
+        script.append(a)
+    plan, _, after, steps = live.plan_turn(g, "enUS", script=script + [L["A_END"]])
+    assert len(plan) == 2 and steps == script + [L["A_END"]]
+    r = g.copy()
+    for x in steps:
+        r.step(0, x)
+    board = lambda x: [m["id"] for m in _json.loads(x.view(0))["me"]["board"]]
+    assert board(r) == board(after) == board(c)

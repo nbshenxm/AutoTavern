@@ -67,7 +67,9 @@ says.
 1. `advisor.review` (section 1): done, run by the home sync after every game.
 2. `advisor.fidelity` with a stored baseline (section 2): done, same; history on the progress page.
 3. Regression tests for the fixes (section 3): done for all of Oct 30's.
-4. The review's no-exception rules in the play audit (section 4): the audit has the first-step,
-   detour and Gold checks; the review's other rules next.
+4. The review's no-exception rules in the play audit (section 4): done Oct 31 (crashes, the
+   first step, exact-id detours; the signals: Gold left, cards lost, weaker warband, worse odds).
+   Checking the audit itself found the Gold-left signal dead: it was read after End Turn, when
+   nothing is legal; the live test now fails if no plan in a game ever ends with spendable Gold.
 5. Action-mix drift in training logs (section 5); usefulness per game (section 6): next.
 6. Your habits as a reference (`advisor.compare_play`, on the progress page): done.

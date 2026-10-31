@@ -259,14 +259,15 @@ def describe(view, a, locale):
 
 def plan_turn(g, locale, net=None, allowed=None, script=None):
     """The policy's actions on a copy until it ends the turn: ([(action, text)], rows, the copy
-    at the end). With a network, its most likely action at each step; the first step only among
+    at the end, [every action taken]: a run of moves is one entry of the first, all of them in
+    the last). With a network, its most likely action at each step; the first step only among
     `allowed` (what the client offers too). Without one, TavernGym's scripted bot. `rows` are
     the overlay's (advisor.display): a target joins the step that asked for it, and a run of
     moves is one "Arrange" step with the warband's order after it. `script`: these actions
     instead (a plan the search chose), then the plan ends."""
     from advisor import search
     c = g.copy()
-    out, rows, sold = [], [], {}
+    out, rows, sold, steps = [], [], {}, []
     after = json.loads(c.view(0))
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
@@ -295,6 +296,7 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
             display.merge_target(rows, view, a, locale, name_of)
         alt = search.fair_copy(c, 0)  # the same step under another random seed (random_cards)
         c.step(0, a)
+        steps.append(int(a))
         after = json.loads(c.view(0))
         chance = random_outcome(view, a, after) or random_cards(alt, a, after)
         if chance:
@@ -317,7 +319,7 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
             rows.append(row)
         if a == 0:
             break
-    return out, display.collapse(rows, locale), c
+    return out, display.collapse(rows, locale), c, steps
 
 
 def random_outcome(before, a, after):
@@ -468,7 +470,7 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         from advisor import search
         script, _, _ = search.best_plan(g, net, 0, allowed, SEARCH["k"], SEARCH["temperature"])
         policy_name += f", plan search over {SEARCH['k'] + 1}"
-    plan, rows, after = plan_turn(g, locale, net, allowed, script)
+    plan, rows, after, steps = plan_turn(g, locale, net, allowed, script)
     arranged = None
     if net is not None and d["kind"] == "options" and plan and plan[-1][0] == 0:
         # The plan ends the turn: before it, the order that does best against the next
@@ -532,8 +534,8 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     end = json.loads(after.view(0))
     if plan and plan[-1][0] == 0:
         pre = g.copy()
-        for x, _ in plan[:-1]:
-            pre.step(0, int(x))
+        for x in steps[:-1]:  # (every move: the plan's Arrange entry keeps only the last)
+            pre.step(0, x)
         end_view = json.loads(pre.view(0))
     else:
         end_view = end
@@ -541,7 +543,8 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     advice["gold_left"] = end_view["me"]["gold"]
     advice["could_spend"] = bool(em[1] or any(em[8:16]))  # Refresh or a buy still legal
     # (advisor.review: the plan's actions, the warband before and after, cards it loses)
-    advice["actions"] = [int(x) for x, _ in plan]
+    advice["actions"] = steps
+    advice["arranged"] = arranged is not None  # (the order found by arrange: not in `actions`)
     start = json.loads(g.state_json())["players"][0]["stats"].get("cards_lost", 0)
     advice["cards_lost"] = json.loads(after.state_json())["players"][0]["stats"].get("cards_lost", 0) - start
     advice["stats_before"] = sum(m["atk"] + m["hp"] for m in json.loads(g.view(0))["me"]["board"])

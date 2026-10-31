@@ -52,6 +52,7 @@ AUDIT_FIXES = [
     ("Oct 30", "Discounted Tavern spells at full price", "a buy you could afford was refused (Ominous Seer's discount)", "legality check"),
     ("Oct 30", "Who attacks first, Dark Gifts, triples in a rebuilt hand", "combats and warbands rebuilt wrong", "combat replay"),
     ("Oct 30", "Trinket stealth cost in training: Freeze + End with Gold", "the network learned to dodge the unspent-Gold cost by freezing", "case study"),
+    ("Oct 31", "Unspent Gold at the end of a plan never counted", "read after End Turn, when nothing is legal: the review and the play audit missed 10% of late plans ending with 3+ Gold", "audit self-check"),
 ]
 SIMULATOR = [
     ("Combats replayed from your logs", "92.5-95%", "of 106 logged combats end as the simulator predicts (win, tie or loss)"),
