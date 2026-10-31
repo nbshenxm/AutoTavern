@@ -8,17 +8,17 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 Everything runs on the office and the cluster without the home PC:
 
 - [ ] Cluster: solo1, AutoTavern's setup (job 96998, hourly tasks, about 40 iterations each; ~20 by tomorrow afternoon)
-- [ ] Cluster: the teacher test (job 97021, 64 CPUs, results saved case by case)
+- [x] Cluster: the teacher test, done 18:58: no search teacher beats the network (EXPERIMENTS.md); search data dropped
 - [ ] Office: emb1 vs sig1 (the new information vs the blind control) until Nov 1 16:00
 - [ ] Office: the hourly promotion check with the play audit (a network that passes reaches best.pt; the overlay gets it at the next home sync)
 
 ## Next up (tomorrow afternoon, when the PC is back)
 
-- [ ] Teacher test result: keep search data only if a search clearly beats the network
 - [ ] emb1 vs sig1: keep the new information or not (your positions, top-1% lobbies)
 - [ ] solo1 against the office runs on the same measures; its best.pt to the office for the promotion check
 - [ ] R2 at 20:00 (late game >= 0.25x or from your positions < 2.50): ship whatever is best, say plainly if it misses
 - [ ] If neither solo1 nor emb1 moved: the next approach for R3 (larger network on the cluster, or opponents' trinket counters)
+- [ ] The office runs without search data from their next restart (the teacher test: it doesn't help)
 
 ## Later
 
