@@ -70,6 +70,11 @@ assert N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS) + N_OPP * N_OPP_
 OBS_LAYOUT = {k: L[k] for k in ("OBS_VERSION", "MINION_F", "ITEM_F", "GLOBAL_F", "OPP_F")}
 V1_LAYOUT = {"OBS_VERSION": 1, "MINION_F": 31, "ITEM_F": 40, "GLOBAL_F": 53, "OPP_F": 9}
 V2_LAYOUT = {"OBS_VERSION": 2, "MINION_F": 32, "ITEM_F": 41, "GLOBAL_F": 59, "OPP_F": 10}
+V3_LAYOUT = {"OBS_VERSION": 3, "MINION_F": 32, "ITEM_F": 41, "GLOBAL_F": 59, "OPP_F": 11}
+# (version 4) What the player's cards count, at the end of the global floats: first the owned
+# trinkets' counters (one per trinket slot), then Hero Powers and the game's counters
+V4_F, V4_TRINKETS = L.get("V4_F", 0), L.get("V4_TRINKETS", 8)  # (0: a module from before)
+V4_AT = L["GLOBAL_F"] - V4_F
 
 # The card table: what each card is, from TavernGym's card data (rebuilt at every load, so a
 # patched card reads as it is now and a new one doesn't start from nothing). Fixed width.
@@ -81,7 +86,36 @@ CARD_MECH = ["BATTLECRY", "DEATHRATTLE", "START_OF_COMBAT", "END_OF_TURN", "AVEN
              "CHOOSE_ONE", "DISCOVER", "AURA", "MAGNETIC", "ACTIVATE"]
 CARD_KW = ["TAUNT", "DIVINE_SHIELD", "WINDFURY", "REBORN", "VENOMOUS", "POISONOUS", "STEALTH",
            "MAGNETIC", "MEGA_WINDFURY", "CLEAVE", "IMMUNE", "IMMUNE_ATTACKING"]  # Kw::NAMES
-CARD_F = len(CARD_KINDS) + 2 * len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6 + 3
+# What a card's text says it does (added 2026-10-31, at the table's end): when it triggers,
+# what it works on, what it gives; which minion types it names; how big its numbers are. A
+# card the network has rarely seen then starts from what it does, not from nothing.
+CARD_TEXT = [("start_of_turn", r"start of (your|each|every) turn"), ("end_of_turn", r"end of (your|each|every) turn"),
+             ("start_of_combat", r"start of combat"), ("sell", r"\bsell"), ("buy", r"\bbuy"),
+             ("play", r"(after|whenever|when) you play"), ("cast", r"\bcast|spellcraft"),
+             ("tavern_spell", r"tavern spell"), ("summon", r"summon"), ("deaths", r"\bdies\b|\bdie\b|avenge|killed"),
+             ("attacks", r"\battacks\b"), ("rally", r"\brally\b"), ("refresh", r"refresh"), ("gold", r"\bgold\b"),
+             ("blood_gem", r"blood gem"), ("discover", r"discover"), ("random", r"random"),
+             ("this_game", r"this game|permanent|rest of the game"),
+             ("warband", r"your (other )?minions|friendly minions|your warband|all minions|minions in your warband"),
+             ("tavern", r"in the tavern|tavern minions"), ("hand", r"your hand"), ("get", r"\bget\b|to your hand"),
+             ("golden", r"golden|\btriple"), ("cost", r"\bcosts?\b|less\b"), ("hero_health", r"your hero|\bhealth\b"),
+             ("copy", r"\bcop(y|ies)\b"), ("magnetize", r"magneti"), ("position", r"(left|right)-? ?most|adjacent|to the (left|right)"),
+             ("multiply", r"\bdouble|\btriple the"), ("no_type", r"no type")]
+CARD_TEXT_RACES = [("BEAST", "beast"), ("DEMON", "demon"), ("DRAGON", "dragon"), ("ELEMENTAL", "elemental"),
+                   ("MECHANICAL", "mech"), ("MURLOC", "murloc"), ("PIRATE", "pirate"), ("QUILBOAR", "quilboar"),
+                   ("UNDEAD", "undead"), ("ABERRATION", "aberration"), ("NAGA", "naga")]
+CARD_F = len(CARD_KINDS) + 2 * len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6 + 3 +     len(CARD_TEXT) + len(CARD_TEXT_RACES) + 2
+
+
+def text_features(text):
+    """CARD_TEXT, CARD_TEXT_RACES and the size of the numbers (the largest, and the sum of the
+    +X/+Y it gives) of one card's text."""
+    import re
+    t = (text or "").lower()
+    row = [bool(re.search(rx, t)) for _, rx in CARD_TEXT] + [w in t for _, w in CARD_TEXT_RACES]
+    nums = [int(x) for x in re.findall(r"\d+", t)]
+    buffs = sum(int(a) + int(b) for a, b in re.findall(r"\+(\d+)/\+(\d+)", t))
+    return row + [np.log1p(max(nums, default=0)) / 4, np.log1p(buffs) / 4]
 
 
 def card_table():
@@ -111,6 +145,8 @@ def card_table():
         s = public.get(c["id"])
         if s:
             row[i:i + 3] = [(4.5 - s["place"]) / 0.5, s.get("pick") or 0.0, 1.0]
+        i += 3
+        row[i:] = text_features(c.get("text"))
     return t
 
 
@@ -138,6 +174,10 @@ class EntityNet(nn.Module):
         self.opp_trinket = nn.Linear(card_dim, card_dim)
         nn.init.zeros_(self.opp_trinket.weight)
         nn.init.zeros_(self.opp_trinket.bias)
+        # (version 4) A trinket's own counter ("2 left!") added to its token; zero at first too
+        self.trinket_count = nn.Linear(1, d)
+        nn.init.zeros_(self.trinket_count.weight)
+        nn.init.zeros_(self.trinket_count.bias)
         self.proj = nn.ModuleDict({n: nn.Linear(card_dim + k, d) for n, _, k in FLOAT_BLOCKS})
         self.n_tokens = 1 + N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS)
         self.pos = nn.Parameter(torch.randn(self.n_tokens, d) * 0.02)
@@ -183,7 +223,9 @@ class EntityNet(nn.Module):
             c += n
         opp_trinkets = self.opp_trinket(emb[:, c:].reshape(b, N_OPP, N_OPP_TRINKETS, -1).sum(2))
         toks = [self.glob(features[:, :GLOBAL_ALL])[:, None],
-                self.misc(spans["misc"][0]), self.misc(spans["trinkets"][0])]
+                self.misc(spans["misc"][0]),
+                self.misc(spans["trinkets"][0]) + (self.trinket_count(features[:, V4_AT:V4_AT + V4_TRINKETS, None])
+                                                   if V4_F else 0)]
         empties = [torch.zeros(b, 1, dtype=torch.bool, device=features.device),
                    spans["misc"][1] == 0, spans["trinkets"][1] == 0]
         f = GLOBAL_ALL
@@ -280,21 +322,27 @@ def load(path, device="cpu"):
         state = adapt(dict(state), old)
         ck["adapted"] = old
     missing, unexpected = net.load_state_dict(state, strict=False)
-    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.")) for k in missing):
+    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.", "trinket_count.")) for k in missing):
         raise ValueError(f"{path}: weights don't fit ({missing}, {unexpected})")
     net.eval()
     return net, ck
 
 
 def widen_obs(features, cards):
-    """Observations stored under layout version 2 (search shards) as version 3: a zero for
-    each opponent's triples at the end of its leaderboard floats, no opponent trinkets. Arrays
-    already at the current width come back as they are."""
+    """Observations stored under an older layout (search shards) as the current one: version 2
+    gets a zero for each opponent's triples at the end of its leaderboard floats and no opponent
+    trinkets (version 3), version 3 zeros for what its cards count (version 4: at the end of the
+    global floats). Arrays already at the current width come back as they are."""
     if features.shape[1] == OBS_FLOATS and cards.shape[1] == OBS_CARDS:
         return features, cards
+    if V4_F and features.shape[1] == OBS_FLOATS - V4_F and cards.shape[1] == OBS_CARDS:  # version 3
+        pad = np.zeros((len(features), V4_F), features.dtype)
+        return np.concatenate([features[:, :V4_AT], pad, features[:, V4_AT:]], 1), cards
     old = V2_LAYOUT["OPP_F"]
-    if features.shape[1] != OBS_FLOATS - N_OPP * (OPP_F - old) or             cards.shape[1] != OBS_CARDS - N_OPP * N_OPP_TRINKETS:
-        raise ValueError(f"observations of width {features.shape[1]}/{cards.shape[1]}: not version 2")
+    if features.shape[1] != OBS_FLOATS - V4_F - N_OPP * (OPP_F - old) or             cards.shape[1] != OBS_CARDS - N_OPP * N_OPP_TRINKETS:
+        raise ValueError(f"observations of width {features.shape[1]}/{cards.shape[1]}: not version 2 or 3")
+    features = np.concatenate([features[:, :V4_AT], np.zeros((len(features), V4_F), features.dtype),
+                               features[:, V4_AT:]], 1)  # to version 3's width plus version 4's
     at = GLOBAL_ALL + sum(n * k for name, n, k in FLOAT_BLOCKS[:4])
     opp = features[:, at:at + N_OPP * old].reshape(len(features), N_OPP, old)
     pad = np.zeros((len(features), N_OPP, OPP_F - old), features.dtype)

@@ -14062,3 +14062,25 @@ fn a_host_played_from_hand_fires_its_last_volumizer_once() {
         "no Volumizer, no bonus"
     );
 }
+
+#[test]
+fn observation_shows_what_the_players_cards_count() {
+    // Version 4: a trinket's counter, a Hero Power's counter and level, the Undead Attack bonus
+    use taverngym::actions::N_POWERS;
+    use taverngym::obs::{GLOBAL_F, V4_F, V4_POWER_F, V4_TRINKETS, observe};
+    let mut g = game(951);
+    let totem = cid("BG36_MagicItem_202"); // Warcry Totem: "(2 left!)"
+    g.players[0].trinkets.push(totem);
+    g.players[0].counters.push((totem, 2));
+    g.players[0].powers[0].counter = 3;
+    g.players[0].powers[0].level = 1;
+    g.players[0].stats.undead_atk = 7;
+    let o = observe(&g, 0);
+    let v4 = GLOBAL_F - V4_F;
+    assert_eq!(o.floats[v4], 0.2, "the trinket's counter");
+    assert_eq!(o.floats[v4 + 1], 0.0, "an empty trinket slot");
+    let hp = v4 + V4_TRINKETS;
+    assert_eq!(&o.floats[hp..hp + 2], &[0.3, 0.2], "counter, level");
+    let counters = hp + N_POWERS * V4_POWER_F;
+    assert_eq!(o.floats[counters], 0.7, "Undead Attack");
+}

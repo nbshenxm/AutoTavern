@@ -439,6 +439,8 @@ fn layout() -> Vec<(&'static str, usize)> {
         ("MINION_F", o::MINION_F),
         ("ITEM_F", o::ITEM_F),
         ("GLOBAL_F", o::GLOBAL_F),
+        ("V4_F", o::V4_F),
+        ("V4_TRINKETS", o::V4_TRINKETS),
         ("N_QUESTS", o::N_QUESTS),
         ("QUEST_F", o::QUEST_F),
         ("N_SECRETS", o::N_SECRETS),

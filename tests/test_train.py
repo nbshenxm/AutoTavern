@@ -440,9 +440,11 @@ def test_a_version_2_network_ignores_opponent_trinkets_and_triples():
     net = EntityNet()
     st = policy.adapt  # noqa: F841 (the path under test is policy.load)
     old = net.state_dict()
-    old = {k: v for k, v in old.items() if not k.startswith("opp_trinket.")}
+    old = {k: v for k, v in old.items() if not k.startswith(("opp_trinket.", "trinket_count."))}
     w = old["proj.opp.weight"]
     old["proj.opp.weight"] = w[:, :-1]  # as saved under OPP_F 10
+    gw = old["glob.weight"]  # and without version 4's global floats
+    old["glob.weight"] = torch.cat([gw[:, :policy.V4_AT], gw[:, policy.V4_AT + policy.V4_F:]], 1)
     path = Path(__import__("tempfile").mkdtemp()) / "v2.pt"
     torch.save({"config": net.config, "state": old, "obs": policy.V2_LAYOUT}, path)
     loaded, ck = policy.load(path)
@@ -467,16 +469,62 @@ def test_a_version_2_network_ignores_opponent_trinkets_and_triples():
 def test_version_2_shards_are_widened():
     from advisor import policy
 
-    n = 3
-    f = np.random.rand(n, policy.OBS_FLOATS - policy.N_OPP).astype(np.float16)
+    n, v4, at4 = 3, policy.V4_F, policy.V4_AT
+    f = np.random.rand(n, policy.OBS_FLOATS - v4 - policy.N_OPP).astype(np.float16)
     c = np.ones((n, policy.OBS_CARDS - policy.N_OPP * policy.N_OPP_TRINKETS), np.int32)
     f3, c3 = policy.widen_obs(f, c)
     assert f3.shape[1] == policy.OBS_FLOATS and c3.shape[1] == policy.OBS_CARDS
     at = policy.GLOBAL_ALL + sum(k * m for _, k, m in policy.FLOAT_BLOCKS[:4])
     old = policy.OPP_F - 1
-    assert np.array_equal(f3[:, :at], f[:, :at])
-    assert (f3[:, at + old] == 0).all() and np.array_equal(f3[:, at:at + old], f[:, at:at + old])
-    assert np.array_equal(f3[:, at + policy.N_OPP * policy.OPP_F:], f[:, at + policy.N_OPP * old:])
+    assert np.array_equal(f3[:, :at4], f[:, :at4]) and (f3[:, at4:at4 + v4] == 0).all()
+    assert np.array_equal(f3[:, at4 + v4:at], f[:, at4:at - v4])
+    assert (f3[:, at + old] == 0).all() and np.array_equal(f3[:, at:at + old], f[:, at - v4:at - v4 + old])
+    assert np.array_equal(f3[:, at + policy.N_OPP * policy.OPP_F:], f[:, at - v4 + policy.N_OPP * old:])
+
+
+def test_version_3_shards_are_widened():
+    # Version 4's global floats (what the player's cards count) come in as zeros
+    from advisor import policy
+
+    f = np.random.rand(3, policy.OBS_FLOATS - policy.V4_F).astype(np.float16)
+    c = np.ones((3, policy.OBS_CARDS), np.int32)
+    f4, c4 = policy.widen_obs(f, c)
+    at, v4 = policy.V4_AT, policy.V4_F
+    assert f4.shape[1] == policy.OBS_FLOATS and np.array_equal(c4, c)
+    assert np.array_equal(f4[:, :at], f[:, :at]) and (f4[:, at:at + v4] == 0).all()
+    assert np.array_equal(f4[:, at + v4:], f[:, at:])
+
+
+def test_a_version_3_network_ignores_what_the_cards_count():
+    # Loaded under version 4 (and the card table's text columns), a network saved for version
+    # 3 has zero weights for the new numbers: its output doesn't depend on them
+    import json as _json
+
+    import taverngym
+    from advisor import policy
+
+    net = EntityNet()
+    old = {k: v for k, v in net.state_dict().items() if not k.startswith("trinket_count.")}
+    gw = old["glob.weight"]
+    old["glob.weight"] = torch.cat([gw[:, :policy.V4_AT], gw[:, policy.V4_AT + policy.V4_F:]], 1)
+    n_text = len(policy.CARD_TEXT) + len(policy.CARD_TEXT_RACES) + 2
+    old["card_proj.weight"] = old["card_proj.weight"][:, :-n_text]
+    path = Path(__import__("tempfile").mkdtemp()) / "v3.pt"
+    torch.save({"config": net.config, "state": old, "obs": policy.V3_LAYOUT}, path)
+    loaded, ck = policy.load(path)
+    assert ck["adapted"] == policy.V3_LAYOUT
+    g = taverngym.Game(4, _json.dumps(train.CONFIG))
+    while g.turn < 3:
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    f, c, m = policy.observe(g, 0)
+    f2 = f.copy()
+    f2[policy.V4_AT:policy.V4_AT + policy.V4_F] = 0.5
+    with torch.no_grad():
+        a = loaded(*(torch.from_numpy(x)[None] for x in (f, c, m)))
+        b = loaded(*(torch.from_numpy(x)[None] for x in (f2, c, m)))
+    assert torch.allclose(a[0], b[0]) and torch.allclose(a[1], b[1])
 
 
 def test_comp_starts_play_the_comp_in_its_lobby():

@@ -16,14 +16,25 @@ use crate::types::{Kw, PlayerId, Races};
 /// combat's damage (global); how long ago each opponent's warband was seen. Networks built for
 /// an older layout get zero weights for these (advisor/policy.py `adapt`). Version 3
 /// (2026-10-30) appended each opponent's triples (its floats) and, after every other card slot,
-/// each opponent's two trinkets (the leaderboard shows both).
-pub const OBS_VERSION: usize = 3;
+/// each opponent's two trinkets (the leaderboard shows both). Version 4 (2026-10-31) appended,
+/// at the end of the global block, what the player's own cards are counting: each owned
+/// trinket's counter ("2 left!", "2 turns left!"), each Hero Power's counter, level, cooldown,
+/// cost change and first remembered number, and the game-long counters comps scale on
+/// (`V4_COUNTERS`: Undead Attack, Beetles, Volumizers, Eternal Knights, Elemental Tavern
+/// buffs, spells cast, Battlecries and Deathrattles triggered...).
+pub const OBS_VERSION: usize = 4;
+/// (version 4) Owned trinket slots with a counter, Hero Power slots and their numbers, and the
+/// player counters.
+pub const V4_TRINKETS: usize = 8;
+pub const V4_POWER_F: usize = 5;
+pub const V4_COUNTERS: usize = 24;
+pub const V4_F: usize = V4_TRINKETS + crate::actions::N_POWERS * V4_POWER_F + V4_COUNTERS;
 pub const MINION_F: usize = 9 + Kw::NAMES.len() + Races::COUNT;
 /// Item header: present, is-minion, cost, locked, temporary, Choose-One-combined, frozen
 /// (Tavern: frozen; hand: dies if played this turn, Tomb Turning), kept from last turn
 /// (Tavern), marked (Tavern: Darkmoon Ticket; hand: linked group).
 pub const ITEM_F: usize = 9 + MINION_F;
-pub const GLOBAL_F: usize = 48 + Races::COUNT;
+pub const GLOBAL_F: usize = 48 + Races::COUNT + V4_F;
 /// Active Quests shown (present, progress / goal each).
 pub const N_QUESTS: usize = 3;
 pub const QUEST_F: usize = 2;
@@ -238,6 +249,57 @@ pub fn observe_view(g: &Game, p: PlayerId, all: bool) -> Observation {
         pl.stats.streak as f32 / 5.0,
         pl.stats.last_damage as f32 / 20.0,
     ]);
+    // (version 4) What the player's own cards count: trinkets, Hero Powers, the game's counters
+    let counter_of = |card: CardId| {
+        pl.counters
+            .iter()
+            .find(|(c, _)| *c == card)
+            .map_or(0, |(_, v)| *v)
+    };
+    for i in 0..V4_TRINKETS {
+        f.push(pl.trinkets.get(i).map_or(0, |t| counter_of(*t)) as f32 / 10.0);
+    }
+    for slot in 0..crate::actions::N_POWERS {
+        match pl.powers.get(slot) {
+            Some(h) => f.extend([
+                h.counter.max(counter_of(h.card)) as f32 / 10.0,
+                h.level as f32 / 5.0,
+                h.cooldown as f32 / 3.0,
+                h.cost_mod as f32 / 5.0,
+                h.values.first().copied().unwrap_or(0) as f32 / 10.0,
+            ]),
+            None => f.extend([0.0; V4_POWER_F]),
+        }
+    }
+    let s = &pl.stats;
+    let counters = [
+        s.undead_atk,
+        s.undead_hp,
+        s.beetle_atk,
+        s.beetle_hp,
+        s.eternal_knight_deaths,
+        s.knight_bonus,
+        s.volumizer_atk,
+        s.volumizer_hp,
+        s.magnetized,
+        s.elem_give_atk,
+        s.elem_give_hp,
+        s.tavern_elemental_atk,
+        s.tavern_elemental_hp,
+        s.baller_bonus,
+        s.lobster_bonus,
+        s.spells_cast,
+        s.tavern_spells_cast,
+        s.spellcraft_cast,
+        s.battlecries_triggered,
+        s.deathrattles_triggered,
+        s.elementals_played,
+        s.refreshes,
+        s.minions_sold,
+        s.golden_played,
+    ];
+    debug_assert_eq!(counters.len(), V4_COUNTERS);
+    f.extend(counters.map(|x| x as f32 / 10.0));
 
     // ---- active Quests
     for i in 0..N_QUESTS {
