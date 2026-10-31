@@ -202,14 +202,14 @@ def offer_note(cards, locale, name_of):
     return t(locale, "offer", items=" · ".join(f"{name_of(c, locale)} {p:.2f}" for p, c in known))
 
 
-# Keywords shown next to a lineup card (combat-relevant ones), per locale
+# Keywords shown next to a lineup card: the combat ones the client itself shows, per locale
+# (TavernGym's CLEAVE is part of a card's text in the game, not a keyword: left out)
 KEYWORD_TEXT = {
     "zhCN": {"TAUNT": "嘲讽", "DIVINE_SHIELD": "圣盾", "REBORN": "复生", "WINDFURY": "风怒",
-             "MEGA_WINDFURY": "超级风怒", "VENOMOUS": "烈毒", "POISONOUS": "剧毒", "STEALTH": "潜行",
-             "CLEAVE": "顺劈"},
+             "MEGA_WINDFURY": "超级风怒", "VENOMOUS": "烈毒", "POISONOUS": "剧毒", "STEALTH": "潜行"},
     "enUS": {"TAUNT": "Taunt", "DIVINE_SHIELD": "Shield", "REBORN": "Reborn", "WINDFURY": "Windfury",
              "MEGA_WINDFURY": "Mega-Windfury", "VENOMOUS": "Venomous", "POISONOUS": "Poisonous",
-             "STEALTH": "Stealth", "CLEAVE": "Cleave"},
+             "STEALTH": "Stealth"},
 }
 
 
