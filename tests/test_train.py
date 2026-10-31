@@ -521,3 +521,21 @@ def test_the_play_audit_fails_a_clearly_worse_candidate():
     assert audit_play.check({**cur, "end_with_gold": 0.15}, cur) == {}
     worse = audit_play.check({**cur, "end_with_gold": 0.3, "stalled_games": 1}, cur)
     assert set(worse) == {"end_with_gold", "stalled_games"}
+
+
+def test_forced_exploration_steps_are_left_out_of_the_policy_loss():
+    # A batch of forced steps only: the policy loss is zero (their ratio means nothing); the value
+    # still learns from them
+    net = EntityNet()
+    opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+    env = train.BatchEnv(2, seed=3, controlled=list(range(8)), config=train.CONFIG, threads=1)
+    obs = env.observe()
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    obs, _ = train.collect(env, net, obs, seats, 64, "cpu", explore=(1.0, 0.0))
+    for s in seats:
+        for it in s.items:
+            it[8] = True
+            it[7] = True
+    batch = train.advantages(seats, 0.99, 0.95)
+    stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=64)
+    assert stats["pi"] == 0.0 and stats["v"] > 0

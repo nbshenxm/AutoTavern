@@ -35,7 +35,8 @@ CONFIG = GAME_CONFIG  # advisor.state: shared with the live advisor
 # refreshed 4.3 times and kept 4.7, advisor.compare_play)
 WASTED_GOLD = 0.003
 F_GOLD, F_FROZEN = 7, 15  # global observation features (obs.rs): gold / 10, Tavern frozen
-A_END, A_REFRESH, A_BUY, N_SHOP = (dict(layout())[k] for k in ("A_END", "A_REFRESH", "A_BUY", "N_SHOP"))
+A_END, A_REFRESH, A_BUY, N_SHOP, A_UPGRADE = (dict(layout())[k] for k in
+                                              ("A_END", "A_REFRESH", "A_BUY", "N_SHOP", "A_UPGRADE"))
 
 
 def cap_gpu_memory(device, fraction):
@@ -78,11 +79,14 @@ def wasted_gold(obs, i, a):
     return WASTED_GOLD * round(float(f[F_GOLD]) * 10)
 
 
-def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None):
+def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
     slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
-    `starts` (RealStarts) replaces some of the games that begin anew."""
+    `starts` (RealStarts) replaces some of the games that begin anew. `explore` = (p_refresh,
+    p_upgrade): a legal Refresh or Upgrade is taken in place of the sampled action with that
+    probability (the network almost never samples a Refresh, so it never learns what one finds);
+    such a step is marked forced: its consequences are learned from, the step itself isn't."""
     opponent_of = opponent_of or {}
     stored, placements = 0, []
     while stored < n_transitions:
@@ -99,11 +103,17 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                 a = dist.sample()
                 lp = dist.log_prob(a)
             a, lp, v = a.cpu().numpy(), lp.cpu().numpy(), v.cpu().numpy()
+            forced = np.zeros(len(own), bool)
+            if explore:
+                m_own = obs["action_mask"][own]
+                for which, p_x in ((A_REFRESH, explore[0]), (A_UPGRADE, explore[1])):
+                    pick = (np.random.random(len(own)) < p_x) & m_own[:, which] & ~forced
+                    a[pick], forced[pick] = which, True
             actions[own] = a
             for j, i in enumerate(own):
                 seats[i].items.append([obs["features"][i], obs["cards"][i],
                                        obs["action_mask"][i], int(a[j]), float(lp[j]),
-                                       float(v[j]), -wasted_gold(obs, i, int(a[j])), False])
+                                       float(v[j]), -wasted_gold(obs, i, int(a[j])), False, bool(forced[j])])
             stored += len(own)
         play_frozen(obs, ready, opponent_of, actions, device, sample=True)
         rew, done, info = env.step(actions)
@@ -227,6 +237,8 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
     a = torch.tensor([b[0][3] for b in batch])
     old_lp = torch.tensor([b[0][4] for b in batch])
+    # Exploration steps (collect's `explore`): their value is learned, their action isn't
+    learn = torch.tensor([not (len(b[0]) > 8 and b[0][8]) for b in batch], dtype=torch.float32)
     ret = torch.tensor([b[1] for b in batch], dtype=torch.float32)
     adv = torch.tensor([b[2] for b in batch], dtype=torch.float32)
     adv = (adv - adv.mean()) / (adv.std() + 1e-8)
@@ -249,9 +261,12 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                 logits, v = logits.float(), v.float()
                 dist = torch.distributions.Categorical(logits=logits)
                 lp = dist.log_prob(a[part].to(device))
-                ratio = (lp - old_lp[part].to(device)).exp()
                 ad = adv[part].to(device)
-                pi_loss = -torch.min(ratio * ad, ratio.clamp(1 - clip, 1 + clip) * ad).mean()
+                keep = learn[part].to(device)
+                # (a forced step's old log-probability is the sampled action's: its ratio is
+                # meaningless, so it is left out of the policy loss)
+                ratio = ((lp - old_lp[part].to(device)) * keep).exp()
+                pi_loss = -(torch.min(ratio * ad, ratio.clamp(1 - clip, 1 + clip) * ad) * keep).sum()                     / keep.sum().clamp(min=1)
                 v_loss = (v - ret[part].to(device)).pow(2).mean()
                 entropy = dist.entropy().mean()
                 loss = vf * v_loss if value_only else pi_loss + vf * v_loss - ent * entropy
@@ -269,7 +284,7 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                         stats["trinket_ce"] = stats.get("trinket_ce", 0.0) + pl[0].item() * w
                 (loss * w).backward()
                 with torch.no_grad():
-                    kl = (old_lp[part].to(device) - lp).mean().item()
+                    kl = (((old_lp[part].to(device) - lp) * keep).sum() / keep.sum().clamp(min=1)).item()
                 for k, x in (("pi", pi_loss.item()), ("v", v_loss.item()), ("ent", entropy.item()), ("kl", kl)):
                     stats[k] += x * w
             if search is not None and search_coef > 0 and len(search) and not value_only:
@@ -609,6 +624,8 @@ def main():
                     help="library warbands scaled toward the top 1%% by round (0 = as logged)")
     ap.add_argument("--library-comps", action="store_true",
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
+    ap.add_argument("--explore", type=float, nargs=2, default=None, metavar=("P_REFRESH", "P_UPGRADE"),
+                    help="take a legal Refresh / Upgrade with these probabilities (collect's explore)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
                     help="this share of new games start from a logged round's position (RealStarts)")
     ap.add_argument("--comp-starts", type=float, default=0.0, metavar="SHARE",
@@ -714,7 +731,8 @@ def main():
         opponents = gen.assign(env, it, pool) if gen else assign_opponents(env, pool, it)
         if starts is not None:
             starts.refresh()
-        obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents, starts)
+        obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents, starts,
+                                  explore=a.explore)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
         batch = advantages(seats, a.gamma, a.lam)
