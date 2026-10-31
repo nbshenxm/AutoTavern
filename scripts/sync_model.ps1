@@ -82,6 +82,17 @@ try {
             if ($LASTEXITCODE -eq 0) {
                 Set-Content $sent $hash
                 Log "library sent to the office: $($said -join ' ')"
+                # The player's own choices (advisor.human_data), rebuilt from the same logs
+                & $py -X utf8 -m advisor.human_data 2>&1 | Out-Null
+                foreach ($dir in @("human", "human_eval")) {
+                    $shards = Get-ChildItem (Join-Path $repo "data\search\$dir") -Filter "shard_*.npz" -ErrorAction SilentlyContinue
+                    if ($shards) {
+                        & ssh -o BatchMode=yes -o ConnectTimeout=20 office "mkdir -p autotavern/data/search/$dir.new"
+                        foreach ($f in $shards) { & scp -q -o BatchMode=yes -o ConnectTimeout=20 $f.FullName "office:autotavern/data/search/$dir.new/" }
+                        & ssh -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern/data/search && rm -rf $dir.old && mv $dir $dir.old && mv $dir.new $dir && rm -rf $dir.old"
+                    }
+                }
+                Log "the player's choices sent to the office"
             } else { Log "library: office unreachable (exit $LASTEXITCODE)" }
         }
     }

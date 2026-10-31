@@ -32,10 +32,15 @@ linear in the late game). Each item has a measurement; results go to EXPERIMENTS
    was learned once and lost in self-play. Late turns from your positions (per turn): today's
    best 1.6 Refreshes, 2.5 buys, 0.05 buys sold again (12:20: 1.3, 2.3, 0.23). Cards lost to a
    full hand: counted from the next rebuild.
-5. **Search where it pays**: plan search already finds better turns than the network alone
+5. **Your own choices** (running since 20:55, `big2 --human-data`): your 1,912 logged recruit
+   decisions as a small imitation target beside PPO (two games held out for testing). Today's
+   best agrees with 11% of them; where you refreshed (16.8% of your decisions) it refreshes in
+   none (0.5% of its first choices are Refreshes). The held-out agreement is logged at every test.
+   The home sync rebuilds them after you play.
+6. **Search where it pays**: plan search already finds better turns than the network alone
    (0.48 places); a Refresh lookahead was tried and didn't change how often plans refresh
    (15 of 30 late positions either way) while doubling latency: not used.
-6. **Larger network** (running): 8.6M parameters, for the longer, order-dependent late turns.
+7. **Larger network** (running): 8.6M parameters, for the longer, order-dependent late turns.
 
 ## Audit: what is checked, and what was found
 
