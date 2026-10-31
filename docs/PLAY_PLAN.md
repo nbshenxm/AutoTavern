@@ -4,6 +4,22 @@ Two streams, run side by side: **audit** (the simulator and the bridge against y
 so training learns the real game) and **learning** (what the network must learn to grow above
 linear in the late game). Each item has a measurement; results go to EXPERIMENTS.md.
 
+## Focus: the mid and late game (from 2026-10-30, 23:00)
+
+The early game is the easy part, and the network already plays it well. Your turns from round 7
+on against the network's from the same positions (`advisor.compare_play`, on the progress page)
+say what to fix:
+
+- rounds 7-9: it buys more than you (4.0 a turn vs 2.5) and levels far less (0.07 Upgrades a turn
+  vs 0.33);
+- rounds 10+: it refreshes less as the game goes on (1.7, then 0.5 a turn) where you refresh more
+  (3.5, then 4.3), freezes instead (1.5 a turn vs 0.08) and ends turns with 9 Gold (you 4.7).
+
+Sent to training: the wasted-Gold cost applies whenever a Refresh or a buy is legal, frozen or not
+(freezing with no buy legal had dodged it); half of new games start from your positions, rounds 7+
+drawn 15 times as often as earlier ones; comp starts (rounds 6-10) as before. Measured again on
+each new network.
+
 ## What the network gets wrong (your observations, 2026-10-30)
 
 | Pattern | What a strong player does | Measured how |
