@@ -104,10 +104,25 @@ def note_sold(view, a, seen):
             seen.setdefault("played", set()).add(me["hand"][h].get("id"))
 
 
-def rollout(g, net, p=0, allowed=None, temperature=0.0, rng=None, max_steps=80):
+def spend_mask(view, mask, spend):
+    """`mask` without End Turn while `spend`+ Gold and a Refresh or a buy are legal (advisor.
+    spend_test: from your round-8+ positions against top-1% seats, spending so every turn
+    placed 0.10 +- 0.04 better; the network ends such turns 30% of the time). None: unchanged."""
+    from advisor.policy import L
+    m = np.array(view["mask"], bool) if mask is None else np.array(mask, bool)
+    if not spend or not m[L["A_END"]] or view["me"]["gold"] < spend:
+        return mask
+    if not (m[L["A_REFRESH"]] or m[L["A_BUY"]:L["A_BUY"] + L["N_SHOP"]].any()):
+        return mask
+    m[L["A_END"]] = False
+    return m
+
+
+def rollout(g, net, p=0, allowed=None, temperature=0.0, rng=None, max_steps=80, spend=0):
     """One plan on a copy: [actions], the value where it ends. `temperature` 0 is the
     network's most likely action at each step; above 0, sampled (sharpened or flattened).
-    No detours (`detour_mask`)."""
+    No detours (`detour_mask`); `spend` > 0: no End Turn while that much Gold can be spent
+    (spend_mask)."""
     c = g.copy()
     actions, value, sold = [], None, {}
     for step in range(max_steps):
@@ -117,6 +132,7 @@ def rollout(g, net, p=0, allowed=None, temperature=0.0, rng=None, max_steps=80):
         mask = detour_mask(view, sold)
         if step == 0 and allowed is not None:
             mask = np.array(allowed) & (mask if mask is not None else True)
+        mask = spend_mask(view, mask, spend)
         probs, value = _policy(net, c, p, mask)
         if temperature <= 0:
             a = int(probs.argmax())
@@ -144,14 +160,14 @@ def _opened_offer(before, after):
     return bool(pending) and pending.get("kind") != "target"
 
 
-def best_plan(g, net, p=0, allowed=None, k=8, temperature=1.0, seed=None):
+def best_plan(g, net, p=0, allowed=None, k=8, temperature=1.0, seed=None, spend=0):
     """The best of the greedy plan and `k` sampled ones, each on its own fair copy:
     (actions, value, every candidate's (actions, value))."""
     rng = np.random.default_rng(seed)
     candidates = []
     for i in range(k + 1):
         copy = fair_copy(g, p, seed=None if seed is None else seed * 1000 + i)
-        candidates.append(rollout(copy, net, p, allowed, 0.0 if i == 0 else temperature, rng))
+        candidates.append(rollout(copy, net, p, allowed, 0.0 if i == 0 else temperature, rng, spend=spend))
     seen = {}
     for acts, v in candidates:  # the same plan sampled twice: average its values
         seen.setdefault(tuple(acts), []).append(v if v is not None else -1.0)

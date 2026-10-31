@@ -56,7 +56,7 @@ def _init():
 
 def play(args):
     """One game; the searched seats' (features, cards, mask, action) and their placements."""
-    seed, path, k, temperature, real, lib = args
+    seed, path, k, temperature, real, lib, spend = args
     net = _net(path)
     rng = np.random.default_rng(seed)
     config = GAME_CONFIG
@@ -89,7 +89,7 @@ def play(args):
                 n += 1
                 f, c, m = observe(g, seat)
                 acts, _, _ = search.best_plan(g, net, seat, None, k, temperature,
-                                              seed=seed * 100_003 + n)
+                                              seed=seed * 100_003 + n, spend=spend)
                 if acts:
                     a = int(acts[0])
                     rows.append((f, c, m, a))
@@ -203,6 +203,9 @@ def main():
                     help="this share of games start from the player's logged round starts")
     ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
                     help="these seats fight with real warbands (advisor.library), as in training")
+    ap.add_argument("--spend", type=int, default=0, metavar="GOLD",
+                    help="the search's plans don't end a turn with this much Gold a buy or Refresh "
+                         "could use (search.spend_mask): targets that spend, as real players do")
     ap.add_argument("--stop-if-playing", action="store_true",
                     help="stop when Hearthstone runs (a run on the home PC)")
     a = ap.parse_args()
@@ -219,7 +222,7 @@ def main():
                 if hearthstone_running():
                     print("Hearthstone started: stopping", flush=True)
                     break
-            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts, a.library)
+            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts, a.library, a.spend)
                     for i in range(batch)]
             for rows, pl in pool.imap_unordered(play, jobs):
                 pending += rows

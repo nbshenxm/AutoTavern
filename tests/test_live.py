@@ -203,3 +203,30 @@ def test_a_plans_actions_keep_every_move():
         r.step(0, x)
     board = lambda x: [m["id"] for m in _json.loads(x.view(0))["me"]["board"]]
     assert board(r) == board(after) == board(c)
+
+
+def test_a_spending_search_does_not_end_the_turn_with_gold():
+    # search_games --spend: no plan ends the turn while 3+ Gold and a Refresh or a buy are left
+    sys.path.insert(0, str(ROOT))
+    import json as _json
+
+    import taverngym
+    import torch
+
+    from advisor import search
+    from advisor.policy import EntityNet
+    from advisor.state import recruit_game
+
+    L = dict(taverngym.layout())
+    torch.manual_seed(0)
+    net = EntityNet().eval()
+    g = recruit_game(6)
+    for seed in range(4):
+        acts, _, cands = search.best_plan(g, net, 0, None, k=3, seed=seed, spend=3)
+        for plan, _ in cands:
+            c = g.copy()
+            for a in plan[:-1]:
+                c.step(0, a)
+            if plan and plan[-1] == L["A_END"]:
+                assert _json.loads(c.view(0))["me"]["gold"] < 3 or search.spend_mask(
+                    _json.loads(c.view(0)), None, 3) is None
