@@ -261,3 +261,70 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+COMP_START_ROUNDS = range(6, 11)
+
+
+def comp_starts(rounds=COMP_START_ROUNDS, seed=0):
+    """Game states (Game.state_json) where the player's seat (0) plays a curated comp: at each of
+    `rounds`, the comp's warband of that round (comp_boards: its stage cards, at the top 1%'s
+    strength), its Tavern Tier and the round's Gold, in a lobby with the comp's minion types; the
+    other seats have real warbands of that round (the library, scaled the same way). Training
+    games start from them (advisor.train RealStarts) to practise each comp's way to scale."""
+    import random
+
+    import taverngym
+
+    from advisor.state import CAT, normal_form
+    r = random.Random(seed)
+    comps = collections.defaultdict(dict)
+    for b in comp_boards():
+        comps[b["track"]][b["round"]] = b
+    real = collections.defaultdict(list)
+    for b in library([], strength=STRENGTH)["boards"]:
+        real[b["round"]].append(b)
+    out = []
+    for track, by_round in sorted(comps.items()):
+        races = collections.Counter(
+            x for b in by_round.values() for m in b["minions"]
+            for x in (CAT.get(normal_form(CAT_BY_CID().get(m["card"], ""))[0], {}).get("races") or [])
+            if x not in ("ALL", "NEUTRAL"))
+        types = [x for x, _ in races.most_common(2)]
+        for rnd in rounds:
+            b = by_round.get(rnd)
+            if b is None or not real.get(rnd):
+                continue
+            g = recruit_game(r.randrange(1 << 30), {**GAME_CONFIG, "lobby_types": types})
+            debug(g, cmd="set_turn", turn=rnd)
+            st = json.loads(g.state_json())
+            for i, pl in enumerate(st["players"]):
+                if i == 0:
+                    board, tier = b["minions"], b["tier"]
+                else:
+                    o = r.choice(real[rnd])
+                    board, tier = o["minions"], o["tier"]
+                pl["board"] = [dict(m) for m in board[:7]]
+                for m in pl["board"]:
+                    st["next_eid"] += 1
+                    m["eid"] = st["next_eid"]
+                pl["tier"] = max(1, tier)
+                pl["health"] = max(10, 30 - 2 * max(0, rnd - 4))
+            g = taverngym.Game.from_json(json.dumps(st))
+            # The round's Gold and the Tavern of the comp's Tier
+            debug(g, cmd="set_player", p=0, gold=min(10, rnd + 2), tier=b["tier"])
+            debug(g, cmd="refresh_shop", p=0)
+            out.append(json.loads(g.state_json()))
+    return out
+
+
+_CAT_BY_CID = None
+
+
+def CAT_BY_CID():
+    """TavernGym card index -> card id."""
+    global _CAT_BY_CID
+    if _CAT_BY_CID is None:
+        from advisor.state import CAT
+        _CAT_BY_CID = {c["cid"]: k for k, c in CAT.items()}
+    return _CAT_BY_CID

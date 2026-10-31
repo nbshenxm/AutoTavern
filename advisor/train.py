@@ -465,11 +465,17 @@ class RealStarts:
     the player kept scaling (advisor.continue_test). These games put it in those midgames. Each
     keeps the new game's random state, so the same start plays out differently every time."""
 
-    def __init__(self, p, seed, path=None, log=print):
+    def __init__(self, p, seed, path=None, log=print, comp_share=0.0):
         from advisor import library
         self.p, self.path, self.log = p, Path(path or library.STARTS), log
         self.rng = np.random.default_rng(seed)
-        self.version, self.states, self.seen = None, [], None
+        self.version, self.states, self.real, self.seen = None, [], [], None
+        # --comp-starts: this share of the draws are curated comps' midgames instead
+        # (advisor.library.comp_starts: Beatboxer magnetizing, Undead attack counts...)
+        self.comp_share = comp_share
+        self.comp_states = library.comp_starts() if comp_share else []
+        if self.comp_states:
+            log({"comp_starts": len(self.comp_states)})
         self.refresh()
 
     def refresh(self):
@@ -489,11 +495,16 @@ class RealStarts:
                 skipped += 1
                 continue
             states.append(json.loads(g.state_json()))
-        self.states = states
+        self.real = states  # the player's own positions (evaluate_real reads only these)
         w = np.array([LATE_WEIGHT if st["turn"] >= LATE_ROUND else 1.0 for st in states])
-        self.weights = w / w.sum() if len(w) else w
-        self.log({"real_starts": len(states), "skipped": skipped,
-                  "late": int(sum(st["turn"] >= LATE_ROUND for st in states))})
+        w = w / w.sum() if len(w) else w
+        if self.comp_states:
+            share = self.comp_share if len(w) else 1.0
+            w = np.concatenate([w * (1 - share), np.full(len(self.comp_states), share / len(self.comp_states))])
+            states = states + self.comp_states
+        self.states, self.weights = states, w
+        self.log({"real_starts": len(self.real), "skipped": skipped,
+                  "late": int(sum(st["turn"] >= LATE_ROUND for st in self.real))})
 
     def apply(self, env):
         """After env.step: the games that just began anew start from a real position instead,
@@ -549,6 +560,8 @@ def main():
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
                     help="this share of new games start from a logged round's position (RealStarts)")
+    ap.add_argument("--comp-starts", type=float, default=0.0, metavar="SHARE",
+                    help="with --real-starts: this share of them are curated comps' midgames")
     ap.add_argument("--trinket-prior", type=float, default=0.0, metavar="COEF",
                     help="pull trinket picks toward the public data's preference (TrinketPrior)")
     ap.add_argument("--critic-warmup", type=int, default=0, metavar="N",
@@ -614,7 +627,7 @@ def main():
     obs = env.observe()
     pool = load_pool(out, a.device)
     gen = Generation(a.device) if a.generations else None
-    starts = RealStarts(a.real_starts, a.seed + it0, log=log) if a.real_starts else None
+    starts = RealStarts(a.real_starts, a.seed + it0, log=log, comp_share=a.comp_starts) if a.real_starts else None
     real_base = (None, None)  # evaluate_real of the best itself, per best and starts file
     best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
     # The anchor fades from where it was first applied, across restarts
@@ -684,12 +697,12 @@ def main():
                 vs = evaluate_league(net, [gen.best], a.device, a.eval_episodes, threads=a.threads)
                 vs.pop("pool", None)
                 row["vs_best"] = vs
-                if starts is not None and starts.states:  # the player's own positions
+                if starts is not None and starts.real:  # the player's own positions
                     if real_base[0] != (gen.version, starts.version):
                         real_base = ((gen.version, starts.version),
-                                     evaluate_real(gen.best, gen.best, starts.states, a.device,
+                                     evaluate_real(gen.best, gen.best, starts.real, a.device,
                                                    threads=a.threads))
-                    vr = evaluate_real(net, gen.best, starts.states, a.device, threads=a.threads)
+                    vr = evaluate_real(net, gen.best, starts.real, a.device, threads=a.threads)
                     row["vs_best_real"] = {**vr, "best": real_base[1]["mean_place"]}
                 if a.library:  # one seat against the best and real warbands: closest to a lobby
                     vl = evaluate_league(net, [gen.best], a.device, a.eval_episodes,

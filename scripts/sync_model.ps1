@@ -99,6 +99,8 @@ try {
         Set-Location $repo
         $py = Join-Path $env:USERPROFILE "anaconda3\envs\taverngym\python.exe"
         & $py -X utf8 -m advisor.study $best --games 16 --curve $curve 2>&1 | Out-Null
+        # The pattern checks (advisor.patterns: Beatboxer, late turns), one line per network
+        & $py -X utf8 -m advisor.patterns $best 2>$null | Add-Content (Join-Path $repo "data\progress\patterns.jsonl") -Encoding utf8
         & $py -X utf8 -m advisor.report | Out-Null
         Log "strength curve remade"
     }

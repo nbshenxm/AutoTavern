@@ -379,7 +379,7 @@ def test_the_real_positions_promotion_pair(monkeypatch):
 
     class Starts:
         def __init__(self, *a, **k):
-            self.states = [st, st]
+            self.states = self.real = [st, st]
 
     monkeypatch.setattr(promote, "RealStarts", Starts)
     monkeypatch.setitem(promote.REAL, "reps", 2)
@@ -476,3 +476,18 @@ def test_version_2_shards_are_widened():
     assert np.array_equal(f3[:, :at], f[:, :at])
     assert (f3[:, at + old] == 0).all() and np.array_equal(f3[:, at:at + old], f[:, at:at + old])
     assert np.array_equal(f3[:, at + policy.N_OPP * policy.OPP_F:], f[:, at + policy.N_OPP * old:])
+
+
+def test_comp_starts_play_the_comp_in_its_lobby():
+    import json as _json
+
+    import taverngym
+    from advisor import library
+
+    sts = library.comp_starts(rounds=range(8, 9))
+    assert sts
+    for st in sts[:5]:
+        g = taverngym.Game.from_json(_json.dumps(st))
+        v = _json.loads(g.view(0))
+        assert g.needs_action(0) and v["turn"] == 8 and len(v["me"]["board"]) >= 4
+        assert set(st["cfg"]["lobby_types"]) <= set(v["lobby_races"]) if isinstance(v["lobby_races"], list) else True

@@ -460,6 +460,28 @@ def render():
                              for k, (run, rows) in enumerate(reals)],
                             "Place from your positions", lo=1.5, hi=4.5, reference=(base, "the best")))
 
+    pat_path = Path(__file__).resolve().parents[1] / "data" / "progress" / "patterns.jsonl"
+    if pat_path.exists():
+        pats = []
+        for line in pat_path.read_text(encoding="utf-8-sig").splitlines():
+            try:
+                pats.append(json.loads(line))
+            except ValueError:
+                pass
+        if pats:
+            parts.append("<h3>Strong-player patterns</h3>")
+            parts.append('<p class="sub">Your points, measured on each promoted network '
+                         '(docs/PLAY_PLAN.md). Beatboxer: of its probability for magnetizing, the share '
+                         'onto another Mech (random: 75%). Late turns: from your positions at round 9+ '
+                         'with a full warband, per turn.</p>')
+            parts.append("<table><tr><th>Network</th><th>Beatboxer: onto another</th><th>Refreshes</th>"
+                         "<th>Buys</th><th>Bought, then sold</th></tr>")
+            for x in pats[-8:]:
+                b, lt = x.get("beatboxer", {}), x.get("late_turns", {})
+                parts.append(f"<tr><td>{_esc(str(x.get('source')))}</td><td>{b.get('prob_onto_other', 0):.0%}</td>"
+                             f"<td>{lt.get('refreshes')}</td><td>{lt.get('buys')}</td><td>{lt.get('bought_then_sold')}</td></tr>")
+            parts.append("</table>")
+
     parts.append("<h2>How good are its decisions?</h2><ul>")
     parts.append("<li><strong>Plan search</strong>: the network alone 2.47, with plan search 1.99, in 200 "
                  "test games against seven plain bots (0.48 ± 0.13 places better).</li>")

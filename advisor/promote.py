@@ -51,7 +51,7 @@ REAL = {"reps": 3, "seed": 47_000_000}
 def real_pair(cand_net, cur_net, device, threads, seed):
     """{candidate, current, diff, se, n}: mean placements from the logged round starts and
     the paired difference (candidate minus best); None without starts."""
-    states = RealStarts(1.0, 0, log=lambda r: None).states
+    states = RealStarts(1.0, 0, log=lambda r: None).real
     if not states:
         return None
     places = ([], [])
