@@ -27,7 +27,7 @@ from hearthstone.enums import CardType, GameTag as T
 from hslog import LogParser, packets
 
 import taverngym
-from advisor import bridge, decisions, display, logs, meta
+from advisor import bridge, genre_hint, decisions, display, logs, meta
 from advisor.state import CAT, debug
 
 HS_LOGS = Path(r"D:\Program Files (x86)\Hearthstone\Logs")
@@ -493,9 +493,9 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     me = d["state"]["friendly"]
     owned = [m["card"] for m in me["board"]] + [h.get("card") for h in bridge.hand_cards(me)]
     comp = meta.closest([c for c in owned if c], COMPS)
+    # (the genre is no longer a note: the genre panel below, advisor.genre_hint)
     notes = [x for x in (display.odds_note("now", odds_now, locale, turn),
-                         display.odds_note("after", odds_after, locale, turn),
-                         display.comp_note(comp, locale, name_of)) if x]
+                         display.odds_note("after", odds_after, locale, turn)) if x]
     if arranged is not None:
         notes.append(display.t(locale, "arrange") + ": " + display.t(locale, "arrange_gain", before=arranged[1],
                                                                     after=arranged[2]))
@@ -511,6 +511,9 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
                     # The warband as the plan leaves it, left to right (the overlay's lineup panel)
                     "lineup": [display.lineup_entry(m, locale, name_of)
                                for m in json.loads(after.view(0))["me"]["board"]]
+                    if d["kind"] == "options" else [],
+                    # A few genres with a recommendation share and the cards each needs most
+                    "genres": genre_hint.hints(d, combats or (), locale, name_of)
                     if d["kind"] == "options" else []},
         "turn": turn,
         "generated_at": datetime.now().isoformat(timespec="seconds"),

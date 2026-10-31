@@ -31,6 +31,9 @@ namespace TavernAdvisor.HdtPlugin
         Border _lineupBox;      // below the advice: the recommended warband order, top to bottom
         StackPanel _lineupPanel;
         bool _hasLineup;
+        Border _genreBox;       // below the lineup: a few genres, a share each, the cards they need
+        StackPanel _genrePanel;
+        bool _hasGenres;
         DateTime _lastRead = DateTime.MinValue;
         DateTime _lastPoll = DateTime.MinValue;
         DateTime _lastStart = DateTime.MinValue;
@@ -106,8 +109,11 @@ namespace TavernAdvisor.HdtPlugin
                 Core.OverlayCanvas.Children.Remove(_box);
             if (_lineupBox != null)
                 Core.OverlayCanvas.Children.Remove(_lineupBox);
+            if (_genreBox != null)
+                Core.OverlayCanvas.Children.Remove(_genreBox);
             _box = null;
             _lineupBox = null;
+            _genreBox = null;
         }
 
         public void OnButtonPress()
@@ -131,13 +137,13 @@ namespace TavernAdvisor.HdtPlugin
             bool inBattlegrounds = Core.Game != null && !Core.Game.IsInMenu && Core.Game.IsBattlegroundsMatch;
             if (!inBattlegrounds || !File.Exists(path))
             {
-                _box.Visibility = _lineupBox.Visibility = Visibility.Collapsed;
+                _box.Visibility = _lineupBox.Visibility = _genreBox.Visibility = Visibility.Collapsed;
                 return;
             }
             DateTime written = File.GetLastWriteTime(path);
             if ((DateTime.Now - written).TotalSeconds > _settings.StaleSeconds)
             {
-                _box.Visibility = _lineupBox.Visibility = Visibility.Collapsed;
+                _box.Visibility = _lineupBox.Visibility = _genreBox.Visibility = Visibility.Collapsed;
                 return;
             }
             if (written != _lastRead)
@@ -147,6 +153,7 @@ namespace TavernAdvisor.HdtPlugin
             }
             _box.Visibility = _hidden ? Visibility.Collapsed : Visibility.Visible;
             _lineupBox.Visibility = _hidden || !_hasLineup ? Visibility.Collapsed : Visibility.Visible;
+            _genreBox.Visibility = _hidden || !_hasGenres ? Visibility.Collapsed : Visibility.Visible;
         }
 
         void ShowAdvice(string path)
@@ -160,6 +167,8 @@ namespace TavernAdvisor.HdtPlugin
                 _panel.Children.Clear();
                 _lineupPanel.Children.Clear();
                 _hasLineup = false;
+                _genrePanel.Children.Clear();
+                _hasGenres = false;
                 if (a["display"] is JObject d)
                     ShowDisplay(d);
                 else
@@ -186,6 +195,8 @@ namespace TavernAdvisor.HdtPlugin
             _panel.Children.Add(Text(d.Value<string>("title") ?? "", 15, FontWeights.SemiBold));
             if (d["lineup"] is JArray lineup)   // the warband as the plan leaves it (Arrange included)
                 ShowLineup(lineup);
+            if (d["genres"] is JArray genres)
+                ShowGenres(genres);
             if (d["rows"] is JArray rows)
             {
                 int shown = 0;
@@ -238,6 +249,30 @@ namespace TavernAdvisor.HdtPlugin
             if (row["cards"] is JArray)   // Arrange: the order is in the lineup panel below
                 line.Children.Add(Glyph("↓"));
             return line;
+        }
+
+        /// <summary>A few genres, one line each: its key card's tile with the genre's name, its share, and
+        /// the one or two cards it needs most.</summary>
+        void ShowGenres(JArray genres)
+        {
+            _genrePanel.Children.Clear();
+            _hasGenres = genres.Count > 0;
+            bool zh = (_settings.Locale ?? "").StartsWith("zh");
+            foreach (JObject g in genres)
+            {
+                var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+                line.Children.Add(Tile(g.Value<string>("card_id"), g.Value<string>("name"), 190, 26));
+                line.Children.Add(Text($"{g.Value<int>("pct")}%", 14, FontWeights.Bold, margin: new Thickness(8, 0, 8, 0),
+                    width: 40));
+                if (g["need"] is JArray need && need.Count > 0)
+                {
+                    line.Children.Add(Text(zh ? "缺" : "needs", 12, color: Color.FromRgb(190, 190, 190),
+                        margin: new Thickness(0, 0, 4, 0)));
+                    foreach (JObject c in need)
+                        line.Children.Add(Tile(c.Value<string>("card_id"), c.Value<string>("name"), 120, 22, 3));
+                }
+                _genrePanel.Children.Add(line);
+            }
         }
 
         /// <summary>The recommended warband order, one card per line, position 1 (left) first.</summary>
@@ -423,6 +458,18 @@ namespace TavernAdvisor.HdtPlugin
                 LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale),
             };
             Core.OverlayCanvas.Children.Add(_lineupBox);
+            _genrePanel = new StackPanel();
+            _genreBox = new Border
+            {
+                Child = _genrePanel,
+                Padding = new Thickness(8, 5, 8, 6),
+                CornerRadius = new CornerRadius(4),
+                Background = new SolidColorBrush(Color.FromArgb(195, 25, 25, 28)),
+                Visibility = Visibility.Collapsed,
+                IsHitTestVisible = false,
+                LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale),
+            };
+            Core.OverlayCanvas.Children.Add(_genreBox);
             PositionOverlay();
         }
 
@@ -442,6 +489,7 @@ namespace TavernAdvisor.HdtPlugin
             _settings = Settings.Load(Path.GetDirectoryName(typeof(Plugin).Assembly.Location));
             _box.LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale);
             _lineupBox.LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale);
+            _genreBox.LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale);
             _lastRead = DateTime.MinValue;   // redraw with the new settings
         }
 
@@ -453,8 +501,16 @@ namespace TavernAdvisor.HdtPlugin
             Canvas.SetTop(_box, top);
             if (_lineupBox != null)   // right below the advice (its rendered height, scale included)
             {
+                double below = top + (_box.Visibility == Visibility.Visible ? _box.ActualHeight : 0) + 6;
                 Canvas.SetLeft(_lineupBox, left);
-                Canvas.SetTop(_lineupBox, top + (_box.Visibility == Visibility.Visible ? _box.ActualHeight : 0) + 6);
+                Canvas.SetTop(_lineupBox, below);
+                if (_lineupBox.Visibility == Visibility.Visible)
+                    below += _lineupBox.ActualHeight + 6;
+                if (_genreBox != null)   // and the genre panel under the lineup
+                {
+                    Canvas.SetLeft(_genreBox, left);
+                    Canvas.SetTop(_genreBox, below);
+                }
             }
         }
 
