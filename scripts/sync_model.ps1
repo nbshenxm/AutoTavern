@@ -110,6 +110,13 @@ try {
         Set-Location $repo
         $py = Join-Path $env:USERPROFILE "anaconda3\envs\taverngym\python.exe"
         & $py -X utf8 -m advisor.study $best --games 16 --curve $curve 2>&1 | Out-Null
+        # The genre scorecard (advisor.genres: ~30 minutes, pauses while Hearthstone runs); the
+        # office's comp starts are weighted by it (advisor.train.comp_curriculum)
+        $genres = Join-Path $repo "data\progress\genres.json"
+        & $py -X utf8 -m advisor.genres $best --rounds 8 --ahead 2 --trials 1 --json $genres 2>&1 | Out-Null
+        if (Test-Path $genres) {
+            & scp -q -o BatchMode=yes -o ConnectTimeout=20 $genres "office:autotavern/data/library/genres.json"
+        }
         # The pattern checks (advisor.patterns: Beatboxer, late turns), one line per network
         & $py -X utf8 -m advisor.patterns $best 2>$null | Add-Content (Join-Path $repo "data\progress\patterns.jsonl") -Encoding utf8
         & $py -X utf8 -m advisor.report | Out-Null

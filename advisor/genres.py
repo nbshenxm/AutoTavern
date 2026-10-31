@@ -123,7 +123,9 @@ def main():
     net, ck = load(a.checkpoint)
     cores = core_cards()
     rows = collections.defaultdict(list)
+    from advisor.train import wait_while_playing
     for track, rnd, st in library.comp_starts(rounds=a.rounds, tagged=True):
+        wait_while_playing(print)  # home rule: no heavy jobs while you play
         for t in range(a.trials):
             rows[track].append(play_comp(st, net, a.ahead, cores.get(track, set()), 1000 * rnd + t))
     names = {f"comp:{c['id']}": c["name"] for c in json.loads(meta.TAVERN_LINK.read_text(encoding="utf-8"))["comps"]}
