@@ -368,6 +368,20 @@ impl Game {
                 self.flush_hand_queue(p);
             }
         }
+        // `Library::skip_recruit`: the library seats are done at once (their warband comes from
+        // the library before combat); the round fights when the others have ended theirs
+        if let Some(seats) = self.cfg.library.as_ref().filter(|l| l.skip_recruit).map(|l| l.seats.clone()) {
+            for p in seats {
+                if let Some(pl) = self.players.get_mut(p).filter(|pl| pl.alive) {
+                    pl.pending.clear();
+                    pl.ended_turn = true;
+                }
+            }
+            // (only library seats left: they fight on to the end of the game)
+            if self.phase == Phase::Recruit {
+                self.fight_when_all_ended();
+            }
+        }
     }
 
     fn start_turn_player(&mut self, p: PlayerId) {

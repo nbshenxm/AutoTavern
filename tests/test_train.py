@@ -633,3 +633,26 @@ def test_a_blind_control_never_sees_version_4():
         a, b = net(f, c, m), net(f2, c, m)
     assert torch.allclose(a[0], b[0]) and torch.allclose(a[1], b[1])
     assert policy.make(net.config).blind_v4
+
+
+def test_solo_library_seats_skip_their_recruit_turns():
+    # --solo: library seats 1-7 skip recruit (done as soon as a turn starts); the game still
+    # ends, with seat 0 the only one acting after the hero picks
+    import json as _json
+
+    import taverngym
+
+    board = {"round": 1, "tier": 1, "minions": [], "track": 0}
+    cfg = {**train.CONFIG, "library": {"seats": list(range(1, 8)), "boards": [board], "growth": [],
+                                       "skip_recruit": True}}
+    g = taverngym.Game(5, _json.dumps(cfg))
+    acted = set()
+    for _ in range(200_000):
+        if g.is_over():
+            break
+        for s in range(8):
+            if g.needs_action(s):
+                if g.turn >= 1 and _json.loads(g.view(s))["phase"].lower() == "recruit":
+                    acted.add(s)
+                g.step(s, g.bot_action(s))
+    assert g.is_over() and acted == {0}

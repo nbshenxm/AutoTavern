@@ -664,6 +664,9 @@ def main():
                     help="library warbands scaled toward the top 1%% by round (0 = as logged)")
     ap.add_argument("--library-comps", action="store_true",
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
+    ap.add_argument("--solo", action="store_true",
+                    help="the learner plays seat 0 alone against library seats 1-7, which skip their "
+                         "recruit turns (no self-play; AutoTavern's setup)")
     ap.add_argument("--blind-v4", action="store_true",
                     help="a control: the network doesn't see observation version 4's numbers nor the "
                          "card table's text columns (policy.EntityNet blind_v4)")
@@ -740,11 +743,16 @@ def main():
             heval = SearchBuffer([a.human_eval], 10**7)
             heval.refresh()
     train_config = CONFIG
+    # --solo: the learner plays seat 0 alone against the library seats (AutoTavern's setup: no
+    # self-play; the library seats skip their recruit turns); the others are the scripted bot
+    controlled = [0] if a.solo else list(range(8))
+    if a.solo and (a.generations or not a.library):
+        raise SystemExit("--solo needs --library (seats 1-7) and no --generations")
     if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
         from advisor import library
         lib_version = library.BOARDS.stat().st_mtime_ns
-        train_config = {**CONFIG, "library": library.library(a.library, strength=a.library_strength, comps=a.library_comps)}
-    env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=list(range(8)),
+        train_config = {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength, comps=a.library_comps), "skip_recruit": a.solo}}
+    env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=controlled,
                    config=train_config, threads=a.threads)
     seats = [Seat() for _ in range(env.n_slots)]
     obs = env.observe()
@@ -767,15 +775,15 @@ def main():
         if a.library and library.BOARDS.stat().st_mtime_ns != lib_version:
             # New real warbands (the home sync uploads them after you play): new games with them
             lib_version = library.BOARDS.stat().st_mtime_ns
-            train_config = {**CONFIG, "library": library.library(a.library, strength=a.library_strength, comps=a.library_comps)}
-            env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=list(range(8)),
+            train_config = {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength, comps=a.library_comps), "skip_recruit": a.solo}}
+            env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=controlled,
                            config=train_config, threads=a.threads)
             seats = [Seat() for _ in range(env.n_slots)]
             obs = env.observe()
             log({"library": len(train_config["library"]["boards"])})
         if gen and gen.refresh(log):
             best_h2h = 4.5  # a new generation: the record against the old best is void
-        opponents = gen.assign(env, it, pool) if gen else assign_opponents(env, pool, it)
+        opponents = gen.assign(env, it, pool) if gen else ({} if a.solo else assign_opponents(env, pool, it))
         if starts is not None:
             starts.refresh()
         obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents, starts,

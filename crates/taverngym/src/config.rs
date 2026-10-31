@@ -248,6 +248,10 @@ pub struct RulesConfig {
 #[serde(default)]
 pub struct Library {
     pub seats: Vec<usize>,
+    /// The library seats don't play their recruit turns (their warband is the library's at
+    /// combat anyway): each turn they are done as soon as it starts, so only the other seats
+    /// act (AutoTavern's learner against seven library seats). Off by default.
+    pub skip_recruit: bool,
     pub boards: std::sync::Arc<Vec<LibraryBoard>>,
     /// Expected warband Attack+Health by round (index = round; empty = none): a track's board
     /// from an earlier round is grown by `growth[now] / growth[its round]` (an opponent is seen
