@@ -439,6 +439,69 @@ PHASES = [("Early game", "rounds 3-6", range(3, 7)), ("Mid game", "rounds 7-9", 
           ("Late game", "rounds 10-13", range(10, 14))]
 
 
+TARGET_RX = {"late": r"late >= ([0-9.]+)", "real": r"real < ([0-9.]+)", "gold": r"Gold left <= ([0-9.]+)",
+             "ontype": r"on-type >= ([0-9.]+)%"}
+
+
+def _current():
+    """The release numbers now (docs/ROADMAP.md, Releases): late (the curve's median ratio,
+    rounds 10-13), real (the best's placement from your positions, latest evaluation), Gold left
+    (rounds 13+) and on-type (minion buys, rounds 10-12 and 13+) from compare_play."""
+    now = {}
+    curve_path = PROGRESS / "curve.json"
+    if curve_path.exists():
+        curve = {r["round"]: r for r in json.loads(curve_path.read_text(encoding="utf-8"))["rounds"]}
+        q = sorted(curve[r]["network"]["stats"] / curve[r]["your_lobbies"]["stats"] for r in range(10, 14)
+                   if r in curve and curve[r].get("your_lobbies") and curve[r]["your_lobbies"]["stats"])
+        if q:
+            now["late"] = q[len(q) // 2]
+    reals = [r["vs_best_real"]["best"] for run in RUNS for r in _jsonl(PROGRESS / "train" / run / "log.jsonl")
+             if isinstance(r.get("vs_best_real"), dict) and r["vs_best_real"].get("best")]
+    if reals:
+        now["real"] = reals[-1]
+    cmp_path = PROGRESS / "compare_play.json"
+    if cmp_path.exists():
+        bands = json.loads(cmp_path.read_text(encoding="utf-8")).get("bands") or {}
+        late = bands.get("rounds 13+") or {}
+        if late.get("gold left"):
+            now["gold"] = late["gold left"][1]
+        on = [b["bought on-tribe"][1] for k, b in bands.items() if k != "rounds 7-9" and b.get("bought on-tribe")]
+        if on:
+            now["ontype"] = 100 * sum(on) / len(on)
+    return now
+
+
+def _targets():
+    """The release table (docs/ROADMAP.md) with each target against the numbers now."""
+    import re
+    road = ROOT / "docs" / "ROADMAP.md"
+    if not road.exists():
+        return ""
+    rows = [l.split("|")[1:-1] for l in road.read_text(encoding="utf-8").splitlines()
+            if re.match(r"\| R\d+ \|", l)]
+    if not rows:
+        return ""
+    now = _current()
+    names = {"late": "late game", "real": "from your positions", "gold": "Gold left, rounds 13+", "ontype": "on-type buys"}
+    shown = {"late": lambda x: f"{x:.2f}x", "real": lambda x: f"{x:.2f}", "gold": lambda x: f"{x:.1f}",
+             "ontype": lambda x: f"{x:.0f}%"}
+    better = {"late": lambda v, t: v >= t, "real": lambda v, t: v < t, "gold": lambda v, t: v <= t,
+              "ontype": lambda v, t: v >= t}
+    out = ["<h2>Releases</h2>", '<p class="sub">One a day at 20:00 with dated targets (docs/ROADMAP.md); '
+           'each target against the number now. Now: ' + ", ".join(f"{names[k]} {shown[k](v)}" for k, v in now.items())
+           + ".</p><table><tr><th>Release</th><th>Date</th><th>Target</th><th>Now</th><th>State</th></tr>"]
+    for rel, date, target, state in (r[:4] for r in rows if len(r) >= 4):
+        checks = []
+        for k, rx in TARGET_RX.items():
+            m = re.search(rx, target)
+            if m and k in now:
+                ok = better[k](now[k], float(m.group(1)))
+                checks.append(f"{names[k]} {shown[k](now[k])} {'meets' if ok else 'misses'} {m.group(1)}")
+        out.append(f"<tr><td>{_esc(rel.strip())}</td><td>{_esc(date.strip())}</td><td>{_esc(target.strip())}</td>"
+                   f"<td>{_esc('; '.join(checks)) or '-'}</td><td>{_esc(state.strip()) or '-'}</td></tr>")
+    return "".join(out) + "</table>"
+
+
 def _verdict():
     """The bottom line, from the live numbers: how reliable the advice is, and how strong by phase
     (the network's warband in its games against the real lobbies in your logs, by round)."""
@@ -640,6 +703,7 @@ def render():
     tiles.append(("Training now", str(len([j for j in jobs if j[0] in ('train', 'pretrain')])),
                   ", ".join(j[1] for j in jobs if j[1]) or "nothing running"))
     parts.append(_verdict())
+    parts.append(_targets())
     parts.append(_tiles(tiles))
     parts.append("<h2>Strength over time</h2>")
     parts.append('<p class="sub">Placement out of 8, lower is better (1 at the top). Against plain bots '
