@@ -664,6 +664,8 @@ def main():
                     help="library warbands scaled toward the top 1%% by round (0 = as logged)")
     ap.add_argument("--library-comps", action="store_true",
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
+    ap.add_argument("--epochs", type=int, default=3, help="PPO epochs over each batch")
+    ap.add_argument("--minibatch", type=int, default=4096)
     ap.add_argument("--solo", action="store_true",
                     help="the learner plays seat 0 alone against library seats 1-7, which skip their "
                          "recruit turns (no self-play; AutoTavern's setup)")
@@ -803,7 +805,7 @@ def main():
             sbuf.refresh()
         if hbuf is not None:
             hbuf.refresh()
-        stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
+        stats = update(net, opt, batch, a.device, epochs=a.epochs, minibatch=a.minibatch, ent=a.ent, amp=a.amp, value_only=warm,
                        anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef,
                        prior=prior, prior_coef=a.trinket_prior, chunk=a.chunk,
                        human=hbuf, human_coef=a.human_coef)
