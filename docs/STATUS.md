@@ -4,6 +4,25 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
+## Overnight (Oct 30-31)
+
+- **Where it stands.** Mechanically the advice is clean: re-checked on every logged position of
+  your 13 games, no rule is broken. In strength it is weak from round 10 (see the bottom line on
+  the progress page); the training below aims there. No network has beaten the 18:21 one yet.
+- **Your turns against the network's** (rounds 7+, same positions): it buys more and off-type
+  (30-50% of its buys fit the warband, yours 62-73%), levels less mid-game (0.07 vs 0.33 a turn),
+  and late it refreshes far less (0.5 vs 4.3 a turn), freezes and ends with 9 Gold (you 4.7).
+- **Fixed and sent to training:** freezing no longer dodges the unspent-Gold cost; no second Freeze
+  straight after one (a no-op that was most of the network's 7% Freeze presses); half of new games
+  start from your positions (rounds 7+ weighted 15x); comp starts weighted to the genres it plays
+  worst; per-turn action caps up to 100; forced exploration of Refresh and Upgrade in sig1;
+  big2's learning rate halved (its steps were too large).
+- **Audit tools now run by themselves after every game:** the advice review, the simulator checks
+  against a baseline, your habits against the network's, the genre scorecard; the progress page
+  opens with the bottom line and an audit section.
+- **Overlay:** lineup panel (one card per line, stats and keywords), genre panel (3 genres, a share
+  each, the cards they need), no network name; installed.
+
 ## Today (Oct 30), afternoon
 
 - **Why the network falls behind late, found.** Started from your own position at the start
