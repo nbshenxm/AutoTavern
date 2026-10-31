@@ -514,6 +514,30 @@ def test_human_choices_flow_into_ppo(tmp_path):
     assert agree["n"] == 40 and 0 <= agree["all"] <= 1
 
 
+
+def test_the_search_data_can_leave_out_idle_end_turns(tmp_path):
+    # --search-drop-idle: the search's End Turns with 3+ Gold while a Refresh is legal are left
+    # out; with 2 Gold, or with nothing to spend on, they stay, and so do other choices
+    from advisor import search_games
+    from advisor.policy import OBS_CARDS, OBS_FLOATS
+
+    rows = []
+    for gold, refresh, a in ((5, True, train.A_END), (2, True, train.A_END), (5, False, train.A_END),
+                             (5, True, train.A_REFRESH)):
+        f = np.zeros(OBS_FLOATS, np.float32)
+        f[train.F_GOLD] = gold / 10
+        m = np.zeros(245, bool)
+        m[[train.A_END, train.A_FREEZE]] = True
+        m[train.A_REFRESH] = refresh
+        rows.append((f, np.zeros(OBS_CARDS, np.int32), m, a))
+    search_games.write_shard(tmp_path, rows)
+    kept = search_games.SearchBuffer([tmp_path], 1000)
+    kept.refresh()
+    idle = search_games.SearchBuffer([tmp_path], 1000, drop_idle=True)
+    idle.refresh()
+    assert len(kept) == 4 and len(idle) == 3 and idle.dropped == 1
+    assert sorted(np.round(idle.data[0][:, train.F_GOLD].astype(np.float32) * 10)) == [2, 5, 5]
+
 def test_the_play_audit_fails_a_clearly_worse_candidate():
     from advisor import audit_play
 

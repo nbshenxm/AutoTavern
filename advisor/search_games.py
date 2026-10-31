@@ -115,13 +115,20 @@ def write_shard(out, rows):
     return name
 
 
+IDLE_GOLD = 3  # the review's threshold (advisor.review: ended with spendable Gold)
+
+
 class SearchBuffer:
     """The newest `limit` searched decisions of the shards in `dirs`, kept as stored (float16
-    features); `refresh` loads only new files. For advisor.train --search-data."""
+    features); `refresh` loads only new files. For advisor.train --search-data. `drop_idle`:
+    without the choices that end the turn with IDLE_GOLD+ Gold while a Refresh or a buy is legal
+    (the searching network's habit, 30% of its End Turns against 17% of yours: what the training's
+    wasted-Gold cost works against; advisor.train --search-drop-idle)."""
 
-    def __init__(self, dirs, limit):
+    def __init__(self, dirs, limit, drop_idle=False):
         self.dirs, self.limit, self.loaded, self.data = [Path(d) for d in dirs], limit, {}, None
         self.width = dict(taverngym.layout())["N_ACTIONS"]
+        self.drop_idle, self.dropped = drop_idle, 0
 
     def refresh(self):
         files = sorted((f for d in self.dirs for f in d.glob("shard_*.npz")
@@ -153,7 +160,18 @@ class SearchBuffer:
             ok = np.isfinite(self.data[0]).all(1)
             if not ok.all():
                 self.data = tuple(x[ok] for x in self.data)
+        if self.data is not None and self.drop_idle:
+            idle = self._idle()
+            self.dropped = int(idle.sum())
+            self.data = tuple(x[~idle] for x in self.data)
         return True
+
+    def _idle(self):
+        from advisor.train import A_BUY, A_END, A_REFRESH, F_GOLD, N_SHOP
+        f, _, m, a = self.data
+        m = np.unpackbits(m, axis=1)[:, :self.width].astype(bool)
+        spend = m[:, A_REFRESH] | m[:, A_BUY:A_BUY + N_SHOP].any(1)
+        return (a == A_END) & spend & (np.round(f[:, F_GOLD].astype(np.float32) * 10) >= IDLE_GOLD)
 
     def __len__(self):
         return 0 if self.data is None else len(self.data[3])

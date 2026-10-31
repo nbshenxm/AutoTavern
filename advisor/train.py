@@ -639,6 +639,8 @@ def main():
                     help="search games (advisor.search_games): also learn the search's choices")
     ap.add_argument("--search-coef", type=float, default=0.2)
     ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
+    ap.add_argument("--search-drop-idle", action="store_true",
+                    help="leave out the search's End Turns with 3+ Gold a buy or Refresh could use")
     ap.add_argument("--human-data", nargs="*", metavar="DIR",
                     help="the player's own logged choices (advisor.human_data): also learned from")
     ap.add_argument("--human-coef", type=float, default=0.05)
@@ -708,7 +710,7 @@ def main():
     sbuf = None
     if a.search_data:
         from advisor.search_games import SearchBuffer
-        sbuf = SearchBuffer(a.search_data, a.search_buffer)
+        sbuf = SearchBuffer(a.search_data, a.search_buffer, drop_idle=a.search_drop_idle)
     hbuf = heval = None
     if a.human_data or a.human_eval:
         from advisor.search_games import SearchBuffer
@@ -779,6 +781,8 @@ def main():
                        human=hbuf, human_coef=a.human_coef)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
+            if sbuf.drop_idle:
+                stats["search_dropped"] = sbuf.dropped
         if warm:
             stats["critic_warmup"] = True
         net.eval()
