@@ -56,18 +56,28 @@ def _no_battlecry(card):
     return "BATTLECRY" not in (CAT.get(normal_form(card or "")[0], {}).get("mech") or [])
 
 
+# Minions whose effect works from the hand and do nothing more on the warband: playing one throws
+# its effect away (Flighty Scout summons a copy of itself at Start of Combat while in hand)
+HAND_ONLY = {"BG32_330", "BG32_330_G"}
+
+
 def detour_mask(view, seen):
     """The legal actions minus this plan's detours, or None when there are none: a plan doesn't
     both sell a minion and play the same card (golden or not) from hand, in either order (sell
     the warband's copy and play the hand's, or the other way round: one gold for what the sold
-    one had gained), unless the card has a Battlecry to trigger again. `seen`: what note_sold
-    recorded."""
+    one had gained), unless the card has a Battlecry to trigger again; and no card that works from
+    the hand is played (HAND_ONLY). `seen`: what note_sold recorded."""
     from advisor.policy import L
     sold, played = seen.setdefault("sold", set()), seen.setdefault("played", set())
-    if not sold and not played:
+    hand_only = [h for h, card in enumerate(view["me"]["hand"]) if card.get("id") in HAND_ONLY]
+    if not sold and not played and not hand_only:
         return None
     mask = np.array(view["mask"], bool)
     changed = False
+    for h in hand_only:  # a card that works from the hand stays there
+        lo = L["A_PLAY"] + h * L["N_POS"]
+        changed |= bool(mask[lo:lo + L["N_POS"]].any())
+        mask[lo:lo + L["N_POS"]] = False
     for h, card in enumerate(view["me"]["hand"]):
         if card.get("id") in sold and _no_battlecry(card.get("id")):
             lo = L["A_PLAY"] + h * L["N_POS"]

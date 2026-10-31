@@ -132,3 +132,19 @@ def test_a_plan_does_not_sell_a_minion_to_play_the_same_card():
     g2.step(0, L["A_PLAY"] + 1)
     m = search.detour_mask(_json.loads(g2.view(0)), seen)
     assert m is not None and not m[L["A_SELL"]] and not m[L["A_SELL"] + 1]
+
+
+def test_a_plan_keeps_a_flighty_scout_in_hand():
+    sys.path.insert(0, str(ROOT))
+    import json as _json
+
+    import taverngym
+
+    from advisor import search
+    from advisor.state import debug, recruit_game
+
+    L = dict(taverngym.layout())
+    g = recruit_game(1)
+    debug(g, cmd="add_minion", p=0, zone="hand", card="BG32_330", no_triple=True)
+    m = search.detour_mask(_json.loads(g.view(0)), {})
+    assert m is not None and not m[L["A_PLAY"]:L["A_PLAY"] + L["N_POS"]].any()

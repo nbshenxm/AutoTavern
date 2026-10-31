@@ -9,7 +9,8 @@ real game (a reward hack, a loop, a habit self-play doesn't punish). Two parts:
   Arrange steps, more than 25 steps;
 - games: complete games with the network in every seat (sampled): games that stall or reach the
   turn cap, the share of actions that are moves and Freeze presses, cards lost to a full hand,
-  Gold left at End Turn while it could buy or refresh.
+  Gold left at End Turn while it could buy or refresh, plays of cards that work from the hand
+  (search.HAND_ONLY: Flighty Scout).
 
 `check(candidate, current)` lists what the candidate does clearly worse than the current best.
 
@@ -34,7 +35,7 @@ L = dict(taverngym.layout())
 # shares of plans or of actions; games are counts)
 MARGINS = {"illegal_first": 0.02, "detour": 0.01, "end_with_gold": 0.08, "freeze_toggles": 0.05,
            "long_arrange": 0.05, "long_plan": 0.05, "stalled_games": 0, "move_share": 0.05,
-           "freeze_share": 0.02, "cards_lost": 0.5, "gold_left": 1.0}
+           "freeze_share": 0.02, "cards_lost": 0.5, "gold_left": 1.0, "hand_only_plays": 0.02}
 
 
 def advice_audit(net, starts, n=60, k=4):
@@ -71,7 +72,7 @@ def advice_audit(net, starts, n=60, k=4):
 
 def game_audit(net, games=4, seed=55_000_000):
     """Complete games with `net` in every seat (sampled)."""
-    stalled = moves = freezes = actions = lost = 0
+    stalled = moves = freezes = actions = lost = hand_only = plays = 0
     gold_left, ends = 0, 0
     rng = np.random.default_rng(seed)
     for i in range(games):
@@ -88,6 +89,10 @@ def game_audit(net, games=4, seed=55_000_000):
                 a = int(rng.choice(len(probs), p=probs / probs.sum()))
                 actions += 1
                 moves += a >= L["A_MOVE"]
+                if L["A_PLAY"] <= a < L["A_MAGNETIZE"]:  # a card that works from the hand, played
+                    plays += 1
+                    h = (a - L["A_PLAY"]) // L["N_POS"]
+                    hand_only += h < len(v["me"]["hand"]) and v["me"]["hand"][h].get("id") in search.HAND_ONLY
                 freezes += a == L["A_FREEZE"]
                 if a == L["A_END"] and v["phase"].lower() == "recruit" and not v["me"]["pending"]:
                     m = v["mask"]
@@ -104,6 +109,7 @@ def game_audit(net, games=4, seed=55_000_000):
     return {"stalled_games": stalled, "move_share": round(moves / max(1, actions), 3),
             "freeze_share": round(freezes / max(1, actions), 3),
             "cards_lost": round(lost / max(1, games * 8), 2), "gold_left": round(gold_left / max(1, ends), 2),
+            "hand_only_plays": round(hand_only / max(1, plays), 4),
             "games": games}
 
 
