@@ -64,8 +64,10 @@ says.
 
 ## Order of work
 
-1. `advisor.review` over the overlay history (section 1), run by the home sync — now.
-2. `advisor.fidelity` with stored baselines (section 2) — next.
-3. The review's no-exception rules in the play audit (section 4).
-4. Regression tests for today's fixes that don't have one yet (section 3).
-5. Action-mix drift in training logs (section 5); usefulness per game (section 6).
+1. `advisor.review` (section 1): done, run by the home sync after every game.
+2. `advisor.fidelity` with a stored baseline (section 2): done, same; history on the progress page.
+3. Regression tests for the fixes (section 3): done for all of Oct 30's.
+4. The review's no-exception rules in the play audit (section 4): the audit has the first-step,
+   detour and Gold checks; the review's other rules next.
+5. Action-mix drift in training logs (section 5); usefulness per game (section 6): next.
+6. Your habits as a reference (`advisor.compare_play`, on the progress page): done.

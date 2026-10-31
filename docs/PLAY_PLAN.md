@@ -15,6 +15,11 @@ say what to fix:
 - rounds 10+: it refreshes less as the game goes on (1.7, then 0.5 a turn) where you refresh more
   (3.5, then 4.3), freezes instead (1.5 a turn vs 0.08) and ends turns with 9 Gold (you 4.7).
 
+Exploration (sig1 from 00:15, `--explore 0.05 0.02`): a legal Refresh is forced 5% of the time and
+an Upgrade 2%, learned from but left out of the policy loss: the network never samples them, so it
+never learns what they lead to (its first choice is a Refresh in under 1% of your positions).
+big2 runs without it, for comparison.
+
 Sent to training: the wasted-Gold cost applies whenever a Refresh or a buy is legal, frozen or not
 (freezing with no buy legal had dodged it); half of new games start from your positions, rounds 7+
 drawn 15 times as often as earlier ones; comp starts (rounds 6-10) as before. Measured again on
