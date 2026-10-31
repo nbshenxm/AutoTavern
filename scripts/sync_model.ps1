@@ -98,6 +98,8 @@ try {
                 # (advisor.fidelity, data/replay/fidelity_last.json); both pause while you play
                 & $py -X utf8 -m advisor.review 2>&1 | Select-Object -Last 12 | ForEach-Object { Log "review: $_" }
                 & $py -X utf8 -m advisor.fidelity 2>&1 | Select-Object -Last 8 | ForEach-Object { Log "fidelity: $_" }
+                # (and how often you followed the advice, per game: advisor.usefulness)
+                & $py -X utf8 -m advisor.usefulness 2>&1 | Select-Object -Last 3 | ForEach-Object { Log "usefulness: $_" }
             } else { Log "library: office unreachable (exit $LASTEXITCODE)" }
         }
     }

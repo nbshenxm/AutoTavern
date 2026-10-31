@@ -570,6 +570,20 @@ def _audit_section():
             name = f.stem.replace("Hearthstone_", "").replace("_", " ")
             out.append(f"<tr><td>{_esc(name)}</td><td>{len(rules)}</td><td>{len(signals)}</td><td>{_esc(ex) or '-'}</td></tr>")
         out.append("</table>")
+    use_path = PROGRESS / "usefulness.json"
+    if use_path.exists():
+        use = json.loads(use_path.read_text(encoding="utf-8"))
+        out.append("<h3>Did you follow it?</h3>"
+                   '<p class="sub">At each decision the overlay advised on, its first step against what you did '
+                   'next (advisor.usefulness): the same step, or the same step later in that turn (the same idea in '
+                   'another order). Where you went another way: the advice\'s step, then yours.</p>'
+                   "<table><tr><th>Game</th><th>Decisions</th><th>Your next step</th><th>Later that turn</th>"
+                   "<th>Most often instead</th></tr>")
+        for log, r in sorted(use.items(), reverse=True)[:8]:
+            other = ", ".join(f"{k} ({v})" for k, v in list(r["otherwise"].items())[:3])
+            out.append(f"<tr><td>{_esc(log.replace('Hearthstone_', '').replace('_', ' '))}</td><td>{r['decisions']}</td>"
+                       f"<td>{r['followed']:.0%}</td><td>{r.get('in_turn', 0):.0%}</td><td>{_esc(other)}</td></tr>")
+        out.append("</table>")
     out.append("<h3>Found and fixed</h3><table><tr><th>When</th><th>What was wrong</th><th>What it did</th>"
                "<th>Found by</th></tr>" + "".join(
                    f"<tr><td>{a}</td><td>{_esc(b)}</td><td>{_esc(c)}</td><td>{_esc(d)}</td></tr>"

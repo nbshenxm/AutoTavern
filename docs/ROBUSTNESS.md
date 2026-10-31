@@ -71,5 +71,8 @@ says.
    first step, exact-id detours; the signals: Gold left, cards lost, weaker warband, worse odds).
    Checking the audit itself found the Gold-left signal dead: it was read after End Turn, when
    nothing is legal; the live test now fails if no plan in a game ever ends with spendable Gold.
-5. Action-mix drift in training logs (section 5); usefulness per game (section 6): next.
+5. Action-mix drift in training logs (section 5): logged per iteration, on the page next.
+   Usefulness per game (section 6): done Oct 31 (`advisor.usefulness`, run by the home sync):
+   your next step was the advice's first in 9-28% of decisions, the same step later that turn
+   in 50-90%; most often you refreshed or bought where it said to play a card first.
 6. Your habits as a reference (`advisor.compare_play`, on the progress page): done.
