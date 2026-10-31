@@ -42,6 +42,26 @@ linear in the late game). Each item has a measurement; results go to EXPERIMENTS
    (15 of 30 late positions either way) while doubling latency: not used.
 7. **Larger network** (running): 8.6M parameters, for the longer, order-dependent late turns.
 
+## Promotion: not on training numbers alone
+
+A network that passes the training gates (head to head, real positions, library lobbies) must also
+pass the **play audit** (`advisor.audit_play`) against the current best before it reaches your
+overlay: its live advice (with plan search) at your logged round starts, and complete games with it
+in every seat. It fails on any of: first steps the client wouldn't allow, sell-and-replay detours,
+ending the turn with 3+ Gold that could still buy or refresh, Freeze toggling, long Arrange runs,
+overlong plans, stalled games, more moves or Freeze presses than the best, cards lost to a full
+hand, Gold left at End Turn. Sample plans are kept in the promotion log for reading. First
+reading: today's best and its predecessor both spend 7.8% of their self-play actions on Freeze
+(the old dodge of the wasted-gold cost, closed this afternoon): the audit holds it from growing.
+
+## Genres
+
+The 19 comps are a starting point, not the list: the network should learn every genre and find
+new ones. Switching is not a goal: it is rare, mostly from a survival warband into a high-ceiling
+one when its pieces come (more aggressive at high MMR); survive first. Real starts teach that
+(your midgames in real lobbies); comp starts teach each engine. `advisor.genres` scores the
+network per comp (warband growth from the comp's midgame against the top 1%, core-card buys).
+
 ## Audit: what is checked, and what was found
 
 | Check | Result | Found and fixed |
