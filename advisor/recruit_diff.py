@@ -21,6 +21,15 @@ ROOT = Path(__file__).resolve().parents[1]
 L = None
 
 
+def _magnetic(card):
+    return "MAGNETIC" in ((CAT.get(normal_form(card or "")[0]) or {}).get("keywords") or [])
+
+
+def _mech(card):
+    races = (CAT.get(normal_form(card or "")[0]) or {}).get("races") or []
+    return "MECHANICAL" in races or "ALL" in races
+
+
 def chosen_actions(d):
     """The simulator actions for the option chosen at decision `d` ([action], target eid in
     the log or None, the acting card), or None for what can't be compared (End turn, a
@@ -46,6 +55,10 @@ def chosen_actions(d):
         h = hand[e["eid"]]
         n = len(s["friendly"]["board"])
         pos = ch.get("position") or 0
+        # A Magnetic card dropped left of a Mech attaches to it (the log has only the position):
+        # TavernGym's Magnetize, not a play beside it (refused on a full warband)
+        if 0 < pos <= n and _magnetic(card) and _mech(s["friendly"]["board"][pos - 1]["card"]):
+            return [126 + h * 7 + pos - 1], target, card
         pos = min(n, max(0, pos - 1)) if pos > 0 else n
         return [46 + h * 8 + pos], target, card
     if e.get("owner") == "friendly" and e.get("zone") == "PLAY" and e.get("type") == "MINION" \

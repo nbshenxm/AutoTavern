@@ -97,7 +97,10 @@ try {
                 # data/review), and the simulator against all logs vs its baseline
                 # (advisor.fidelity, data/replay/fidelity_last.json); both pause while you play
                 & $py -X utf8 -m advisor.review 2>&1 | Select-Object -Last 12 | ForEach-Object { Log "review: $_" }
+                if ($LASTEXITCODE -ne 0) { Log "review FAILED (exit $LASTEXITCODE)" }
                 & $py -X utf8 -m advisor.fidelity 2>&1 | Select-Object -Last 8 | ForEach-Object { Log "fidelity: $_" }
+                # (a check that fails says so: fidelity crashed unnoticed from Oct 30 to 31)
+                if ($LASTEXITCODE -ne 0) { Log "fidelity FAILED (exit $LASTEXITCODE)" }
                 # (and how often you followed the advice, per game: advisor.usefulness)
                 & $py -X utf8 -m advisor.usefulness 2>&1 | Select-Object -Last 3 | ForEach-Object { Log "usefulness: $_" }
             } else { Log "library: office unreachable (exit $LASTEXITCODE)" }

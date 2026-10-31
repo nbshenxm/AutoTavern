@@ -52,6 +52,9 @@ AUDIT_FIXES = [
     ("Oct 30", "Discounted Tavern spells at full price", "a buy you could afford was refused (Ominous Seer's discount)", "legality check"),
     ("Oct 30", "Who attacks first, Dark Gifts, triples in a rebuilt hand", "combats and warbands rebuilt wrong", "combat replay"),
     ("Oct 30", "Trinket stealth cost in training: Freeze + End with Gold", "the network learned to dodge the unspent-Gold cost by freezing", "case study"),
+    ("Oct 31", "The simulator check stopped running unnoticed", "a broken line in advisor.fidelity made it crash after every game since Oct 30 evening, while the page said no drop", "audit self-check"),
+    ("Oct 31", "Magnetize replayed as a play", "a Magnetic card dropped on a Mech was replayed beside it (refused on a full warband)", "trinket audit"),
+    ("Oct 31", "Round-6 trinket offer never advised", "the live tracker skipped offers that weren't between minions while unanswered", "your report"),
     ("Oct 31", "Unspent Gold at the end of a plan never counted", "read after End Turn, when nothing is legal: the review and the play audit missed 10% of late plans ending with 3+ Gold", "audit self-check"),
 ]
 SIMULATOR = [
@@ -514,9 +517,19 @@ def _audit_section():
     last_rev = json.loads(reviews[-1].read_text(encoding="utf-8")) if reviews else None
     reg = (json.loads(last_path.read_text(encoding="utf-8")).get("regressions") or []) if last_path.exists() else []
     audited = [r for r in _jsonl(DATA / "models" / "promotions.jsonl") if r.get("play_audit")]
+    # When the simulator was last checked, and whether games came after it: a check that stops
+    # running must not read as "no drop"
+    checked = datetime.fromtimestamp(last_path.stat().st_mtime) if last_path.exists() else None
+    newest = max((f.stat().st_mtime for f in (DATA / "replay").glob("decisions.jsonl")), default=0)
+    stale = checked is None or newest > checked.timestamp() + 60
+    if stale:
+        sim_box = ("Simulator vs your games", "not checked",
+                   f"last check {checked:%b %d %H:%M}, games since" if checked else "the check hasn't run")
+    else:
+        sim_box = ("Simulator vs your games", "no drop" if not reg else f"{len(reg)} drops",
+                   f"the five checks against their baseline, {checked:%b %d %H:%M}" if not reg else "; ".join(reg[:2]))
     boxes = [("Bugs found and fixed", str(len(AUDIT_FIXES)), "in the simulator, the bridge and the advice (list below)"),
-             ("Simulator vs your games", "no drop" if not reg else f"{len(reg)} drops",
-              "the five checks against their baseline, after the last game" if not reg else "; ".join(reg[:2]))]
+             sim_box]
     if last_rev is not None:
         rules = sum(1 for x in last_rev if x.get("rule"))
         boxes.append(("Advice rules broken, last game", str(rules),

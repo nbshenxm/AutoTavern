@@ -162,8 +162,7 @@ def main():
     from datetime import datetime
     with open(DATA / "fidelity_history.jsonl", "a", encoding="utf-8") as f:  # the progress page's trend
         f.write(json.dumps({"time": datetime.now().isoformat(timespec="minutes"),
-                            **{k: v["rate"] for k, v in now.items()}}) + "
-")
+                            **{k: v["rate"] for k, v in now.items()}}) + "\n")
     if a.save or not BASELINE.exists():
         BASELINE.write_text(json.dumps(now, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"baseline saved: {BASELINE}")
