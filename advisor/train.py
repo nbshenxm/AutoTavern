@@ -761,6 +761,15 @@ def main():
     obs = env.observe()
     pool = load_pool(out, a.device)
     gen = Generation(a.device) if a.generations else None
+    # --solo: no generation opponents, but the same measures as every run (head to head with
+    # the current best, from your positions, the library lobby of seats 5-7 with the best in the
+    # others), so solo runs compare with the office's and advisor.promote reads their best.pt
+    judge = gen or (Generation(a.device) if a.solo else None)
+    lib_eval_config = train_config
+    if a.solo:
+        from advisor import library
+        lib_eval_config = {**CONFIG, "library": library.library([5, 6, 7], strength=a.library_strength,
+                                                                comps=a.library_comps)}
     starts = RealStarts(a.real_starts, a.seed + it0, log=log, comp_share=a.comp_starts) if a.real_starts else None
     real_base = (None, None)  # evaluate_real of the best itself, per best and starts file
     best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
@@ -784,7 +793,7 @@ def main():
             seats = [Seat() for _ in range(env.n_slots)]
             obs = env.observe()
             log({"library": len(train_config["library"]["boards"])})
-        if gen and gen.refresh(log):
+        if judge and judge.refresh(log):
             best_h2h = 4.5  # a new generation: the record against the old best is void
         opponents = gen.assign(env, it, pool) if gen else ({} if a.solo else assign_opponents(env, pool, it))
         if starts is not None:
@@ -834,22 +843,23 @@ def main():
             if pool:
                 row["league"] = evaluate_league(net, pool, a.device, a.eval_episodes,
                                                 threads=a.threads)
-            if gen and gen.best is not None:
-                vs = evaluate_league(net, [gen.best], a.device, a.eval_episodes, threads=a.threads)
+            if judge and judge.best is not None:
+                gen_e = judge
+                vs = evaluate_league(net, [gen_e.best], a.device, a.eval_episodes, threads=a.threads)
                 vs.pop("pool", None)
                 row["vs_best"] = vs
                 if heval is not None and len(heval):
                     row["human_agree"] = human_agreement(net, heval, a.device)
                 if starts is not None and starts.real:  # the player's own positions
-                    if real_base[0] != (gen.version, starts.version):
-                        real_base = ((gen.version, starts.version),
-                                     evaluate_real(gen.best, gen.best, starts.real, a.device,
+                    if real_base[0] != (gen_e.version, starts.version):
+                        real_base = ((gen_e.version, starts.version),
+                                     evaluate_real(gen_e.best, gen_e.best, starts.real, a.device,
                                                    threads=a.threads))
-                    vr = evaluate_real(net, gen.best, starts.real, a.device, threads=a.threads)
+                    vr = evaluate_real(net, gen_e.best, starts.real, a.device, threads=a.threads)
                     row["vs_best_real"] = {**vr, "best": real_base[1]["mean_place"]}
                 if a.library:  # one seat against the best and real warbands: closest to a lobby
-                    vl = evaluate_league(net, [gen.best], a.device, a.eval_episodes,
-                                         threads=a.threads, config=train_config)
+                    vl = evaluate_league(net, [gen_e.best], a.device, a.eval_episodes,
+                                         threads=a.threads, config=lib_eval_config)
                     vl.pop("pool", None)
                     row["vs_library"] = vl
                 if vs["mean_place"] < best_h2h:  # the candidate advisor.promote judges
