@@ -50,6 +50,11 @@ def test_replayed_log_gets_advice_at_every_recruit_decision():
         for r in rows:
             if r["verb"] in ("Buy", "Play"):
                 assert r["badge"][0] in "TH" and r["card_id"], r
+    # What the plan leaves is read before its End Turn (after it nothing is legal): over a game
+    # some plan ends with Gold a Refresh could use (the review's "ended with spendable Gold")
+    ended = [a for a in advice if a["plan"][-1].startswith("End")]
+    assert any(a["could_spend"] for a in ended)
+    assert all(a["gold_left"] <= a["gold"] + 10 for a in ended)
     # (the first advice of a session loads the card data and the public stats: seconds, once)
     assert max(a["ms"] for a in advice[1:]) < 1000
     json.dumps(advice)  # what the plugin reads

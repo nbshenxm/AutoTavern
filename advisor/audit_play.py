@@ -3,10 +3,13 @@ gates: a network can score well against its own copies while its advice makes no
 real game (a reward hack, a loop, a habit self-play doesn't punish). Two parts:
 
 - advice: the live advisor's plan (plan search, as the overlay shows it) at the player's logged
-  round starts (data/library/starts.jsonl). Per plan: a first step the client wouldn't allow,
-  a detour (sell a minion and play the same card, either order, no Battlecry), ending the turn
-  with 3+ Gold while a buy or a Refresh is legal, two or more Freeze presses, more than two
-  Arrange steps, more than 25 steps;
+  round starts (data/library/starts.jsonl). The review's rules without exceptions
+  (advisor.review, docs/ROBUSTNESS.md section 4): an advice that crashes, a first step the client
+  wouldn't allow, a detour (review.detour_step: the advice's own rule, exact card ids, a
+  Battlecry may be replayed); its usually-wrong signals: ending the turn with 3+ Gold while a buy
+  or a Refresh is legal, a card lost to a full hand by the plan's order, the warband clearly
+  weaker or its odds against the next opponent clearly worse after the plan; and two or more
+  Freeze presses, more than two Arrange steps, more than 25 steps;
 - games: complete games with the network in every seat (sampled): games that stall or reach the
   turn cap, the share of actions that are moves and Freeze presses, cards lost to a full hand,
   Gold left at End Turn while it could buy or refresh, plays of cards that work from the hand
@@ -33,9 +36,13 @@ ROOT = Path(__file__).resolve().parents[1]
 L = dict(taverngym.layout())
 # How much worse than the current best a candidate may be before the audit fails it (rates are
 # shares of plans or of actions; games are counts)
-MARGINS = {"illegal_first": 0.02, "detour": 0.01, "end_with_gold": 0.08, "freeze_toggles": 0.05,
+# (crash and detour are deterministic code paths: none more than the best's)
+MARGINS = {"crash": 0, "illegal_first": 0.02, "detour": 0, "end_with_gold": 0.08, "plan_cards_lost": 0.03,
+           "weaker": 0.05, "odds_worse": 0.05, "freeze_toggles": 0.05,
            "long_arrange": 0.05, "long_plan": 0.05, "stalled_games": 0, "move_share": 0.05,
            "freeze_share": 0.02, "cards_lost": 0.5, "gold_left": 1.0, "hand_only_plays": 0.02}
+# Bumped when a measure changes, so a cached audit of the best is redone (promote.audit_cache)
+VERSION = 2
 
 
 def advice_audit(net, starts, n=60, k=4):
@@ -43,25 +50,30 @@ def advice_audit(net, starts, n=60, k=4):
     from advisor import live
     live.SEARCH["k"] = k
     picked = sorted(starts, key=lambda r: -r["d"]["turn"])[:n]
-    counts = dict.fromkeys(["illegal_first", "detour", "end_with_gold", "freeze_toggles",
-                            "long_arrange", "long_plan"], 0)
+    from advisor import review
+    counts = dict.fromkeys(["crash", "illegal_first", "detour", "end_with_gold", "plan_cards_lost",
+                            "weaker", "odds_worse", "freeze_toggles", "long_arrange", "long_plan"], 0)
     done, samples = 0, []
     for r in picked:
         d = r["d"]
+        done += 1
         try:
             a = live.advise(d, r["combats"], net=net)
         except Exception:
+            counts["crash"] += 1
             continue
-        done += 1
         plan = a["plan"] or []
         if len(samples) < 6:  # for reading: what it advises at real late positions
             samples.append(f"round {(d['turn'] + 1) // 2}, {a.get('gold')} gold: " + " -> ".join(plan))
         if "the first step is not offered by the client" in (a.get("warnings") or []):
             counts["illegal_first"] += 1
-        for i, p in enumerate(plan):
-            if p.startswith("Sell ") and any(q.startswith("Play " + p[5:] + " at") for q in plan[i + 1:]):
-                counts["detour"] += 1
-                break
+        counts["detour"] += review.detour_step(d, r["combats"], a.get("actions") or []) is not None
+        counts["plan_cards_lost"] += (a.get("cards_lost") or 0) > 0
+        complete = bool(plan) and plan[-1].startswith("End")
+        before, after = a.get("stats_before") or 0, a.get("stats_after") or 0
+        counts["weaker"] += complete and before >= 20 and after < before * (1 - review.STATS_DROP)
+        w0, w1 = review.win(a.get("odds_now")), review.win(a.get("odds_after_plan"))
+        counts["odds_worse"] += w0 is not None and w1 is not None and w1 < w0 - review.ODDS_DROP
         counts["freeze_toggles"] += sum(p.startswith("Freeze") for p in plan) >= 2
         counts["long_arrange"] += sum(p.startswith("Arrange") for p in plan) > 2
         counts["long_plan"] += len(plan) > 25

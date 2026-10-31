@@ -527,10 +527,18 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         "gold": d["state"]["friendly"].get("gold"),
         "warnings": warnings,
     }
-    # Where the plan leaves the turn (advisor.audit_play: ending with Gold that could still buy)
+    # Where the plan leaves the turn (advisor.audit_play: ending with Gold that could still buy),
+    # read just before its End Turn: after it nothing is legal any more
     end = json.loads(after.view(0))
-    em = end["mask"]
-    advice["gold_left"] = end["me"]["gold"]
+    if plan and plan[-1][0] == 0:
+        pre = g.copy()
+        for x, _ in plan[:-1]:
+            pre.step(0, int(x))
+        end_view = json.loads(pre.view(0))
+    else:
+        end_view = end
+    em = end_view["mask"]
+    advice["gold_left"] = end_view["me"]["gold"]
     advice["could_spend"] = bool(em[1] or any(em[8:16]))  # Refresh or a buy still legal
     # (advisor.review: the plan's actions, the warband before and after, cards it loses)
     advice["actions"] = [int(x) for x, _ in plan]

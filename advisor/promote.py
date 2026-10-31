@@ -92,7 +92,7 @@ def audit_cache(models, best_path, starts):
     """The current best's play audit, kept per version of best.pt (models/audit_current.json)."""
     from advisor import audit_play
     path = models / "audit_current.json"
-    version = f"{best_path.stat().st_mtime_ns}"
+    version = f"{best_path.stat().st_mtime_ns}:{audit_play.VERSION}"
     if path.exists():
         cached = json.loads(path.read_text())
         if cached.get("version") == version:
