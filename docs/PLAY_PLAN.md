@@ -23,11 +23,15 @@ linear in the late game). Each item has a measurement; results go to EXPERIMENTS
    real scaling wins. The same opponents in the search games.
 2. **Real starts** (running): 30% of training games start from your logged round starts (72%
    from round 8 on), so the network plays real late games.
-3. **Comp starts** (next): training games where your seat starts a comp's midgame (its stage
-   cards, the matching tribes in the lobby): Beatboxer magnetizing, Undead attack counts,
-   triples on buffed cards practised where they matter.
-4. **Pattern checks on every checkpoint** (next): the measurements above, on the progress page,
-   so a checkpoint that learns (or unlearns) a pattern shows.
+3. **Comp starts** (running since 20:35, `big2 --comp-starts 0.33`): a third of the real-start
+   games put your seat in one of 95 comp midgames (19 comps x rounds 6-10: the comp's warband at
+   top 1% strength, its Tier, the round's Gold, its tribes in the lobby, real warbands around).
+4. **Pattern checks** (`advisor.patterns`, run by the home sync on each new network, shown on
+   the progress page). First numbers: the Beatboxer check (share of the magnetizing probability
+   onto another Mech; random 75%): 05:23 network 96%, 12:20 76%, today's best 79% - the pattern
+   was learned once and lost in self-play. Late turns from your positions (per turn): today's
+   best 1.6 Refreshes, 2.5 buys, 0.05 buys sold again (12:20: 1.3, 2.3, 0.23). Cards lost to a
+   full hand: counted from the next rebuild.
 5. **Search where it pays**: plan search already finds better turns than the network alone
    (0.48 places); a Refresh lookahead was tried and didn't change how often plans refresh
    (15 of 30 late positions either way) while doubling latency: not used.
