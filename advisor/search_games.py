@@ -67,7 +67,7 @@ def play(args):
     if real and rng.random() < real:
         if _STARTS["rs"] is None:
             from advisor.train import RealStarts
-            _STARTS["rs"] = RealStarts(1.0, 0, log=lambda r: None)
+            _STARTS["rs"] = RealStarts(1.0, 0, log=lambda r: None, comp_share=0.5)
         rs = _STARTS["rs"]
         if rs.states:
             st = json.loads(json.dumps(rs.states[rng.choice(len(rs.states), p=rs.weights)]))
