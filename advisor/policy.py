@@ -104,7 +104,8 @@ CARD_TEXT = [("start_of_turn", r"start of (your|each|every) turn"), ("end_of_tur
 CARD_TEXT_RACES = [("BEAST", "beast"), ("DEMON", "demon"), ("DRAGON", "dragon"), ("ELEMENTAL", "elemental"),
                    ("MECHANICAL", "mech"), ("MURLOC", "murloc"), ("PIRATE", "pirate"), ("QUILBOAR", "quilboar"),
                    ("UNDEAD", "undead"), ("ABERRATION", "aberration"), ("NAGA", "naga")]
-CARD_F = len(CARD_KINDS) + 2 * len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6 + 3 +     len(CARD_TEXT) + len(CARD_TEXT_RACES) + 2
+CARD_TEXT_F = len(CARD_TEXT) + len(CARD_TEXT_RACES) + 2
+CARD_F = len(CARD_KINDS) + 2 * len(CARD_RACES) + len(CARD_MECH) + len(CARD_KW) + 6 + 3 + CARD_TEXT_F
 
 
 def text_features(text):
@@ -156,14 +157,23 @@ class EntityNet(nn.Module):
     choices, opponents (hero + leaderboard floats, their trinkets added to the hero card) and
     their last seen warbands."""
 
-    def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity"):
+    def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity", blind_v4=False):
         super().__init__()
         self.config = {"arch": "entity", "card_dim": card_dim, "d": d, "layers": layers,
                        "heads": heads}
+        # A control run's network (advisor.train --blind-v4): it never sees what observation
+        # version 4 and the card table's text columns add, so an A/B of that information holds
+        # across restarts on the new code
+        self.blind_v4 = blind_v4
+        if blind_v4:
+            self.config["blind_v4"] = True
         self.cards = nn.Embedding(N_CARDS + 1, card_dim, padding_idx=0)
         # What the card is (the card table), added to its learned embedding; zero at first, so
         # a network from before the table plays exactly as it did
-        self.register_buffer("card_table", torch.from_numpy(card_table()), persistent=False)
+        table = card_table()
+        if blind_v4:
+            table[:, CARD_F - CARD_TEXT_F:] = 0
+        self.register_buffer("card_table", torch.from_numpy(table), persistent=False)
         self.card_proj = nn.Linear(CARD_F, card_dim)
         nn.init.zeros_(self.card_proj.weight)
         nn.init.zeros_(self.card_proj.bias)
@@ -210,6 +220,9 @@ class EntityNet(nn.Module):
             i += n
 
     def forward(self, features, cards, mask):
+        if self.blind_v4 and V4_F:
+            features = features.clone()
+            features[:, V4_AT:V4_AT + V4_F] = 0
         features = torch.sign(features) * torch.log1p(features.abs())
         cards = cards.clamp(0, N_CARDS)
         emb = self.cards(cards) + self.card_proj(self.card_table[cards])

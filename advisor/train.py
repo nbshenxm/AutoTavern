@@ -664,6 +664,9 @@ def main():
                     help="library warbands scaled toward the top 1%% by round (0 = as logged)")
     ap.add_argument("--library-comps", action="store_true",
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
+    ap.add_argument("--blind-v4", action="store_true",
+                    help="a control: the network doesn't see observation version 4's numbers nor the "
+                         "card table's text columns (policy.EntityNet blind_v4)")
     ap.add_argument("--explore", type=float, nargs=2, default=None, metavar=("P_REFRESH", "P_UPGRADE"),
                     help="take a legal Refresh / Upgrade with these probabilities (collect's explore)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
@@ -711,6 +714,10 @@ def main():
     torch.manual_seed(a.seed)
     if a.resume:
         net, ck = load(a.resume, a.device)
+        if a.blind_v4 and not getattr(net, "blind_v4", True):  # a control: from now on blind
+            state = net.state_dict()
+            net = make({**ck["config"], "blind_v4": True}).to(a.device)
+            net.load_state_dict(state)
         net.train()
         it0, best = ck.get("iteration", 0), ck.get("best", 9.0)
     else:

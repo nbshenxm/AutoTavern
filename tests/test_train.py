@@ -611,3 +611,25 @@ def test_forced_exploration_steps_are_left_out_of_the_policy_loss():
     batch = train.advantages(seats, 0.99, 0.95)
     stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=64)
     assert stats["pi"] == 0.0 and stats["v"] > 0
+
+
+def test_a_blind_control_never_sees_version_4():
+    # --blind-v4: even with weights for them, the network's output doesn't depend on version
+    # 4's numbers nor on the card table's text columns
+    from advisor import policy
+
+    torch.manual_seed(0)
+    net = policy.EntityNet(blind_v4=True)
+    with torch.no_grad():
+        for p in net.parameters():
+            p.add_(torch.randn_like(p) * 0.1)
+    assert not net.card_table[:, policy.CARD_F - policy.CARD_TEXT_F:].any()
+    f = torch.rand(1, policy.OBS_FLOATS)
+    c = torch.randint(1, policy.N_CARDS, (1, policy.OBS_CARDS))
+    m = torch.ones(1, policy.L["N_ACTIONS"], dtype=torch.bool)
+    f2 = f.clone()
+    f2[:, policy.V4_AT:policy.V4_AT + policy.V4_F] = 3.0
+    with torch.no_grad():
+        a, b = net(f, c, m), net(f2, c, m)
+    assert torch.allclose(a[0], b[0]) and torch.allclose(a[1], b[1])
+    assert policy.make(net.config).blind_v4
