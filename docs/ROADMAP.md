@@ -70,3 +70,30 @@ built. M6 runs at every patch.
 | M4 | done: in use in the user's games (constructed-advisor rows with card tiles, middle of the screen, Ctrl+Shift+B flags bad advice); the network synced hourly |
 | M5 | in progress ([TRAINING.md](TRAINING.md)): 1.49 against the bots; generations against the frozen best with promotions hourly; hot start, real-warband opponents, search-guided training (the current best), a larger network being distilled. The gap: late-game scaling against real lobbies (the progress page's strength curve) |
 | M6 | not started |
+
+## Releases (from 2026-10-31)
+
+Improvement doesn't get an open-ended budget: a release goes out **every day at 20:00** with
+whatever is best then, and strength has dated targets. A release is a git tag (`bg-rN`), the
+overlay build installed, the network it runs, and a short note in [RELEASES.md](RELEASES.md):
+what changed, the numbers below, the known faults. A day where no network beat the last one
+still ships (advice and overlay fixes) and says so.
+
+Every training idea gets one office window (8-12 hours) and a bar fixed before it starts; it
+clears the bar or is stopped, no extensions. A missed target means a change of approach, not
+another round of the same: first in line is what the network learns from (self-play opponents
+that scale like real lobbies all game, not only stronger library seats).
+
+The numbers (all on the progress page): **late** = the network's late-game warband (rounds
+10-13) against your lobbies' (curve, median ratio); **real** = mean placement from your logged
+positions (vs_best_real); **Gold left** = rounds 13+ (compare_play); **on-type** = minion buys
+of the warband's main type, rounds 10+; **your games** = placement and how often you followed
+the advice (advisor.usefulness).
+
+| Release | Date | Target | State |
+| --- | --- | --- | --- |
+| R1 | Oct 31 | next-step display, trinket offers and picks, audit fixed; the 18:21 network (late 0.19, real 2.56, Gold left 8-9, on-type 31%) | |
+| R2 | Nov 1 | late >= 0.25, real < 2.50 | |
+| R3 | Nov 2 | late >= 0.30, real < 2.45, Gold left <= 6 | |
+| R4 | Nov 3 | late >= 0.40, on-type >= 45% | |
+| R5 | Nov 4 | late >= 0.50; your games: 5+ played with it, measured | |
