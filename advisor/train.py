@@ -487,6 +487,21 @@ def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads
 LATE_ROUND, LATE_WEIGHT = 8, 3.0
 
 
+def comp_curriculum(tracks, path=None):
+    """Weights (summing to 1) for comp starts of these comp tracks: a comp the network plays
+    worse (advisor.genres: warband growth from its midgame against the top 1%; data/library/
+    genres.json) is drawn more, from half to twice the median one. Even without a scorecard."""
+    from advisor import library
+    path = Path(path or library.STARTS.parent / "genres.json")
+    growth = {}
+    if path.is_file():
+        growth = {c["comp"]: c["growth"] for c in json.loads(path.read_text(encoding="utf-8"))["comps"]
+                  if c.get("growth")}
+    med = float(np.median(list(growth.values()))) if growth else 1.0
+    w = np.array([min(2.0, max(0.5, med / max(0.05, growth.get(t, med)))) for t in tracks])
+    return w / w.sum()
+
+
 class RealStarts:
     """--real-starts P: a share P of the new games start where the player stood at the start of a
     logged round (advisor.library.starts, made into games by the bridge) instead of at round 1.
@@ -503,7 +518,11 @@ class RealStarts:
         # --comp-starts: this share of the draws are curated comps' midgames instead
         # (advisor.library.comp_starts: Beatboxer magnetizing, Undead attack counts...)
         self.comp_share = comp_share
-        self.comp_states = library.comp_starts() if comp_share else []
+        self.comp_states, self.comp_weights = [], None
+        if comp_share:
+            tagged = library.comp_starts(tagged=True)
+            self.comp_states = [st for _, _, st in tagged]
+            self.comp_weights = comp_curriculum([t for t, _, _ in tagged])
         if self.comp_states:
             log({"comp_starts": len(self.comp_states)})
         self.refresh()
@@ -530,7 +549,7 @@ class RealStarts:
         w = w / w.sum() if len(w) else w
         if self.comp_states:
             share = self.comp_share if len(w) else 1.0
-            w = np.concatenate([w * (1 - share), np.full(len(self.comp_states), share / len(self.comp_states))])
+            w = np.concatenate([w * (1 - share), share * self.comp_weights])
             states = states + self.comp_states
         self.states, self.weights = states, w
         self.log({"real_starts": len(self.real), "skipped": skipped,
