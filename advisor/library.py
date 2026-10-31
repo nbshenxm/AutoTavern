@@ -266,12 +266,13 @@ if __name__ == "__main__":
 COMP_START_ROUNDS = range(6, 11)
 
 
-def comp_starts(rounds=COMP_START_ROUNDS, seed=0):
+def comp_starts(rounds=COMP_START_ROUNDS, seed=0, tagged=False):
     """Game states (Game.state_json) where the player's seat (0) plays a curated comp: at each of
     `rounds`, the comp's warband of that round (comp_boards: its stage cards, at the top 1%'s
     strength), its Tavern Tier and the round's Gold, in a lobby with the comp's minion types; the
     other seats have real warbands of that round (the library, scaled the same way). Training
-    games start from them (advisor.train RealStarts) to practise each comp's way to scale."""
+    games start from them (advisor.train RealStarts) to practise each comp's way to scale.
+    `tagged`: (comp track, round, state) each."""
     import random
 
     import taverngym
@@ -314,7 +315,8 @@ def comp_starts(rounds=COMP_START_ROUNDS, seed=0):
             # The round's Gold and the Tavern of the comp's Tier
             debug(g, cmd="set_player", p=0, gold=min(10, rnd + 2), tier=b["tier"])
             debug(g, cmd="refresh_shop", p=0)
-            out.append(json.loads(g.state_json()))
+            st = json.loads(g.state_json())
+            out.append((track, rnd, st) if tagged else st)
     return out
 
 
