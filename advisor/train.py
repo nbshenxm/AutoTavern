@@ -79,6 +79,21 @@ def wasted_gold(obs, i, a):
     return WASTED_GOLD * round(float(f[F_GOLD]) * 10)
 
 
+_L = dict(layout())
+
+
+def action_mix(actions):
+    """Shares of the training games' actions by kind (docs/ROBUSTNESS.md section 5: a cost the
+    network learns to dodge shows as a share drifting away from a real player's)."""
+    a = np.asarray(actions)
+    n = max(1, len(a))
+    spans = {"refresh": (_L["A_REFRESH"], _L["A_REFRESH"] + 1), "freeze": (_L["A_FREEZE"], _L["A_FREEZE"] + 1),
+             "upgrade": (_L["A_UPGRADE"], _L["A_UPGRADE"] + 1), "end": (_L["A_END"], _L["A_END"] + 1),
+             "buy": (_L["A_BUY"], _L["A_BUY"] + _L["N_SHOP"]), "sell": (_L["A_SELL"], _L["A_SELL"] + _L["N_BOARD"]),
+             "play": (_L["A_PLAY"], _L["A_MOVE"]), "move": (_L["A_MOVE"], _L["A_MOVE"] + 49)}
+    return {k: round(float(((a >= lo) & (a < hi)).sum()) / n, 4) for k, (lo, hi) in spans.items()}
+
+
 def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
@@ -757,6 +772,7 @@ def main():
         if warm:
             stats["critic_warmup"] = True
         net.eval()
+        stats["mix"] = action_mix([b[0][3] for b in batch])
         row = {"iteration": it, "batch": len(batch), "episodes": len(placements),
                "place": round(float(np.mean(placements)), 3) if placements else None,
                "collect_s": round(tc - ts, 1), "update_s": round(time.time() - tc, 1),
