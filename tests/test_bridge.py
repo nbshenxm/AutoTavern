@@ -150,3 +150,49 @@ def test_an_activate_used_this_turn_is_not_offered_again():
         assert not _json.loads(g2.view(0))["mask"][23 + i]
         return
     pytest.skip("no usable Activate minion in the logged decisions")
+
+
+def _first(pred):
+    for line in DECISIONS.read_text(encoding="utf-8").splitlines():
+        d = json.loads(line)
+        if pred(d):
+            return d
+    pytest.skip("no such logged decision")
+
+
+def test_the_logged_baller_bonus_reaches_the_simulator():
+    # BG31_816pe's data is TavernGym's baller_bonus (improvements), not ballers sold
+    from advisor import bridge
+
+    d = _first(lambda d: d["kind"] == "options" and any(
+        e["card"] == "BG31_816pe" and e["data"][0] > 0 for e in d["state"]["friendly"].get("player_ench", [])))
+    want = next(e["data"][0] for e in d["state"]["friendly"]["player_ench"] if e["card"] == "BG31_816pe")
+    g, _ = bridge.build(d, [])
+    assert json.loads(g.state_json())["players"][0]["stats"]["baller_bonus"] == want
+
+
+def test_maximum_gold_above_the_rounds_is_carried():
+    from advisor import bridge
+    from advisor.state import GAME_CONFIG, debug, recruit_game
+
+    def base_max(d):
+        g = recruit_game(1, GAME_CONFIG)
+        debug(g, cmd="set_turn", turn=max(1, (d["turn"] + 1) // 2))
+        v = json.loads(g.view(0))["me"]
+        return v["max_gold"] - v.get("max_gold_bonus", 0)
+
+    d = _first(lambda d: d["kind"] == "options" and d["turn"] > 9 and
+               (d["state"]["friendly"].get("max_gold") or 0) > base_max(d))
+    g, _ = bridge.build(d, [])
+    assert json.loads(g.view(0))["me"]["max_gold"] == d["state"]["friendly"]["max_gold"]
+
+
+def test_a_trinket_offer_from_a_trinket_is_free():
+    from advisor import bridge
+
+    d = _first(lambda d: d["kind"] == "choices" and isinstance(d.get("source"), dict)
+               and (d["source"].get("card") or "").startswith("BG30_MagicItem_703")
+               and bridge.choice_options(d)[0] == "trinket")
+    g, _ = bridge.build(d, [])
+    pend = json.loads(g.state_json())["players"][0]["pending"][0]["Trinket"]
+    assert pend["free"] is True

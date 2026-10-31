@@ -133,3 +133,28 @@ def test_a_plan_does_not_sell_a_minion_to_play_the_same_card():
     m = search.detour_mask(_json.loads(g2.view(0)), seen)
     assert m is not None and not m[L["A_SELL"]] and not m[L["A_SELL"] + 1]
 
+
+
+def test_a_step_that_draws_at_random_ends_the_plan():
+    # A Refresh draws a new Tavern: under another seed it differs (random_cards says so); an
+    # End Turn decided nothing random
+    sys.path.insert(0, str(ROOT))
+    import json as _json
+
+    import taverngym
+
+    from advisor import live, search
+    from advisor.state import debug, recruit_game
+
+    L = dict(taverngym.layout())
+    g = recruit_game(4)
+    debug(g, cmd="set_player", p=0, gold=5)
+    alt = search.fair_copy(g, 0, seed=99)
+    c = g.copy()
+    c.step(0, L["A_REFRESH"])
+    assert live.random_cards(alt, L["A_REFRESH"], _json.loads(c.view(0))) == "cards"
+    debug(g, cmd="add_minion", p=0, zone="hand", card="BG26_152", no_triple=True)
+    alt = search.fair_copy(g, 0, seed=99)
+    c = g.copy()
+    c.step(0, L["A_PLAY"])
+    assert live.random_cards(alt, L["A_PLAY"], _json.loads(c.view(0))) is None
