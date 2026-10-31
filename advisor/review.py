@@ -59,10 +59,9 @@ def review_log(path, net, k=8, locale="zhCN"):
             plan = a.get("plan") or []
             if "the first step is not offered by the client" in (a.get("warnings") or []):
                 out.append(finding(d, a, "first step not offered", True))
-            for j, p in enumerate(plan):
-                if p.startswith("Sell ") and any(q.startswith("Play " + p[5:] + " at") for q in plan[j + 1:]):
-                    out.append(finding(d, a, "sell-and-replay detour", True, p))
-                    break
+            bad = detour_step(d, game_combats, a.get("actions") or [])
+            if bad:
+                out.append(finding(d, a, "sell-and-replay detour", True, bad))
             if plan and plan[-1].startswith("End") and a.get("could_spend") and (a.get("gold_left") or 0) >= 3:
                 out.append(finding(d, a, "ended with spendable Gold", False, f"{a['gold_left']} Gold"))
             if (a.get("cards_lost") or 0) > 0:
@@ -73,11 +72,33 @@ def review_log(path, net, k=8, locale="zhCN"):
             w0, w1 = win(a.get("odds_now")), win(a.get("odds_after_plan"))
             if w0 is not None and w1 is not None and w1 < w0 - ODDS_DROP:
                 out.append(finding(d, a, "odds worse after the plan", False, f"{w0:+.2f} -> {w1:+.2f}"))
-            if i == 0 and len(turn_ds) > 1:
+            # (only a complete plan compares with your whole turn: one that stops at a random step
+            # hasn't finished its turn)
+            if i == 0 and len(turn_ds) > 1 and plan and plan[-1].startswith("End"):
                 r = regret(turn_ds[-1], game_combats, a)
                 if r is not None:
                     out.append(finding(d, a, "you did better", False, r))
     return out
+
+
+def detour_step(d, game_combats, actions):
+    """The first step of the plan that the advice's own detour rule forbids (search.detour_mask:
+    exact card ids, a Battlecry may be replayed), as text; None when there is none."""
+    g, gaps = bridge.build(d, game_combats)
+    if gaps:
+        return None
+    seen = {}
+    for a in actions:
+        v = json.loads(g.view(0))
+        m = search.detour_mask(v, seen)
+        if m is not None and not m[a] and v["mask"][a]:
+            return taverngym.action_name(a)
+        search.note_sold(v, a, seen)
+        try:
+            g.step(0, a)
+        except ValueError:
+            return None
+    return None
 
 
 def regret(last, game_combats, advice):
