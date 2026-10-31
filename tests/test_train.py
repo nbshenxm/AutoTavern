@@ -75,17 +75,18 @@ def test_entity_network_trains_a_step():
 
 
 def test_wasted_gold():
-    # Ending the turn with gold and a legal Refresh costs reward; not when the Tavern is frozen
-    # with nothing to buy, nor for any other action
+    # Ending the turn with gold and a legal Refresh or buy costs reward (frozen or not); nothing
+    # to spend it on, or any other action, costs nothing
     f = np.zeros((1, 64), np.float32)
     m = np.zeros((1, 245), bool)
     f[0, train.F_GOLD], m[0, train.A_REFRESH] = 0.4, True
     obs = {"features": f, "action_mask": m}
     assert train.wasted_gold(obs, 0, train.A_END) == pytest.approx(4 * train.WASTED_GOLD)
     assert train.wasted_gold(obs, 0, train.A_REFRESH) == 0.0
-    f[0, train.F_FROZEN] = 1.0
+    f[0, train.F_FROZEN] = 1.0  # frozen: the Gold is still left on the table
+    assert train.wasted_gold(obs, 0, train.A_END) == pytest.approx(4 * train.WASTED_GOLD)
+    m[0, train.A_REFRESH] = False  # nothing to spend it on: no cost
     assert train.wasted_gold(obs, 0, train.A_END) == 0.0
-    # frozen with an affordable buy: still gold left on the table
     m[0, train.A_BUY + 2] = True
     assert train.wasted_gold(obs, 0, train.A_END) == pytest.approx(4 * train.WASTED_GOLD)
 

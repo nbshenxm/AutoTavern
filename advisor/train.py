@@ -29,9 +29,10 @@ from taverngym import BatchEnv, layout
 CONFIG = GAME_CONFIG  # advisor.state: shared with the live advisor
 # Ending a turn with gold left while Refresh is legal and the Tavern isn't frozen costs this much
 # reward per gold: gold doesn't carry over, so a Refresh is free then. Self-play alone left the
-# network ending late turns with 4-9 gold (advisor.train docstring). A frozen Tavern with a buy
-# it can afford counts too: the network had learned to freeze and end with 14 gold
-# (advisor.continue_test)
+# network ending late turns with 4-9 gold (advisor.train docstring). A frozen Tavern counts too:
+# the network learned to freeze and end with the Gold (advisor.continue_test: 14 Gold; from the
+# player's round 13+ positions it froze 1.5 times a turn and ended with 9 Gold where the player
+# refreshed 4.3 times and kept 4.7, advisor.compare_play)
 WASTED_GOLD = 0.003
 F_GOLD, F_FROZEN = 7, 15  # global observation features (obs.rs): gold / 10, Tavern frozen
 A_END, A_REFRESH, A_BUY, N_SHOP = (dict(layout())[k] for k in ("A_END", "A_REFRESH", "A_BUY", "N_SHOP"))
@@ -72,11 +73,7 @@ class Seat:
 def wasted_gold(obs, i, a):
     """The shaping cost of slot `i` taking action `a` (WASTED_GOLD)."""
     f, m = obs["features"][i], obs["action_mask"][i]
-    if a != A_END:
-        return 0.0
-    if f[F_FROZEN] > 0.5 and not m[A_BUY:A_BUY + N_SHOP].any():
-        return 0.0
-    if f[F_FROZEN] <= 0.5 and not m[A_REFRESH]:
+    if a != A_END or not (m[A_REFRESH] or m[A_BUY:A_BUY + N_SHOP].any()):
         return 0.0
     return WASTED_GOLD * round(float(f[F_GOLD]) * 10)
 
@@ -482,9 +479,10 @@ def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads
             "se": round(float(np.std(places) / np.sqrt(len(places))), 3), "n": len(places)}
 
 
-# RealStarts draws a round from 8 on this many times as often as an earlier one: self-play
-# covers the early game, and the late game is where the network stalled
-LATE_ROUND, LATE_WEIGHT = 8, 3.0
+# RealStarts draws a round from 7 on this many times as often as an earlier one, and one before
+# round 7 this much: self-play covers the early game (and it is the easy part), the mid and late
+# game is where the network falls behind (advisor.compare_play)
+LATE_ROUND, LATE_WEIGHT, EARLY_WEIGHT = 7, 3.0, 0.2
 
 
 def comp_curriculum(tracks, path=None):
@@ -545,7 +543,7 @@ class RealStarts:
                 continue
             states.append(json.loads(g.state_json()))
         self.real = states  # the player's own positions (evaluate_real reads only these)
-        w = np.array([LATE_WEIGHT if st["turn"] >= LATE_ROUND else 1.0 for st in states])
+        w = np.array([LATE_WEIGHT if st["turn"] >= LATE_ROUND else EARLY_WEIGHT for st in states])
         w = w / w.sum() if len(w) else w
         if self.comp_states:
             share = self.comp_share if len(w) else 1.0
