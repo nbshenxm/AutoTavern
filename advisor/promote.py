@@ -11,7 +11,9 @@ head to head (but not clearly worse) can also win in lobbies with real warbands 
 seats, advisor.library): clearly better there than the current best on the same seeds, twice;
 or from the player's own positions (every logged round start, advisor.train.evaluate_real):
 clearly better than the best there, paired start by start, twice.
-The replaced network is kept in data/models/archive/, every decision is logged in
+A winner must also pass the play audit (advisor.audit_play: the live advice at the player's
+logged positions and a few complete games, against the current best's), so a network that games
+the measures isn't promoted. The replaced network is kept in data/models/archive/, every decision is logged in
 data/models/promotions.jsonl, and a checkpoint already judged at its current version is not
 judged again.
 
@@ -84,6 +86,20 @@ def library_pair(cand_net, cur_net, device, threads, seed):
         r.pop("pool", None)
         out.append(r)
     return out
+
+
+def audit_cache(models, best_path, starts):
+    """The current best's play audit, kept per version of best.pt (models/audit_current.json)."""
+    from advisor import audit_play
+    path = models / "audit_current.json"
+    version = f"{best_path.stat().st_mtime_ns}"
+    if path.exists():
+        cached = json.loads(path.read_text())
+        if cached.get("version") == version:
+            return cached["audit"]
+    result = audit_play.audit(best_path, starts)
+    path.write_text(json.dumps({"version": version, "audit": result}))
+    return result
 
 
 def clearly_lower(a, b):
@@ -193,8 +209,20 @@ def main():
                         real["confirm"] = real_pair(cand_net, cur_net, a.device, a.threads, fresh)
                         better = real_better(real["confirm"])
                     h2h["real"] = real
+        play = None
+        if better and best_path.exists():
+            # The play audit (advisor.audit_play): the gates measure games against copies; the
+            # advice must also make sense at the player's real positions, and the games must not
+            # hide a loop or a reward hack. Clearly worse than the current best on any: not promoted
+            from advisor import audit_play
+            starts = audit_play.load_starts()
+            cur_audit = audit_cache(models, best_path, starts)
+            cand_audit = audit_play.audit(cand, starts)
+            worse = audit_play.check(cand_audit, cur_audit)
+            play = {"candidate": cand_audit, "current": cur_audit, "worse": worse}
+            better = not worse
         log({"candidate": str(cand), "iteration": ck.get("iteration"), "arch": ck["config"].get("arch"),
-             "gate": ev, "current": current, "head_to_head": h2h, "promoted": better})
+             "gate": ev, "current": current, "head_to_head": h2h, "play_audit": play, "promoted": better})
         if not better:
             continue
         if best_path.exists():

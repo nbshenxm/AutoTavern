@@ -511,3 +511,12 @@ def test_human_choices_flow_into_ppo(tmp_path):
     net = EntityNet()
     agree = train.human_agreement(net, buf, "cpu")
     assert agree["n"] == 40 and 0 <= agree["all"] <= 1
+
+
+def test_the_play_audit_fails_a_clearly_worse_candidate():
+    from advisor import audit_play
+
+    cur = {"detour": 0.0, "end_with_gold": 0.1, "stalled_games": 0, "freeze_share": 0.05, "samples": []}
+    assert audit_play.check({**cur, "end_with_gold": 0.15}, cur) == {}
+    worse = audit_play.check({**cur, "end_with_gold": 0.3, "stalled_games": 1}, cur)
+    assert set(worse) == {"end_with_gold", "stalled_games"}

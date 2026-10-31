@@ -501,6 +501,11 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         "gold": d["state"]["friendly"].get("gold"),
         "warnings": warnings,
     }
+    # Where the plan leaves the turn (advisor.audit_play: ending with Gold that could still buy)
+    end = json.loads(after.view(0))
+    em = end["mask"]
+    advice["gold_left"] = end["me"]["gold"]
+    advice["could_spend"] = bool(em[1] or any(em[8:16]))  # Refresh or a buy still legal
     advice["ms"] = round((time.perf_counter() - t0) * 1000)
     return advice
 
