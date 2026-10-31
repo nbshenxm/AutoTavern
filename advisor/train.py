@@ -218,12 +218,13 @@ class TrinketPrior:
 
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
            amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0,
-           prior=None, prior_coef=0.0, chunk=CHUNK):
+           prior=None, prior_coef=0.0, chunk=CHUNK, human=None, human_coef=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
     probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
     policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
     `anchor_coef` times KL(anchor || policy). `search`: a SearchBuffer (advisor.search_games);
-    each step also adds `search_coef` times the cross-entropy to the search's choices."""
+    each step also adds `search_coef` times the cross-entropy to the search's choices. `human`:
+    the same for the player's own logged choices (advisor.human_data), `human_coef` times."""
     f = torch.from_numpy(np.stack([b[0][0] for b in batch]))
     c = torch.from_numpy(np.stack([b[0][1] for b in batch]))
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
@@ -234,9 +235,11 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     adv = (adv - adv.mean()) / (adv.std() + 1e-8)
     n = len(batch)
     stats = {"pi": 0.0, "v": 0.0, "ent": 0.0, "kl": 0.0}
+    rng = np.random.default_rng()
     if search is not None:
         stats.update(search_ce=0.0, search_acc=0.0)
-        rng = np.random.default_rng()
+    if human is not None:
+        stats.update(human_ce=0.0, human_acc=0.0)
     steps = 0
     for _ in range(epochs):
         for idx in torch.randperm(n).split(minibatch):
@@ -282,6 +285,16 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                 (search_coef * ce).backward()
                 stats["search_ce"] += ce.item()
                 stats["search_acc"] += (slog.argmax(1) == sa).float().mean().item()
+            if human is not None and human_coef > 0 and len(human) and not value_only:
+                hf, hc, hm, ha = (torch.from_numpy(x).to(device)
+                                  for x in human.sample(min(len(idx), chunk, 128), rng))
+                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
+                    hlog, _ = net(hf, hc, hm)
+                hlog = hlog.float()
+                ce = torch.nn.functional.cross_entropy(hlog, ha)
+                (human_coef * ce).backward()
+                stats["human_ce"] += ce.item()
+                stats["human_acc"] += (hlog.argmax(1) == ha).float().mean().item()
             grads = [p.grad for p in net.parameters() if p.grad is not None]
             if not all(torch.isfinite(g).all() for g in grads):
                 opt.zero_grad()  # a bad batch must not ruin the network: skip the step
@@ -291,6 +304,23 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
             opt.step()
             steps += 1
     return {k: v if k == "skipped" else round(v / max(1, steps), 4) for k, v in stats.items()}
+
+
+@torch.no_grad()
+def human_agreement(net, buf, device):
+    """{all, refresh}: how often the network's first choice is the player's logged one, over
+    `buf` (held-out games), and over the decisions where the player refreshed."""
+    f, c, m, a = buf.all()
+    preds = []
+    with torch.no_grad():
+        for i in range(0, len(a), 512):
+            logits, _ = net(*(torch.from_numpy(x[i:i + 512]).to(device) for x in (f, c, m)))
+            preds.append(logits.argmax(1).cpu().numpy())
+    p = np.concatenate(preds)
+    ref = a == A_REFRESH
+    return {"all": round(float((p == a).mean()), 3),
+            "refresh": round(float((p[ref] == A_REFRESH).mean()), 3) if ref.any() else None,
+            "net_refreshes": round(float((p == A_REFRESH).mean()), 3), "n": int(len(a))}
 
 
 @torch.no_grad()
@@ -552,6 +582,10 @@ def main():
                     help="search games (advisor.search_games): also learn the search's choices")
     ap.add_argument("--search-coef", type=float, default=0.2)
     ap.add_argument("--search-buffer", type=int, default=200_000, help="the newest N searched decisions")
+    ap.add_argument("--human-data", nargs="*", metavar="DIR",
+                    help="the player's own logged choices (advisor.human_data): also learned from")
+    ap.add_argument("--human-coef", type=float, default=0.05)
+    ap.add_argument("--human-eval", metavar="DIR", help="held-out logged choices: agreement at each test")
     ap.add_argument("--library", type=int, nargs="*", metavar="SEAT",
                     help="these seats fight with real warbands from the logs (advisor.library)")
     ap.add_argument("--library-strength", type=float, default=1.0, metavar="S",
@@ -616,6 +650,14 @@ def main():
     if a.search_data:
         from advisor.search_games import SearchBuffer
         sbuf = SearchBuffer(a.search_data, a.search_buffer)
+    hbuf = heval = None
+    if a.human_data or a.human_eval:
+        from advisor.search_games import SearchBuffer
+        if a.human_data:
+            hbuf = SearchBuffer(a.human_data, 10**7)
+        if a.human_eval:
+            heval = SearchBuffer([a.human_eval], 10**7)
+            heval.refresh()
     train_config = CONFIG
     if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
         from advisor import library
@@ -669,9 +711,12 @@ def main():
             step_anchor, coef = gen.best, a.anchor_best
         if sbuf is not None:
             sbuf.refresh()
+        if hbuf is not None:
+            hbuf.refresh()
         stats = update(net, opt, batch, a.device, ent=a.ent, amp=a.amp, value_only=warm,
                        anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef,
-                       prior=prior, prior_coef=a.trinket_prior, chunk=a.chunk)
+                       prior=prior, prior_coef=a.trinket_prior, chunk=a.chunk,
+                       human=hbuf, human_coef=a.human_coef)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
         if warm:
@@ -697,6 +742,8 @@ def main():
                 vs = evaluate_league(net, [gen.best], a.device, a.eval_episodes, threads=a.threads)
                 vs.pop("pool", None)
                 row["vs_best"] = vs
+                if heval is not None and len(heval):
+                    row["human_agree"] = human_agreement(net, heval, a.device)
                 if starts is not None and starts.real:  # the player's own positions
                     if real_base[0] != (gen.version, starts.version):
                         real_base = ((gen.version, starts.version),

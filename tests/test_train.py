@@ -491,3 +491,23 @@ def test_comp_starts_play_the_comp_in_its_lobby():
         v = _json.loads(g.view(0))
         assert g.needs_action(0) and v["turn"] == 8 and len(v["me"]["board"]) >= 4
         assert set(st["cfg"]["lobby_types"]) <= set(v["lobby_races"]) if isinstance(v["lobby_races"], list) else True
+
+
+def test_human_choices_flow_into_ppo(tmp_path):
+    # The player's logged choices (advisor.human_data's shard format) add a cross-entropy beside
+    # PPO, and the held-out agreement is measured
+    from advisor import search_games
+    from advisor.policy import OBS_CARDS, OBS_FLOATS
+
+    rows = []
+    rng = np.random.default_rng(1)
+    for _ in range(40):
+        m = np.zeros(245, bool)
+        m[[0, 1, 8]] = True
+        rows.append((rng.random(OBS_FLOATS).astype(np.float32), np.zeros(OBS_CARDS, np.int32), m, 1))
+    search_games.write_shard(tmp_path, rows)
+    buf = search_games.SearchBuffer([tmp_path], 1000)
+    assert buf.refresh() and len(buf) == 40 and len(buf.all()[3]) == 40
+    net = EntityNet()
+    agree = train.human_agreement(net, buf, "cpu")
+    assert agree["n"] == 40 and 0 <= agree["all"] <= 1

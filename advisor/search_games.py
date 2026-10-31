@@ -155,10 +155,16 @@ class SearchBuffer:
     def __len__(self):
         return 0 if self.data is None else len(self.data[3])
 
+    def all(self):
+        """Every decision once, in order (as `sample`)."""
+        return self._rows(np.arange(len(self)))
+
     def sample(self, n, rng):
         """`n` random decisions: (features f32, cards, mask bool, actions int64)."""
+        return self._rows(rng.integers(0, len(self.data[3]), n))
+
+    def _rows(self, i):
         f, c, m, a = self.data
-        i = rng.integers(0, len(a), n)
         return (f[i].astype(np.float32), c[i], np.unpackbits(m[i], axis=1)[:, :self.width].astype(bool),
                 a[i].astype(np.int64))
 
