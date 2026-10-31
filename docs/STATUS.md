@@ -4,6 +4,25 @@ A running note, in plain words: what changed, what is wrong, what comes next. Th
 (`data/report.html`, `advisor.report`) shows it with the numbers. The plan is
 [ROADMAP.md](ROADMAP.md); measurements go to [EXPERIMENTS.md](EXPERIMENTS.md).
 
+## Morning (Oct 31): the late-game Gold problem, measured and traced
+
+- **The audit had a blind spot, now fixed.** "Ended the turn with spendable Gold" was read after
+  the plan's End Turn, when nothing is legal, so it never fired. Fixed: across your 13 games 228
+  plans end with 3+ spendable Gold, 218 in rounds 11-15, mostly "Freeze -> End turn" with 8-10
+  Gold. Still no rule broken (the 1 crash and 2 detours the rerun first showed were the same
+  replay bug: a run of moves was replayed as its last move only). The promotion audit now counts
+  it, plus the review's other rules.
+- **Spending would help, in the simulator too.** From your round-8+ positions against top-1%
+  seats, forcing the network to spend 3+ Gold before ending every turn places it 0.10 +- 0.04
+  better. So it's the network that hasn't learned it, not the simulator.
+- **Why training didn't fix it:** the runs imitate plan-search data made with the 18:21 best
+  (they agree with it 92% of the time), and that data has its habits: 6% Freeze (you 0.6%),
+  5.5% Refresh (you 18%), 30% of End Turns with 3+ spendable Gold. Both runs' best checkpoints
+  still refresh 0.25-0.3 times a turn in rounds 13+ (you 4.3) and end with 8-9 Gold.
+- **Changed at 07:35:** big2 keeps the search data without those idle End Turns
+  (`--search-drop-idle`); sig1 drops the search data entirely. No more search data from the old
+  best. Watch: rounds-13+ Refreshes and Gold left (advisor.compare_play) and promotions.
+
 ## Overnight (Oct 30-31)
 
 - **Where it stands.** Mechanically the advice is clean: re-checked on every logged position of
