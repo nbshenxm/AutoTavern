@@ -72,11 +72,24 @@ def logged_kind(d):
     return None
 
 
+def _buy_quality(view, slot):
+    """(Tier of the minion bought, whether it shares a type with the warband's most common one),
+    or None for a spell."""
+    me = view["me"]
+    if slot >= len(me["shop"]) or me["shop"][slot].get("type", "minion") != "minion":
+        return None
+    m = me["shop"][slot]
+    races = collections.Counter(r for x in me["board"] for r in (x.get("races") or []) if r != "ALL")
+    top = races.most_common(1)[0][0] if races else None
+    return m.get("tier") or 0, bool(top and (top in (m.get("races") or []) or "ALL" in (m.get("races") or [])))
+
+
 def network_turn(g, net, max_steps=120):
-    """The network's greedy turn from `g`: (Counter of kinds, Gold left at End)."""
+    """The network's greedy turn from `g`: (Counter of kinds, Gold left at End, [buy quality])."""
     c = g.copy()
     counts = collections.Counter()
     gold = None
+    buys = []
     for _ in range(max_steps):
         if not c.needs_action(0):
             break
@@ -86,11 +99,38 @@ def network_turn(g, net, max_steps=120):
         k = kind_of(a)
         if k:
             counts[k] += 1
+        if k == "buy":
+            q = _buy_quality(v, a - L["A_BUY"])
+            if q:
+                buys.append(q)
         if a == L["A_END"] and not v["me"]["pending"]:
             gold = v["me"]["gold"]
             break
         c.step(0, a)
-    return counts, gold
+    return counts, gold, buys
+
+
+def logged_buys(ds, combats):
+    """[buy quality] of the player's own buys in a turn's decisions (each judged on the rebuilt
+    state where it was made)."""
+    out = []
+    for d in ds:
+        ch = d.get("chosen") or {}
+        opt = next((o for o in d["options"] if isinstance(ch, dict) and o["id"] == ch.get("option")), None)
+        card = ((opt or {}).get("entity") or {}).get("card") or ""
+        target = (ch.get("target") or {}).get("eid") if isinstance(ch.get("target"), dict) else None
+        if not card.startswith("TB_BaconShop_DragBuy") or target is None:
+            continue
+        slot = next((i for i, x in enumerate(d["state"]["shop"]) if x["eid"] == target), None)
+        if slot is None:
+            continue
+        g, gaps = bridge.build(d, bridge.game_combats(combats, d))
+        if gaps:
+            continue
+        q = _buy_quality(json.loads(g.view(0)), slot)
+        if q:
+            out.append(q)
+    return out
 
 
 def main():
@@ -110,7 +150,7 @@ def main():
         if d["kind"] == "options" and d["turn"] % 2 == 1 and (d["turn"] + 1) // 2 >= 7:
             turns[(d["log"], d["segment"], d["turn"])].append(d)
     acc = {b: {"you": collections.Counter(), "net": collections.Counter(), "n": 0,
-               "gold_you": [], "gold_net": []} for b, _ in BANDS}
+               "gold_you": [], "gold_net": [], "buys_you": [], "buys_net": []} for b, _ in BANDS}
     for key, ds in sorted(turns.items()):
         rnd = (key[2] + 1) // 2
         band = next((b for b, r in BANDS if rnd in r), None)
@@ -120,8 +160,10 @@ def main():
             continue
         wait_while_playing(print)
         you = collections.Counter(k for k in map(logged_kind, ds) if k)
-        net_counts, net_gold = network_turn(g, net)
+        net_counts, net_gold, net_buys = network_turn(g, net)
         x = acc[band]
+        x["buys_net"] += net_buys
+        x["buys_you"] += logged_buys(ds, combats)
         x["you"].update(you)
         x["net"].update(net_counts)
         x["n"] += 1
@@ -139,7 +181,14 @@ def main():
         cells["gold left"] = (float(np.mean(x["gold_you"])) if x["gold_you"] else 0.0,
                               float(np.mean(x["gold_net"])) if x["gold_net"] else 0.0)
         table[band] = {"turns": x["n"], **{k: [round(u, 2), round(v, 2)] for k, (u, v) in cells.items()}}
-        print(f"{band} ({x['n']:3d})" + "".join(f"{u:9.2f} |{v:5.2f}" for u, v in cells.values()))
+        bq = {}
+        for who in ("you", "net"):
+            b = x[f"buys_{who}"]
+            bq[who] = (float(np.mean([t for t, _ in b])) if b else 0.0, float(np.mean([s for _, s in b])) if b else 0.0)
+        table[band]["bought tier"] = [round(bq["you"][0], 2), round(bq["net"][0], 2)]
+        table[band]["bought on-tribe"] = [round(bq["you"][1], 2), round(bq["net"][1], 2)]
+        print(f"{band} ({x['n']:3d})" + "".join(f"{u:9.2f} |{v:5.2f}" for u, v in cells.values())
+              + f"   bought tier {bq['you'][0]:.2f} | {bq['net'][0]:.2f}, on-tribe {bq['you'][1]:.0%} | {bq['net'][1]:.0%}")
     if a.json:
         Path(a.json).write_text(json.dumps({"checkpoint": a.checkpoint, "bands": table}), encoding="utf-8")
 

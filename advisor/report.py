@@ -488,9 +488,10 @@ def _verdict():
         bands = json.loads(cmp_path.read_text(encoding="utf-8"))["bands"]
         out.append("<p><strong>Its habits against yours</strong> (from your own positions, per turn, you vs it):</p>"
                    "<table><tr><th>Rounds</th><th>Refreshes</th><th>Buys</th><th>Upgrades</th><th>Freezes</th>"
-                   "<th>Gold left at End</th></tr>" + "".join(
+                   "<th>Gold left at End</th><th>Buys fitting the warband's type</th></tr>" + "".join(
                        f"<tr><td>{_esc(b.replace('rounds ', ''))}</td>" + "".join(
                            f"<td>{x[k][0]:.1f} vs {x[k][1]:.1f}</td>" for k in ("refresh", "buy", "upgrade", "freeze", "gold left"))
+                       + (f"<td>{x['bought on-tribe'][0]:.0%} vs {x['bought on-tribe'][1]:.0%}</td>" if "bought on-tribe" in x else "<td>-</td>")
                        + "</tr>" for b, x in bands.items()) + "</table>")
     use = ("<strong>Use it for</strong> the early game, hero picks, combat odds and the lineup; "
            "<strong>treat as a second opinion</strong> its late-game plans (it scales too slowly, refreshes too "
