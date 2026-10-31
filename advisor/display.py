@@ -202,6 +202,25 @@ def offer_note(cards, locale, name_of):
     return t(locale, "offer", items=" · ".join(f"{name_of(c, locale)} {p:.2f}" for p, c in known))
 
 
+# Keywords shown next to a lineup card (combat-relevant ones), per locale
+KEYWORD_TEXT = {
+    "zhCN": {"TAUNT": "嘲讽", "DIVINE_SHIELD": "圣盾", "REBORN": "复生", "WINDFURY": "风怒",
+             "MEGA_WINDFURY": "超级风怒", "VENOMOUS": "烈毒", "POISONOUS": "剧毒", "STEALTH": "潜行",
+             "CLEAVE": "顺劈"},
+    "enUS": {"TAUNT": "Taunt", "DIVINE_SHIELD": "Shield", "REBORN": "Reborn", "WINDFURY": "Windfury",
+             "MEGA_WINDFURY": "Mega-Windfury", "VENOMOUS": "Venomous", "POISONOUS": "Poisonous",
+             "STEALTH": "Stealth", "CLEAVE": "Cleave"},
+}
+
+
+def lineup_entry(m, locale, name_of):
+    """One lineup card: id, name, stats, golden and its keywords (copies of a card told apart)."""
+    words = KEYWORD_TEXT.get(locale) or KEYWORD_TEXT["enUS"]
+    return {"card_id": m["id"], "name": name_of(m["id"], locale), "atk": m.get("atk"), "hp": m.get("hp"),
+            "golden": bool(m.get("golden")),
+            "keywords": [words[k] for k in (m.get("keywords") or []) if k in words]}
+
+
 def hero_note(ranking, locale, name_of):
     """The offered heroes, recommended first: public average placement and the network's
     estimate for each (advisor.live.hero_ranking)."""

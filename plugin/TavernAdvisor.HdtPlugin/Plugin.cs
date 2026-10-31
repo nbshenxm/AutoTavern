@@ -253,7 +253,28 @@ namespace TavernAdvisor.HdtPlugin
             {
                 var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
                 AddBadge(line, (++i).ToString(), "board");
-                line.Children.Add(Tile(c.Value<string>("card_id"), c.Value<string>("name"), 190, 28));
+                // Copies of a card told apart: golden, Attack/Health, keywords
+                string name = (c.Value<bool?>("golden") == true ? "★ " : "") + c.Value<string>("name");
+                line.Children.Add(Tile(c.Value<string>("card_id"), name, 190, 28));
+                if (c["atk"] != null && c["atk"].Type != JTokenType.Null)
+                    line.Children.Add(Text($"{c.Value<int>("atk")}/{c.Value<int>("hp")}", 14, FontWeights.Bold,
+                        margin: new Thickness(8, 0, 4, 0)));
+                if (c["keywords"] is JArray kws)
+                    foreach (JToken k in kws)
+                        line.Children.Add(new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromRgb(70, 70, 78)),
+                            CornerRadius = new CornerRadius(3),
+                            Padding = new Thickness(4, 0, 4, 0),
+                            Margin = new Thickness(0, 0, 3, 0),
+                            Height = 20,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Child = new TextBlock
+                            {
+                                Text = (string)k, Foreground = Brushes.White, FontFamily = Font, FontSize = 12,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                        });
                 _lineupPanel.Children.Add(line);
             }
         }

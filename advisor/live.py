@@ -509,7 +509,7 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
         "display": {"title": display.t(locale, "title", turn=turn), "subtitle": policy_name,
                     "style": "normal", "rows": rows, "notes": notes, "warnings": warnings,
                     # The warband as the plan leaves it, left to right (the overlay's lineup panel)
-                    "lineup": [{"card_id": m["id"], "name": name_of(m["id"], locale)}
+                    "lineup": [display.lineup_entry(m, locale, name_of)
                                for m in json.loads(after.view(0))["me"]["board"]]
                     if d["kind"] == "options" else []},
         "turn": turn,
