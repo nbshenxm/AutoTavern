@@ -12,6 +12,12 @@ $cluster = "/fs1/projects/benchmarking_PIDS/HearthstoneAdvisor_BG/repo"
 try {
     $jobs = (Get-Content (Join-Path $repo "data\progress\jobs.json") -Raw | ConvertFrom-Json).jobs
     foreach ($j in $jobs) {
+        # A cluster job's results file (one line per finished case), copied as it is
+        if ($j.results -and $j.where -like "cluster*") {
+            $rd = Join-Path $repo ($j.results -replace "/", "\")
+            & scp -q "star:$cluster/$($j.results)" "$rd.part" 2>$null
+            if ($LASTEXITCODE -eq 0) { Move-Item -Force "$rd.part" $rd }
+        }
         if (-not $j.log) { continue }
         # data/progress/train/RUN/log.jsonl <- data/train/RUN/log.jsonl where the run is
         $run = Split-Path (Split-Path $j.log -Parent) -Leaf

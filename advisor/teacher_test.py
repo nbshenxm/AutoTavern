@@ -22,6 +22,7 @@ different random draws (the same R for every teacher): the mean over R is the tu
 import argparse
 import json
 import math
+from pathlib import Path
 from multiprocessing import Pool
 
 import numpy as np
@@ -149,18 +150,31 @@ def main():
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--library", type=int, nargs="*", default=[5, 6, 7])
     ap.add_argument("--seed", type=int, default=49_000_000)
+    ap.add_argument("--out", default="data/progress/teacher_test.jsonl",
+                    help="each case's result as it finishes (a rerun skips the ones there: resumable)")
     ap.add_argument("--turn", type=int, default=16, metavar="R",
                     help="the teacher plays one turn, then R continuations (0: whole games)")
     a = ap.parse_args()
     from advisor.train import RealStarts
     states = [st for st in RealStarts(1.0, 0, log=lambda r: None).real if st["turn"] >= a.from_round]
     jobs = [(st, t, a.seed + r * 1000 + i) for r in range(a.reps) for i, st in enumerate(states) for t in a.teachers]
-    with Pool(a.workers, initializer=_init, initargs=(a.net, a.library)) as pool:
-        if a.turn:
-            places = pool.map(turn_value, [j + (a.turn,) for j in jobs], chunksize=1)
-        else:
-            places = pool.map(play, jobs, chunksize=1)
-    res = {t: [p for (_, tt, _), p in zip(jobs, places) if tt == t] for t in a.teachers}
+    out_path = Path(a.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    done = {}
+    if out_path.exists():
+        for line in open(out_path, encoding="utf-8"):
+            r = json.loads(line)
+            done[(r["teacher"], r["seed"])] = r["place"]
+    todo = [(k, j) for k, j in enumerate(jobs) if (j[1], j[2]) not in done]
+    print(json.dumps({"cases": len(jobs), "done": len(done), "todo": len(todo)}), flush=True)
+    fn = turn_value if a.turn else play
+    with Pool(a.workers, initializer=_init, initargs=(a.net, a.library)) as pool, open(out_path, "a", encoding="utf-8") as f:
+        args = [j + (a.turn,) if a.turn else j for _, j in todo]
+        for (k, j), place in zip(todo, pool.imap(fn, args, chunksize=1)):
+            done[(j[1], j[2])] = place
+            f.write(json.dumps({"teacher": j[1], "seed": j[2], "place": place}) + "\n")
+            f.flush()
+    res = {t: [done[(t, s)] for _, tt, s in jobs if tt == t] for t in a.teachers}
     out = {"starts": len(states), "reps": a.reps, "library": a.library,
            **{t: paired(res[t], res["net"]) if "net" in res else {"mean": round(float(np.mean(res[t])), 3)}
               for t in a.teachers}}

@@ -502,6 +502,10 @@ def _live():
             left = end - now
             label = (f"{start:%H:%M} to {end:%b %d %H:%M}, " +
                      (f"{left.total_seconds() / 3600:.1f} h left" if left.total_seconds() > 0 else "due"))
+        res = j.get("results") and ROOT / j["results"]  # one line per finished case, of `total`
+        if res and res.exists() and j.get("total"):
+            n_done = sum(1 for line in open(res, encoding="utf-8") if line.strip())
+            frac, label = n_done / j["total"], f"{n_done} of {j['total']} cases done; " + label
         prog = j.get("progress") and ROOT / j["progress"]
         if prog and prog.exists():
             x = json.loads(prog.read_text(encoding="utf-8"))
