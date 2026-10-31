@@ -37,6 +37,8 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "big1": "a larger network (8.6M) copying the best",
     "big2": "the larger network: real starts, library seats + comps, comp starts, your choices",
     "sig1": "search2 continued with the same signals as big2 (the small network, faster)",
+    "emb1": "sig1 with observation version 4 and the card text (the A/B against sig1)",
+    "solo1": "AutoTavern's setup: alone against seven library seats, their PPO settings (cluster)",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 # Bugs the audits found and fixed (docs/ROBUSTNESS.md): date, what was wrong, what it did, found by
@@ -77,6 +79,10 @@ h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 36px 0 6p
 .sub, .muted, .note { color: var(--text-2); } .sub { margin: 4px 0 12px; font-size: 13px; max-width: 80ch; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 8px 0; }
 .tile { background: var(--card); border: 1px solid var(--grid); border-radius: 8px; padding: 12px 14px; }
+.bar { height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; margin: 8px 0 3px; }
+.bar .fill { height: 100%; background: var(--s1); }
+.job { font-weight: 600; margin: 2px 0; } .small { font-size: 12px; }
+ul.check { list-style: none; padding-left: 0; } ul.check li { margin: 3px 0; } ul.check li.done { color: var(--muted); }
 .label { font-size: 13px; color: var(--text-2); } .value { font-size: 28px; font-weight: 600; margin: 2px 0; font-variant-numeric: tabular-nums; }
 .value small { font-size: 15px; font-weight: 400; color: var(--text-2); } .note { font-size: 12px; }
 .chart { width: 100%; height: auto; margin-top: 8px; } .grid { stroke: var(--grid); } .mid { stroke: var(--mid); stroke-dasharray: 4 3; }
@@ -471,6 +477,73 @@ def _current():
     return now
 
 
+def _bar(frac, label):
+    pct = max(0.0, min(1.0, frac)) * 100
+    return (f'<div class="bar"><div class="fill" style="width:{pct:.0f}%"></div></div>'
+            f'<div class="muted small">{_esc(label)}</div>')
+
+
+def _live():
+    """Where we are: every job running now (data/progress/jobs.json, kept by whoever starts one)
+    with a progress bar, where it runs, what it's for and its latest numbers; then the checklists
+    of docs/NOW.md (next up, later)."""
+    out = ["<h2>Where we are</h2>"]
+    jobs_path = PROGRESS / "jobs.json"
+    jobs = json.loads(jobs_path.read_text(encoding="utf-8")).get("jobs", []) if jobs_path.exists() else []
+    now = datetime.now()
+    cards = []
+    for j in jobs:
+        start = datetime.fromisoformat(j["started"])
+        end = datetime.fromisoformat(j["ends"]) if j.get("ends") else None
+        detail = ""
+        frac, label = None, f"running since {start:%b %d %H:%M}"
+        if end:
+            frac = (now - start) / (end - start)
+            left = end - now
+            label = (f"{start:%H:%M} to {end:%b %d %H:%M}, " +
+                     (f"{left.total_seconds() / 3600:.1f} h left" if left.total_seconds() > 0 else "due"))
+        prog = j.get("progress") and ROOT / j["progress"]
+        if prog and prog.exists():
+            x = json.loads(prog.read_text(encoding="utf-8"))
+            frac = x["done"] / max(1, x["total"])
+            label = f"{x['done']} of {x['total']} done; " + label
+        log = j.get("log") and ROOT / j["log"]
+        if log and log.exists():
+            rows = _jsonl(log)
+            it = next((r for r in reversed(rows) if "batch" in r), None)
+            ev = next((r for r in reversed(rows) if isinstance(r.get("vs_best_real"), dict)), None)
+            bits = []
+            if it:
+                bits.append(f"iteration {it['iteration']}")
+            if ev:
+                bits.append(f"head to head {ev['vs_best']['mean_place']:.2f}" if ev.get("vs_best") else "")
+                bits.append(f"from your positions {ev['vs_best_real']['mean_place']:.2f} "
+                            f"(best {ev['vs_best_real'].get('best', 0):.2f})")
+                if ev.get("vs_library"):
+                    bits.append(f"top-1% lobbies {ev['vs_library']['mean_place']:.2f}")
+            detail = ", ".join(b for b in bits if b)
+        cards.append(f'<div class="tile"><div class="muted small">{_esc(j.get("kind", ""))} · {_esc(j.get("where", ""))}</div>'
+                     f'<div class="job">{_esc(j["name"])}</div><div class="sub">{_esc(j.get("purpose", ""))}</div>'
+                     + (_bar(frac, label) if frac is not None else f'<div class="muted small">{_esc(label)}</div>')
+                     + (f'<div class="small">{_esc(detail)}</div>' if detail else "") + "</div>")
+    out.append('<h3>Running now</h3>' + (f'<div class="tiles">{"".join(cards)}</div>' if cards
+                                          else '<p class="sub">Nothing running.</p>'))
+    now_md = ROOT / "docs" / "NOW.md"
+    if now_md.exists():
+        section, lists = None, {}
+        for line in now_md.read_text(encoding="utf-8").splitlines():
+            if line.startswith("## "):
+                section = line[3:].strip()
+            elif section and line.lstrip().startswith(("- [ ]", "- [x]", "- [X]")):
+                done = line.lstrip()[3] in "xX"
+                lists.setdefault(section, []).append((done, line.lstrip()[6:].strip()))
+        for name, items in lists.items():
+            out.append(f"<h3>{_esc(name)}</h3><ul class=\"check\">" + "".join(
+                f'<li class="{"done" if d else ""}">{"&#9745;" if d else "&#9744;"} {_esc(t)}</li>' for d, t in items)
+                + "</ul>")
+    return "".join(out)
+
+
 def _targets():
     """The release table (docs/ROADMAP.md) with each target against the numbers now."""
     import re
@@ -685,6 +758,7 @@ def render():
     status = (ROOT / "docs" / "STATUS.md")
     parts = [f"<!doctype html><html lang='en'><head><meta charset='utf-8'>"
              f"<meta name='viewport' content='width=device-width, initial-scale=1'>"
+             f"<meta http-equiv='refresh' content='300'>"  # (the data is refreshed every 10 minutes)
              f"<title>Battlegrounds Advisor Progress</title><style>{CSS}</style></head><body><main>",
              "<h1>Battlegrounds advisor: progress</h1>",
              f'<p class="lead">Made {datetime.now():%b %d, %H:%M}. Placements are out of 8: 1 is first, '
@@ -702,6 +776,7 @@ def render():
                       f"{games['advice']} pieces of advice, {games['flagged']} flagged with Ctrl+Shift+B"))
     tiles.append(("Training now", str(len([j for j in jobs if j[0] in ('train', 'pretrain')])),
                   ", ".join(j[1] for j in jobs if j[1]) or "nothing running"))
+    parts.append(_live())
     parts.append(_verdict())
     parts.append(_targets())
     parts.append(_tiles(tiles))
