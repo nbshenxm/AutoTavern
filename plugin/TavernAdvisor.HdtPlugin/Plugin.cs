@@ -184,15 +184,17 @@ namespace TavernAdvisor.HdtPlugin
         void ShowDisplay(JObject d)
         {
             _panel.Children.Add(Text(d.Value<string>("title") ?? "", 15, FontWeights.SemiBold));
+            if (d["lineup"] is JArray lineup)   // the warband as the plan leaves it (Arrange included)
+                ShowLineup(lineup);
             if (d["rows"] is JArray rows)
             {
                 int shown = 0;
                 foreach (JObject row in rows)
                 {
-                    if (row["cards"] is JArray order)   // the last Arrange's order, even past MaxSteps
+                    if (row["cards"] is JArray order && !(d["lineup"] is JArray))   // older advice
                         ShowLineup(order);
                     if (shown++ >= _settings.MaxSteps)
-                        continue;
+                        break;
                     _panel.Children.Add(Row(row));
                 }
                 if (rows.Count > _settings.MaxSteps)
