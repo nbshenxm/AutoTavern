@@ -483,6 +483,15 @@ def _verdict():
     if g_med is not None:
         out.append(f"<p>From the 19 curated comps' midgames, two rounds later its warband is {g_med:.2f}x the top 1% "
                    f"players' (median over comps; 1.0 would keep up).</p>")
+    cmp_path = PROGRESS / "compare_play.json"
+    if cmp_path.exists():
+        bands = json.loads(cmp_path.read_text(encoding="utf-8"))["bands"]
+        out.append("<p><strong>Its habits against yours</strong> (from your own positions, per turn, you vs it):</p>"
+                   "<table><tr><th>Rounds</th><th>Refreshes</th><th>Buys</th><th>Upgrades</th><th>Freezes</th>"
+                   "<th>Gold left at End</th></tr>" + "".join(
+                       f"<tr><td>{_esc(b.replace('rounds ', ''))}</td>" + "".join(
+                           f"<td>{x[k][0]:.1f} vs {x[k][1]:.1f}</td>" for k in ("refresh", "buy", "upgrade", "freeze", "gold left"))
+                       + "</tr>" for b, x in bands.items()) + "</table>")
     use = ("<strong>Use it for</strong> the early game, hero picks, combat odds and the lineup; "
            "<strong>treat as a second opinion</strong> its late-game plans (it scales too slowly, refreshes too "
            "rarely and buys what is there).") if weak_late else (

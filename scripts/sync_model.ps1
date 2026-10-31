@@ -122,6 +122,8 @@ try {
         if (Test-Path $genres) {
             & scp -q -o BatchMode=yes -o ConnectTimeout=20 $genres "office:autotavern/data/library/genres.json"
         }
+        # Your mid/late turns against the network's (advisor.compare_play): the bottom line's habits
+        & $py -X utf8 -m advisor.compare_play $best --json (Join-Path $repo "data\progress\compare_play.json") 2>&1 | Out-Null
         # The pattern checks (advisor.patterns: Beatboxer, late turns), one line per network
         & $py -X utf8 -m advisor.patterns $best 2>$null | Add-Content (Join-Path $repo "data\progress\patterns.jsonl") -Encoding utf8
         & $py -X utf8 -m advisor.report | Out-Null
