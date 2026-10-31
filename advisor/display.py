@@ -14,6 +14,7 @@ TEXT = {
         "end": "End turn", "dark_gift": "Dark Discovery", "arrange": "Arrange", "cancel": "Back",
         "then_choose": "Then choose from what you're offered (the advice updates)",
         "then_tavern": "Then buy from the new Tavern (the advice updates)",
+        "then_cards": "Then use the cards you got (random: the advice updates)",
         "badge_tavern": "T{n}", "badge_hand": "H{n}", "badge_board": "B{n}",
         "badge_hero_power": "HP", "badge_choose": "Pick",
         "title": "Turn {turn}", "odds": "{label}: win {win:.0%} · tie {tie:.0%} · lose {loss:.0%}",
@@ -35,6 +36,7 @@ TEXT = {
         "dark_gift": "黑暗发现", "arrange": "调整站位", "cancel": "取消",
         "then_choose": "然后从出现的选项中选择（建议会更新）",
         "then_tavern": "然后从刷新后的酒馆中购买（建议会更新）",
+        "then_cards": "然后使用获得的随机卡牌（建议会更新）",
         "badge_tavern": "酒馆{n}", "badge_hand": "手{n}", "badge_board": "场{n}",
         "badge_hero_power": "技能", "badge_choose": "选择",
         "title": "第{turn}回合", "odds": "{label}：胜 {win:.0%} · 平 {tie:.0%} · 负 {loss:.0%}",
@@ -235,5 +237,6 @@ def collapse(rows, locale):
 
 def chance_row(kind, locale):
     """The last row of a plan that reaches a random step: what to do once it resolves."""
-    return {"verb": t(locale, "then_tavern" if kind == "tavern" else "then_choose"), "badge": "",
+    key = {"tavern": "then_tavern", "cards": "then_cards"}.get(kind, "then_choose")
+    return {"verb": t(locale, key), "badge": "",
             "badge_kind": "", "card_id": None, "name": None}

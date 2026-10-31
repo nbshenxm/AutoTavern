@@ -293,9 +293,10 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
         row = display.row_for(view, a, locale, name_of)
         if row is None:
             display.merge_target(rows, view, a, locale, name_of)
+        alt = search.fair_copy(c, 0)  # the same step under another random seed (random_cards)
         c.step(0, a)
         after = json.loads(c.view(0))
-        chance = random_outcome(view, a, after)
+        chance = random_outcome(view, a, after) or random_cards(alt, a, after)
         if chance:
             # What comes next is the simulator's own roll (a new Tavern, offered cards), not
             # what the game will offer: the plan stops here and the advice updates then
@@ -328,6 +329,24 @@ def random_outcome(before, a, after):
     if pending and pending.get("kind") != "target" and not (30 <= a <= 45 and before["me"].get("pending")):
         return "choice"
     return None
+
+
+def _cards(view):
+    me = view["me"]
+    return (sorted(h.get("id") or "" for h in me["hand"]), [m.get("id") for m in me["board"]],
+            [x.get("id") for x in me["shop"]])
+
+
+def random_cards(alt, a, after):
+    """"cards" when action `a` gave the player cards at random ("get a random Volumizer", Auto
+    Reveille): `alt`, the game before the step under another random seed, ends with other cards
+    in hand, warband or Tavern than `after`; the plan stops there (what comes is the game's own
+    draw). None otherwise."""
+    try:
+        alt.step(0, a)
+    except ValueError:
+        return None
+    return "cards" if _cards(json.loads(alt.view(0))) != _cards(after) else None
 
 
 ARRANGE = {"n": 200, "min_gain": 0.04, "rounds": 3}
