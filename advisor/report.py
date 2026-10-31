@@ -83,7 +83,8 @@ h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 36px 0 6p
 .legend { display: flex; gap: 18px; font-size: 13px; color: var(--text-2); margin: 4px 0 0; flex-wrap: wrap; }
 .key { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
 .k1 { background: var(--s1); } .k2 { background: var(--s2); } .k3 { background: var(--s3); } .k4 { background: var(--s4); }
-.warn { color: #c2410c; font-size: 13px; } .bar-rule { fill: #d9480f; } .bar-signal { fill: #e8a33d; }
+.verdict { background: var(--card); border: 1px solid var(--grid); border-radius: 8px; padding: 10px 14px; margin: 8px 0 14px; }
+.verdict p { margin: 6px 0; } .warn { color: #c2410c; font-size: 13px; } .bar-rule { fill: #d9480f; } .bar-signal { fill: #e8a33d; }
 .dot { stroke: none; } .dot.s1 { fill: var(--s1); } .dot.s2 { fill: var(--s2); } .dot.s3 { fill: var(--s3); } .dot.s4 { fill: var(--s4); }
 .wrap { overflow-x: auto; } table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 6px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
@@ -430,6 +431,66 @@ def _bars(rows, label):
     return "".join(out)
 
 
+PHASES = [("Early game", "rounds 3-6", range(3, 7)), ("Mid game", "rounds 7-9", range(7, 10)),
+          ("Late game", "rounds 10-13", range(10, 14))]
+
+
+def _verdict():
+    """The bottom line, from the live numbers: how reliable the advice is, and how strong by phase
+    (the network's warband in its games against the real lobbies in your logs, by round)."""
+    out = ["<h2>Bottom line</h2>"]
+    curve_path = PROGRESS / "curve.json"
+    rows = []
+    if curve_path.exists():
+        curve = {r["round"]: r for r in json.loads(curve_path.read_text(encoding="utf-8"))["rounds"]}
+        for name, when, rounds in PHASES:
+            ratios = [curve[r]["network"]["stats"] / curve[r]["your_lobbies"]["stats"] for r in rounds
+                      if r in curve and curve[r].get("network") and curve[r].get("your_lobbies")
+                      and curve[r]["your_lobbies"]["stats"]]
+            if not ratios:
+                continue
+            q = sorted(ratios)[len(ratios) // 2]
+            verdict = ("stronger than your lobbies" if q >= 1.1 else "about even with your lobbies" if q >= 0.8
+                       else "weaker than your lobbies" if q >= 0.4 else "far weaker than your lobbies")
+            rows.append((name, when, q, verdict))
+    reviews = sorted((DATA / "review").glob("*.json")) if (DATA / "review").is_dir() else []
+    found = [x for f in reviews for x in json.loads(f.read_text(encoding="utf-8"))]
+    rules = sum(1 for x in found if x.get("rule"))
+    base_path = DATA / "replay" / "fidelity_baseline.json"
+    fid = json.loads(base_path.read_text(encoding="utf-8")) if base_path.exists() else {}
+    last_path = DATA / "replay" / "fidelity_last.json"
+    if last_path.exists():
+        fid = json.loads(last_path.read_text(encoding="utf-8")).get("now") or fid
+    reliable = []
+    if reviews:
+        reliable.append(f"{rules} rule-breaking pieces of advice in the {len(reviews)} game(s) reviewed")
+    if fid:
+        reliable.append("the simulator matches your games in " + ", ".join(
+            f"{fid[k]['rate']:.0%} of {lbl}" for k, lbl in (("actions", "single actions"), ("turns", "whole turns"),
+                                                             ("transitions", "turn changes")) if k in fid))
+    genres = PROGRESS / "genres.json"
+    g_med = None
+    if genres.exists():
+        gs = sorted(x["growth"] for x in json.loads(genres.read_text(encoding="utf-8"))["comps"] if x.get("growth"))
+        g_med = gs[len(gs) // 2] if gs else None
+    weak_late = rows and rows[-1][2] < 0.8
+    out.append('<div class="verdict">')
+    out.append("<p><strong>Reliable?</strong> " + ("Mostly, mechanically: " + "; ".join(reliable) + "."
+                                                    if reliable else "Not measured yet.") + "</p>")
+    if rows:
+        out.append("<table><tr><th>Phase</th><th>Its warband vs your lobbies</th><th>So</th></tr>" + "".join(
+            f"<tr><td>{a} ({b})</td><td>{q:.2f}x</td><td>{v}</td></tr>" for a, b, q, v in rows) + "</table>")
+    if g_med is not None:
+        out.append(f"<p>From the 19 curated comps' midgames, two rounds later its warband is {g_med:.2f}x the top 1% "
+                   f"players' (median over comps; 1.0 would keep up).</p>")
+    use = ("<strong>Use it for</strong> the early game, hero picks, combat odds and the lineup; "
+           "<strong>treat as a second opinion</strong> its late-game plans (it scales too slowly, refreshes too "
+           "rarely and buys what is there).") if weak_late else (
+           "<strong>Use it</strong> through the game; the late game has caught up with your lobbies.")
+    out.append(f"<p>{use}</p></div>")
+    return "".join(out)
+
+
 def _audit_section():
     """The audit's state in plain words: the simulator against your games, the advice reviewed,
     what was found and fixed, the last promotion's play audit (docs/ROBUSTNESS.md)."""
@@ -540,6 +601,7 @@ def render():
                       f"{games['advice']} pieces of advice, {games['flagged']} flagged with Ctrl+Shift+B"))
     tiles.append(("Training now", str(len([j for j in jobs if j[0] in ('train', 'pretrain')])),
                   ", ".join(j[1] for j in jobs if j[1]) or "nothing running"))
+    parts.append(_verdict())
     parts.append(_tiles(tiles))
     parts.append("<h2>Strength over time</h2>")
     parts.append('<p class="sub">Placement out of 8, lower is better (1 at the top). Against plain bots '
