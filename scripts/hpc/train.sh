@@ -8,6 +8,8 @@
 #SBATCH --job-name=bg-train
 #SBATCH --nice=10000
 #SBATCH --gres=gpu:1
+# The A100 nodes: others queue for the H100s (gpu3-gpu7)
+#SBATCH --exclude=gpu[3-7]
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=96G
 #SBATCH --time=24:00:00
