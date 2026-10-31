@@ -656,3 +656,8 @@ def test_solo_library_seats_skip_their_recruit_turns():
                     acted.add(s)
                 g.step(s, g.bot_action(s))
     assert g.is_over() and acted == {0}
+    # and a logged round start loads into a solo env (one controlled seat)
+    env = taverngym.BatchEnv(2, seed=3, controlled=[0], config=cfg)
+    st = _json.loads(taverngym.Game(9, _json.dumps(cfg)).state_json())
+    train.load_start(env, 0, st)
+    assert env.observe()["features"].shape[0] == 2

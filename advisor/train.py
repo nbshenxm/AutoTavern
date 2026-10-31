@@ -493,8 +493,9 @@ def load_start(env, i, state):
     st = json.loads(json.dumps(state))
     st["cfg"] = {**fresh["game"]["cfg"], "lobby_types": st["cfg"].get("lobby_types")}
     st["rng"] = fresh["game"]["rng"]
+    # (one flag per seat the env controls: all eight, or seat 0 alone under --solo)
     env.load(i, json.dumps({"game": st, "index": fresh["index"],
-                            "finished": [not p["alive"] for p in st["players"]]}))
+                            "finished": [not st["players"][s]["alive"] for s in env.controlled]}))
 
 
 def evaluate_real(net, other, states, device, games=64, seed=31_000_000, threads=8,
