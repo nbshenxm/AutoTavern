@@ -7,7 +7,7 @@ each a number that should move as training learns the pattern:
 - late turns: from the player's own positions at round 9 or later with a full warband and Gold
   to spend, the network plays the turn out (greedy): Refreshes, buys, and buys sold again the
   same turn (what a strong player avoids: buying whatever is there instead of finding what
-  strengthens the warband).
+  strengthens the warband), and cards lost to a full hand (10: the order of plays avoids it).
 
     python -X utf8 -m advisor.patterns data/models/best.pt
 """
@@ -93,7 +93,7 @@ def late_turns(net, decisions, combats, limit=40):
             continue
         seen.add(key)
         picked.append(d)
-    refresh = buys = resold = 0
+    refresh = buys = resold = lost = 0
     n = 0
     for d in picked[:limit]:
         g, gaps = bridge.build(d, bridge.game_combats(combats, d))
@@ -102,6 +102,7 @@ def late_turns(net, decisions, combats, limit=40):
         c = g.copy()
         bought = set()
         n += 1
+        lost0 = json.loads(c.state_json())["players"][0]["stats"].get("cards_lost", 0)
         for _ in range(60):
             if not c.needs_action(0):
                 break
@@ -122,9 +123,10 @@ def late_turns(net, decisions, combats, limit=40):
             c.step(0, a)
             if a == L["A_END"]:
                 break
+        lost += json.loads(c.state_json())["players"][0]["stats"].get("cards_lost", 0) - lost0
     n = max(1, n)
     return {"turns": n, "refreshes": round(refresh / n, 2), "buys": round(buys / n, 2),
-            "bought_then_sold": round(resold / n, 2)}
+            "bought_then_sold": round(resold / n, 2), "cards_lost": round(lost / n, 3)}
 
 
 def main():

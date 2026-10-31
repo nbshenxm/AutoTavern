@@ -3119,6 +3119,7 @@ impl<'g> Ctx<'g> {
             if let Item::Minion(m) = &item {
                 self.g.pool.return_minion(m);
             }
+            self.g.players[p].stats.cards_lost += 1;
             return None;
         }
         let hid = match &mut item {

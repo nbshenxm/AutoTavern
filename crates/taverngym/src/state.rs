@@ -488,6 +488,9 @@ pub struct PlayerStats {
     /// Ballers sold this game (Baller Portrait offer condition).
     #[serde(default)]
     pub ballers_sold: i32,
+    /// Cards lost to a full hand this game (not a game rule: how well the hand limit is played).
+    #[serde(default)]
+    pub cards_lost: i32,
     pub spells_cast: i32,
     pub tavern_spells_cast: i32,
     pub battlecries_triggered: i32,
