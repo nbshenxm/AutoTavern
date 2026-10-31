@@ -66,14 +66,18 @@ def detour_mask(view, seen):
     """The legal actions minus this plan's detours, or None when there are none: a plan doesn't
     both sell a minion and play the same card (golden or not) from hand, in either order (sell
     the warband's copy and play the hand's, or the other way round: one gold for what the sold
-    one had gained), unless the card has a Battlecry to trigger again. `seen`: what note_sold
-    recorded."""
+    one had gained), unless the card has a Battlecry to trigger again; nor presses Freeze twice in
+    a row (the second unfreezes: a no-op). `seen`: what note_sold recorded."""
     from advisor.policy import L
     sold, played = seen.setdefault("sold", set()), seen.setdefault("played", set())
-    if not sold and not played:
+    froze = seen.get("last") == L["A_FREEZE"]
+    if not sold and not played and not froze:
         return None
     mask = np.array(view["mask"], bool)
     changed = False
+    if froze and mask[L["A_FREEZE"]] and mask.sum() > 1:  # Freeze twice in a row: a no-op
+        mask[L["A_FREEZE"]] = False
+        changed = True
     for h, card in enumerate(view["me"]["hand"]):
         if card.get("id") in sold and _no_battlecry(card.get("id")):
             lo = L["A_PLAY"] + h * L["N_POS"]
@@ -91,6 +95,7 @@ def note_sold(view, a, seen):
     Battlecry."""
     from advisor.policy import L
     me = view["me"]
+    seen["last"] = a
     if L["A_SELL"] <= a < L["A_SELL"] + L["N_BOARD"] and a - L["A_SELL"] < len(me["board"]):
         seen.setdefault("sold", set()).add(me["board"][a - L["A_SELL"]].get("id"))
     elif L["A_PLAY"] <= a < L["A_MAGNETIZE"]:

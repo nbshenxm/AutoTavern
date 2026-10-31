@@ -35,8 +35,8 @@ CONFIG = GAME_CONFIG  # advisor.state: shared with the live advisor
 # refreshed 4.3 times and kept 4.7, advisor.compare_play)
 WASTED_GOLD = 0.003
 F_GOLD, F_FROZEN = 7, 15  # global observation features (obs.rs): gold / 10, Tavern frozen
-A_END, A_REFRESH, A_BUY, N_SHOP, A_UPGRADE = (dict(layout())[k] for k in
-                                              ("A_END", "A_REFRESH", "A_BUY", "N_SHOP", "A_UPGRADE"))
+A_END, A_REFRESH, A_BUY, N_SHOP, A_UPGRADE, A_FREEZE = (dict(layout())[k] for k in
+                                                        ("A_END", "A_REFRESH", "A_BUY", "N_SHOP", "A_UPGRADE", "A_FREEZE"))
 
 
 def cap_gpu_memory(device, fraction):
@@ -104,6 +104,9 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
     such a step is marked forced: its consequences are learned from, the step itself isn't."""
     opponent_of = opponent_of or {}
     stored, placements = 0, []
+    last = getattr(env, "_last_action", None)
+    if last is None or len(last) != env.n_slots:
+        last = env._last_action = np.full(env.n_slots, -1, dtype=np.int64)
     while stored < n_transitions:
         ready = np.flatnonzero(obs["ready"] & obs["action_mask"].any(1))
         actions = np.zeros(env.n_slots, dtype=np.int64)
@@ -111,7 +114,12 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
         if len(own):
             f = torch.from_numpy(obs["features"][own]).to(device)
             c = torch.from_numpy(obs["cards"][own]).to(device)
-            m = torch.from_numpy(obs["action_mask"][own]).to(device)
+            mask = obs["action_mask"][own].copy()
+            # A second Freeze straight after one is a no-op (it unfreezes what was just frozen)
+            again = (last[own] == A_FREEZE) & (mask.sum(1) > 1)
+            mask[again, A_FREEZE] = False
+            obs["action_mask"][own] = mask
+            m = torch.from_numpy(mask).to(device)
             with torch.no_grad():
                 logits, v = net(f, c, m)
                 dist = torch.distributions.Categorical(logits=logits)
@@ -131,7 +139,9 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                                        float(v[j]), -wasted_gold(obs, i, int(a[j])), False, bool(forced[j])])
             stored += len(own)
         play_frozen(obs, ready, opponent_of, actions, device, sample=True)
+        last[ready] = actions[ready]
         rew, done, info = env.step(actions)
+        last[done] = -1
         for i in np.flatnonzero((rew != 0) | done):
             if i in opponent_of:
                 continue
