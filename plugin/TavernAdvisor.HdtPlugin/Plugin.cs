@@ -28,6 +28,9 @@ namespace TavernAdvisor.HdtPlugin
         Process _advisor;
         Border _box;
         StackPanel _panel;
+        Border _lineupBox;      // below the advice: the recommended warband order, top to bottom
+        StackPanel _lineupPanel;
+        bool _hasLineup;
         DateTime _lastRead = DateTime.MinValue;
         DateTime _lastPoll = DateTime.MinValue;
         DateTime _lastStart = DateTime.MinValue;
@@ -101,7 +104,10 @@ namespace TavernAdvisor.HdtPlugin
             StopAdvisor();
             if (_box != null)
                 Core.OverlayCanvas.Children.Remove(_box);
+            if (_lineupBox != null)
+                Core.OverlayCanvas.Children.Remove(_lineupBox);
             _box = null;
+            _lineupBox = null;
         }
 
         public void OnButtonPress()
@@ -125,13 +131,13 @@ namespace TavernAdvisor.HdtPlugin
             bool inBattlegrounds = Core.Game != null && !Core.Game.IsInMenu && Core.Game.IsBattlegroundsMatch;
             if (!inBattlegrounds || !File.Exists(path))
             {
-                _box.Visibility = Visibility.Collapsed;
+                _box.Visibility = _lineupBox.Visibility = Visibility.Collapsed;
                 return;
             }
             DateTime written = File.GetLastWriteTime(path);
             if ((DateTime.Now - written).TotalSeconds > _settings.StaleSeconds)
             {
-                _box.Visibility = Visibility.Collapsed;
+                _box.Visibility = _lineupBox.Visibility = Visibility.Collapsed;
                 return;
             }
             if (written != _lastRead)
@@ -140,6 +146,7 @@ namespace TavernAdvisor.HdtPlugin
                 ShowAdvice(path);
             }
             _box.Visibility = _hidden ? Visibility.Collapsed : Visibility.Visible;
+            _lineupBox.Visibility = _hidden || !_hasLineup ? Visibility.Collapsed : Visibility.Visible;
         }
 
         void ShowAdvice(string path)
@@ -151,6 +158,8 @@ namespace TavernAdvisor.HdtPlugin
                 if (_hidden)
                     return;
                 _panel.Children.Clear();
+                _lineupPanel.Children.Clear();
+                _hasLineup = false;
                 if (a["display"] is JObject d)
                     ShowDisplay(d);
                 else
@@ -171,22 +180,19 @@ namespace TavernAdvisor.HdtPlugin
         }
 
         /// <summary>The constructed advisor's layout: a title, one row per step, notes (combat odds),
-        /// warnings.</summary>
+        /// warnings; an Arrange step's warband order goes to the lineup panel below.</summary>
         void ShowDisplay(JObject d)
         {
-            var title = new StackPanel { Orientation = Orientation.Horizontal };
-            title.Children.Add(Text(d.Value<string>("title") ?? "", 15, FontWeights.SemiBold));
-            var sub = Text("  " + (d.Value<string>("subtitle") ?? ""), 11, color: Color.FromRgb(170, 170, 170));
-            sub.VerticalAlignment = VerticalAlignment.Bottom;
-            title.Children.Add(sub);
-            _panel.Children.Add(title);
+            _panel.Children.Add(Text(d.Value<string>("title") ?? "", 15, FontWeights.SemiBold));
             if (d["rows"] is JArray rows)
             {
                 int shown = 0;
                 foreach (JObject row in rows)
                 {
+                    if (row["cards"] is JArray order)   // the last Arrange's order, even past MaxSteps
+                        ShowLineup(order);
                     if (shown++ >= _settings.MaxSteps)
-                        break;
+                        continue;
                     _panel.Children.Add(Row(row));
                 }
                 if (rows.Count > _settings.MaxSteps)
@@ -227,10 +233,27 @@ namespace TavernAdvisor.HdtPlugin
                 line.Children.Add(Glyph("→"));
                 AddBadge(line, row.Value<string>("place"), "board");
             }
-            if (row["cards"] is JArray cards)   // Arrange: the warband left to right
-                foreach (JObject c in cards)
-                    line.Children.Add(Tile(c.Value<string>("card_id"), c.Value<string>("name"), 66, 24, 1));
+            if (row["cards"] is JArray)   // Arrange: the order is in the lineup panel below
+                line.Children.Add(Glyph("↓"));
             return line;
+        }
+
+        /// <summary>The recommended warband order, one card per line, position 1 (left) first.</summary>
+        void ShowLineup(JArray cards)
+        {
+            _lineupPanel.Children.Clear();
+            _hasLineup = cards.Count > 0;
+            bool zh = (_settings.Locale ?? "").StartsWith("zh");
+            _lineupPanel.Children.Add(Text(zh ? "推荐站位（从左到右）" : "Recommended lineup (left to right)", 14,
+                FontWeights.SemiBold, margin: new Thickness(0, 0, 0, 3)));
+            int i = 0;
+            foreach (JObject c in cards)
+            {
+                var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+                AddBadge(line, (++i).ToString(), "board");
+                line.Children.Add(Tile(c.Value<string>("card_id"), c.Value<string>("name"), 190, 28));
+                _lineupPanel.Children.Add(line);
+            }
         }
 
         static void AddBadge(Panel line, string text, string kind)
@@ -365,6 +388,18 @@ namespace TavernAdvisor.HdtPlugin
                 LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale),
             };
             Core.OverlayCanvas.Children.Add(_box);
+            _lineupPanel = new StackPanel();
+            _lineupBox = new Border
+            {
+                Child = _lineupPanel,
+                Padding = new Thickness(8, 5, 8, 6),
+                CornerRadius = new CornerRadius(4),
+                Background = new SolidColorBrush(Color.FromArgb(195, 25, 25, 28)),
+                Visibility = Visibility.Collapsed,
+                IsHitTestVisible = false,
+                LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale),
+            };
+            Core.OverlayCanvas.Children.Add(_lineupBox);
             PositionOverlay();
         }
 
@@ -383,14 +418,21 @@ namespace TavernAdvisor.HdtPlugin
             _settingsRead = written;
             _settings = Settings.Load(Path.GetDirectoryName(typeof(Plugin).Assembly.Location));
             _box.LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale);
+            _lineupBox.LayoutTransform = new ScaleTransform(_settings.Scale, _settings.Scale);
             _lastRead = DateTime.MinValue;   // redraw with the new settings
         }
 
         void PositionOverlay()
         {
             Canvas canvas = Core.OverlayCanvas;
-            Canvas.SetLeft(_box, canvas.ActualWidth * _settings.OverlayLeft);
-            Canvas.SetTop(_box, canvas.ActualHeight * _settings.OverlayTop);
+            double left = canvas.ActualWidth * _settings.OverlayLeft, top = canvas.ActualHeight * _settings.OverlayTop;
+            Canvas.SetLeft(_box, left);
+            Canvas.SetTop(_box, top);
+            if (_lineupBox != null)   // right below the advice (its rendered height, scale included)
+            {
+                Canvas.SetLeft(_lineupBox, left);
+                Canvas.SetTop(_lineupBox, top + (_box.Visibility == Visibility.Visible ? _box.ActualHeight : 0) + 6);
+            }
         }
 
         void StartAdvisor()
