@@ -17,9 +17,9 @@ source /fs1/projects/benchmarking_PIDS/HearthstoneAdvisor_BG/repo/scripts/hpc/en
 if [ ! -x "$ROOT/env/bin/python" ]; then
     conda create -y -p "$ROOT/env" -c conda-forge --override-channels python=3.12
 fi
-"$PY" -m pip install torch==2.14.1 numpy pytest
+"$PY" -m pip install torch==2.14.1 numpy pytest hslog hearthstone
 "$PY" -m pip install --force-reinstall --no-deps "$ROOT"/wheels/taverngym-*.whl
 "$PY" -c "import torch, taverngym; L = dict(taverngym.layout()); print('torch', torch.__version__, 'cuda', torch.version.cuda, 'obs', L['OBS_VERSION'])"
 rm -rf "$ROOT/.pip-cache"/* "$ROOT/.conda-pkgs"/*
 cd "$ROOT/repo"
-"$PY" -m pytest -q tests/test_train.py 2>&1 | tail -3
+"$PY" -m pytest -q -x tests/test_train.py 2>&1 | tail -30
