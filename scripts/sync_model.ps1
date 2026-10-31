@@ -93,6 +93,11 @@ try {
                     }
                 }
                 Log "the player's choices sent to the office"
+                # docs/ROBUSTNESS.md: every advice of the new game re-checked (advisor.review,
+                # data/review), and the simulator against all logs vs its baseline
+                # (advisor.fidelity, data/replay/fidelity_last.json); both pause while you play
+                & $py -X utf8 -m advisor.review 2>&1 | Select-Object -Last 12 | ForEach-Object { Log "review: $_" }
+                & $py -X utf8 -m advisor.fidelity 2>&1 | Select-Object -Last 8 | ForEach-Object { Log "fidelity: $_" }
             } else { Log "library: office unreachable (exit $LASTEXITCODE)" }
         }
     }
