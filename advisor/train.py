@@ -63,6 +63,19 @@ def wait_while_playing(log):
         log({"resumed": True})
 
 
+_LAST_CHECK = [0.0]
+
+
+def pause_if_playing(every=15.0):
+    """wait_while_playing at most every `every` seconds: cheap enough for a worker to call at
+    every decision. (A check between long rounds came too late: a round of late-game searches
+    ran half an hour into your game and the advice took 17 s instead of 1.5.)"""
+    now = time.monotonic()
+    if now - _LAST_CHECK[0] >= every:
+        wait_while_playing(lambda *_: None)
+        _LAST_CHECK[0] = time.monotonic()
+
+
 class Seat:
     """One slot's transitions: obs, cards, mask, action, logp, value, reward, done."""
     __slots__ = ("items",)

@@ -30,13 +30,15 @@ def test_replayed_log_gets_advice_at_every_recruit_decision():
     offline = [d for d in decisions.extract(LOG, skins)
                if d["kind"] == "options" and d["turn"] % 2 == 1]
     tr = live.Tracker(skins, name=LOG.parent.name)
-    advice, kinds = [], []
+    advice, kinds, trinket_kinds = [], [], []
+    from advisor import bridge as _bridge
     with open(LOG, encoding="utf-8", errors="replace") as f:
         for line in f:
             d = tr.feed(line)
             if d is not None:
                 advice.append(live.advise(d, tr.combats()))
                 kinds.append(d["kind"])
+                trinket_kinds.append(_bridge.choice_options(d)[0])
                 if d["kind"] == "options":  # the plan's actions, every move kept, replay as given
                     from advisor import bridge
                     g, gaps = bridge.build(d, tr.combats())
@@ -49,6 +51,9 @@ def test_replayed_log_gets_advice_at_every_recruit_decision():
     # Every recruit Options decision, and the Discovers between minions on top
     assert kinds.count("options") == len(offline)
     assert kinds.count("choices") >= 1
+    # The trinket offers (rounds 6 and 9) reach the advice while unanswered (Tracker.open_choice)
+    assert any(a["plan"] and a["plan"][0].startswith("Choose") and "trinket" == k
+               for a, k in zip(advice, trinket_kinds)), "no trinket offer advised"
     assert all(a["plan"] and a["action"] for a in advice)
     # The overlay's rows (the constructed advisor's format): numbered, each with a verb, and a
     # buy or a play names its card by its slot

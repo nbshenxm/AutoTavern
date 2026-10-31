@@ -159,6 +159,18 @@ class Tracker:
             self.reported_choice = (self.segment, choice.id)
             return {**self.exporter.meta, "kind": "choices", "turn": 0, "choice_type": "MULLIGAN",
                     "options": options, "state": self.exporter._recruit_state(), "chosen": None}
+        # A trinket offer (rounds 6 and 9): also inside an unfinished block until answered, so
+        # the round-6 one never reached the advice; as the offline extractor reports it
+        trinket = getattr(CardType, "BATTLEGROUND_TRINKET", None)
+        if trinket is not None and kinds == {int(trinket)}:
+            options = [{"eid": eid, "card": info[eid].get("card"), "type": "BATTLEGROUND_TRINKET",
+                        "zone": "SETASIDE", "pos": 0, "owner": "friendly"} for eid in choice.choices]
+            if not all(o["card"] for o in options):
+                return None
+            self.reported_choice = (self.segment, choice.id)
+            return {**self.exporter.meta, "kind": "choices", "turn": self.exporter.game.tags.get(T.TURN, 0),
+                    "choice_type": getattr(choice.type, "name", choice.type), "options": options,
+                    "state": self.exporter._recruit_state(), "chosen": None}
         options = []
         for eid in choice.choices:
             e = info.get(eid, {})
@@ -414,9 +426,11 @@ HERO_PUBLIC_WEIGHT = 0.7
 
 
 def hero_ranking(g, net):
-    """The heroes offered at the start, best first: [{index, card, public, ours, score}] with
-    `public` the average placement of players who picked it (None when unknown) and `ours` the
-    network's expected placement after picking it (its value at the first recruit turn)."""
+    """The heroes offered at the start, or the trinkets of a trinket offer, best first:
+    [{index, card, public, ours, score}] with `public` the average placement of players who
+    picked it (None when unknown) and `ours` the network's expected placement after picking it
+    (its value at the next recruit decision). The score weighs public HERO_PUBLIC_WEIGHT: the
+    network alone took the trinket with the worst public placement in 3 of 4 offers checked."""
     from advisor import search
     v = json.loads(g.view(0))
     pend = v["me"]["pending"] or {}
@@ -450,6 +464,28 @@ def hero_ranking(g, net):
 
 COMPS = []  # meta comps (advisor.meta), loaded by main
 SEARCH = {"k": 0, "temperature": 1.0}  # plan search (advisor.search): k sampled plans, 0 = off
+# The overlay shows the next step only, and a second one when the search scores its best plan
+# within this much of the best (the value is the expected placement reward, 1st = 1, 8th = -1:
+# 0.03 is about a tenth of a place)
+CLOSE = 0.03
+
+
+def second_option(candidates, first):
+    """The best candidate plan (search.best_plan's) that starts with another step than `first`,
+    when it scores within CLOSE of the best; None otherwise. (A card played at another position
+    is the same step.)"""
+    L = dict(taverngym.layout())
+    step = lambda a: ("play", (a - L["A_PLAY"]) // L["N_POS"]) if L["A_PLAY"] <= a < L["A_MAGNETIZE"] else a
+    best = {}
+    for acts, v in candidates:
+        if acts and v is not None and (step(acts[0]) not in best or v > best[step(acts[0])][0]):
+            best[step(acts[0])] = (v, acts)
+    if step(first) not in best:
+        return None
+    others = sorted((x for a, x in best.items() if a != step(first)), key=lambda x: -x[0])
+    if others and best[step(first)][0] - others[0][0] <= CLOSE:
+        return list(others[0][1])
+    return None
 
 
 def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)"):
@@ -461,14 +497,14 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     else:
         client = bridge.client_actions(d)
         allowed = bridge.allowed_mask(mask, d)
-    script = None
+    script, candidates = None, []
     kind, offered = bridge.choice_options(d)
-    heroes = hero_ranking(g, net) if kind == "hero" and net is not None else []
-    if heroes:  # the hero pick: public data and the network's estimate (hero_ranking)
+    heroes = hero_ranking(g, net) if kind in ("hero", "trinket") and net is not None else []
+    if heroes:  # the hero or trinket pick: public data and the network's estimate (hero_ranking)
         script = [json.loads(g.view(0))["actions"]["CHOOSE"] + heroes[0]["index"]]
     elif net is not None and SEARCH["k"] > 0:
         from advisor import search
-        script, _, _ = search.best_plan(g, net, 0, allowed, SEARCH["k"], SEARCH["temperature"])
+        script, _, candidates = search.best_plan(g, net, 0, allowed, SEARCH["k"], SEARCH["temperature"])
         policy_name += f", plan search over {SEARCH['k'] + 1}"
     plan, rows, after, steps = plan_turn(g, locale, net, allowed, script)
     arranged = None
@@ -484,6 +520,13 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
             rows.insert(end[-1] if end else len(rows), row)
             for n, r in enumerate(rows, 1):
                 r["n"] = n
+    # What the overlay shows: the next step, and a close second (second_option) after an "or"
+    shown = rows[:1]
+    alt = second_option(candidates, plan[0][0]) if plan and d["kind"] == "options" else None
+    if alt is not None and shown:
+        _, alt_rows, _, _ = plan_turn(g, locale, net, allowed, alt)
+        if alt_rows:
+            shown.append({**alt_rows[0], "n": 2, "label": display.t(locale, "or")})
     warnings = sorted(set(gaps))
     first = plan[0] if plan else None
     if first is not None and net is None:
@@ -501,7 +544,7 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     if arranged is not None:
         notes.append(display.t(locale, "arrange") + ": " + display.t(locale, "arrange_gain", before=arranged[1],
                                                                     after=arranged[2]))
-    if heroes:
+    if heroes and kind == "hero":
         notes.insert(0, display.hero_note(heroes, locale, name_of))
     elif kind in ("hero", "trinket"):
         note = display.offer_note(offered, locale, name_of)
@@ -509,7 +552,7 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
             notes.insert(0, note)
     advice = {
         "display": {"title": display.t(locale, "title", turn=turn), "subtitle": policy_name,
-                    "style": "normal", "rows": rows, "notes": notes, "warnings": warnings,
+                    "style": "normal", "rows": shown, "notes": notes, "warnings": warnings,
                     # The warband as the plan leaves it, left to right (the overlay's lineup panel)
                     "lineup": [display.lineup_entry(m, locale, name_of)
                                for m in json.loads(after.view(0))["me"]["board"]]

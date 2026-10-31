@@ -21,3 +21,18 @@ def test_the_first_step_is_read_from_the_actions_or_the_verb():
     freeze = {"display": {"rows": [{"verb": display.t("enUS", "freeze") + " ×2", "card_id": None}]}}
     assert u.advice_step(freeze) == ("freeze", None)
     assert u.same_card("BG26_152_G", "BG26_152") and not u.same_card("BG26_152", "BGS_004")
+
+
+def test_a_second_option_only_when_close_and_different():
+    # live.second_option: another first step within CLOSE of the best; the same card played at
+    # another position is the same step
+    from advisor import live
+
+    L = live.taverngym.layout()
+    L = dict(L)
+    play = lambda h, pos: L["A_PLAY"] + h * L["N_POS"] + pos
+    buy = L["A_BUY"] + 1
+    cands = [([play(0, 0), 0], 0.50), ([play(0, 3), 0], 0.49), ([buy, 0], 0.48), ([L["A_FREEZE"], 0], 0.30)]
+    assert live.second_option(cands, play(0, 0)) == [buy, 0]
+    assert live.second_option([([play(0, 0), 0], 0.50), ([buy, 0], 0.40)], play(0, 0)) is None
+    assert live.second_option([([play(0, 0), 0], 0.50), ([play(0, 2), 0], 0.50)], play(0, 0)) is None

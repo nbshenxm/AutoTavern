@@ -160,14 +160,41 @@ def _opened_offer(before, after):
     return bool(pending) and pending.get("kind") != "target"
 
 
-def best_plan(g, net, p=0, allowed=None, k=8, temperature=1.0, seed=None, spend=0):
+def plan_odds(g, p, actions, n=200):
+    """Win minus loss of the warband `actions` leave (before End Turn) against the next
+    opponent's last seen warband, simulated (TavernGym's combat); None without one."""
+    from advisor.state import debug
+    c = g.copy()
+    for a in actions:
+        if a == 0:
+            break
+        try:
+            c.step(p, a)
+        except ValueError:
+            return None
+    v = json.loads(c.view(p))
+    nxt = next((o for o in v["opponents"] if o.get("is_next_opponent")), None)
+    if nxt is None or not nxt.get("seen_board") or not v["me"]["board"]:
+        return None
+    r = debug(c, cmd="combat_preview", a=p, b=nxt["id"], n=n)
+    return r["win_a"] - r["win_b"]
+
+
+def best_plan(g, net, p=0, allowed=None, k=8, temperature=1.0, seed=None, spend=0, odds=0.0):
     """The best of the greedy plan and `k` sampled ones, each on its own fair copy:
-    (actions, value, every candidate's (actions, value))."""
+    (actions, value, every candidate's (actions, value)). `odds` > 0: a plan's score is its
+    value plus `odds` x (win - loss) of the warband it leaves against the next opponent's last
+    seen warband (plan_odds: the simulator's combat, which knows what a warband's cards do
+    together; the network's value alone buys off-type minions late)."""
     rng = np.random.default_rng(seed)
     candidates = []
     for i in range(k + 1):
         copy = fair_copy(g, p, seed=None if seed is None else seed * 1000 + i)
-        candidates.append(rollout(copy, net, p, allowed, 0.0 if i == 0 else temperature, rng, spend=spend))
+        acts, v = rollout(copy, net, p, allowed, 0.0 if i == 0 else temperature, rng, spend=spend)
+        if odds and v is not None:
+            w = plan_odds(copy, p, acts)  # (rollout played on its own copy of this one)
+            v = v + odds * w if w is not None else v
+        candidates.append((acts, v))
     seen = {}
     for acts, v in candidates:  # the same plan sampled twice: average its values
         seen.setdefault(tuple(acts), []).append(v if v is not None else -1.0)

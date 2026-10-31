@@ -223,12 +223,15 @@ namespace TavernAdvisor.HdtPlugin
                     _panel.Children.Add(Text("⚠ " + (string)w, 11, color: Color.FromRgb(240, 190, 90)));
         }
 
-        /// <summary>One step: "3. Play [H2] [tile: name] → [B4]", "1. Buy [T3] [tile]",
+        /// <summary>One step: "1. Play [H2] [tile: name] → [B4]", "or Buy [T3] [tile]",
         /// "2. Magnetize [H1] [tile] → [B2] [tile]", "5. Arrange [tile] [tile] ...".</summary>
         FrameworkElement Row(JObject row)
         {
             var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
-            line.Children.Add(Text(row.Value<int>("n") + ".", 13, margin: new Thickness(0, 0, 4, 0), width: 18));
+            // (a close second option is labelled "or" instead of numbered)
+            string label = row.Value<string>("label");
+            line.Children.Add(Text(string.IsNullOrEmpty(label) ? row.Value<int>("n") + "." : label, 13,
+                margin: new Thickness(0, 0, 4, 0), width: 18));
             line.Children.Add(Text(row.Value<string>("verb") ?? "", 13, FontWeights.SemiBold,
                 margin: new Thickness(0, 0, 6, 0)));
             AddBadge(line, row.Value<string>("badge"), row.Value<string>("badge_kind"));

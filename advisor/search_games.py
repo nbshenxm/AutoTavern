@@ -56,7 +56,8 @@ def _init():
 
 def play(args):
     """One game; the searched seats' (features, cards, mask, action) and their placements."""
-    seed, path, k, temperature, real, lib, spend = args
+    seed, path, k, temperature, real, lib, spend, pause = args
+    from advisor.train import pause_if_playing
     net = _net(path)
     rng = np.random.default_rng(seed)
     config = GAME_CONFIG
@@ -86,6 +87,8 @@ def play(args):
             if not g.needs_action(seat):
                 continue
             if seat in SEARCHED:
+                if pause:
+                    pause_if_playing()  # every worker pauses on its own while you play
                 n += 1
                 f, c, m = observe(g, seat)
                 acts, _, _ = search.best_plan(g, net, seat, None, k, temperature,
@@ -222,7 +225,8 @@ def main():
                 if hearthstone_running():
                     print("Hearthstone started: stopping", flush=True)
                     break
-            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts, a.library, a.spend)
+            jobs = [(a.seed + r * batch + i, a.net, a.k, a.temperature, a.real_starts, a.library, a.spend,
+                     a.stop_if_playing)
                     for i in range(batch)]
             for rows, pl in pool.imap_unordered(play, jobs):
                 pending += rows
