@@ -529,6 +529,12 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
     em = end["mask"]
     advice["gold_left"] = end["me"]["gold"]
     advice["could_spend"] = bool(em[1] or any(em[8:16]))  # Refresh or a buy still legal
+    # (advisor.review: the plan's actions, the warband before and after, cards it loses)
+    advice["actions"] = [int(x) for x, _ in plan]
+    start = json.loads(g.state_json())["players"][0]["stats"].get("cards_lost", 0)
+    advice["cards_lost"] = json.loads(after.state_json())["players"][0]["stats"].get("cards_lost", 0) - start
+    advice["stats_before"] = sum(m["atk"] + m["hp"] for m in json.loads(g.view(0))["me"]["board"])
+    advice["stats_after"] = sum(m["atk"] + m["hp"] for m in end["me"]["board"])
     advice["ms"] = round((time.perf_counter() - t0) * 1000)
     return advice
 

@@ -146,7 +146,19 @@ def _scaled(m, f):
 COMP_TIERS = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5}
 
 
+_COMP_BOARDS = {}
+
+
 def comp_boards(path=None, curve=None, rounds=range(2, 17)):
+    """(Built once per process for the default catalog and curve: see _comp_boards.)"""
+    if path is None and curve is None and rounds == range(2, 17):
+        if "default" not in _COMP_BOARDS:
+            _COMP_BOARDS["default"] = _comp_boards()
+        return [dict(b) for b in _COMP_BOARDS["default"]]
+    return _comp_boards(path, curve, rounds)
+
+
+def _comp_boards(path=None, curve=None, rounds=range(2, 17)):
     """[{round, tier, minions, track, source, synthetic}]: a warband per round for each curated
     comp in Tavern Link's catalog (advisor.meta.TAVERN_LINK): its early cards first, then its
     midgame ones, from round 9 its final board, filled with its tribe's minions of the Tier, at

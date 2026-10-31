@@ -61,8 +61,11 @@ def play(args):
     rng = np.random.default_rng(seed)
     config = GAME_CONFIG
     if lib:
-        from advisor import library
-        config = {**GAME_CONFIG, "library": library.library(lib, comps=True)}
+        key = tuple(lib)
+        if _STARTS.get("lib") != key:  # built once per worker
+            from advisor import library
+            _STARTS["lib"], _STARTS["config"] = key, {**GAME_CONFIG, "library": library.library(lib, comps=True)}
+        config = _STARTS["config"]
     g = taverngym.Game(seed, json.dumps(config))
     if real and rng.random() < real:
         if _STARTS["rs"] is None:
