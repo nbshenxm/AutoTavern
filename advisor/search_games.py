@@ -213,6 +213,8 @@ def main():
             print(json.dumps({"t": round(time.time() - t0), "games": games, "decisions": decisions,
                               "per_hour": round(decisions / max(1, time.time() - t0) * 3600),
                               "searched_place": round(float(np.mean(places[-200:])), 3)}), flush=True)
+    if pending:  # the rest too (late-game batches are slow: a shard can take most of a run)
+        write_shard(out, pending)
 
 
 if __name__ == "__main__":
