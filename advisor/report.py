@@ -39,6 +39,20 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "sig1": "search2 continued with the same signals as big2 (the small network, faster)",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
+# Bugs the audits found and fixed (docs/ROBUSTNESS.md): date, what was wrong, what it did, found by
+AUDIT_FIXES = [
+    ("Oct 30", "An Activate could be advised twice in a turn", "the plan reused a minion's once-a-turn Activate", "your report"),
+    ("Oct 30", "No hero-pick advice", "the hero offer never reached the advisor", "your report"),
+    ("Oct 30", "Sell a minion, then play the same card from hand", "plans with a pointless detour (31 of 325 that day)", "your report"),
+    ("Oct 30", "A random card used as if known", "after Auto Reveille's random Volumizer the plan went on with one you didn't have", "your report"),
+    ("Oct 30", "Free trinket offers charged", "a trinket's or Hero Power's offer cost Gold in the rebuild (12 became 6)", "whole-turn replay"),
+    ("Oct 30", "Ambassador Faelin's minions never unlocked", "the held minions stayed locked after reaching their Tier", "whole-turn replay"),
+    ("Oct 30", "Baller improvements lost", "a Baller sold at round 14 gave +2/+2 instead of +14/+14", "whole-turn replay"),
+    ("Oct 30", "Maximum Gold bonuses lost", "16 of 126 turns had a Gold or two less to spend", "turn-transition check"),
+    ("Oct 30", "Discounted Tavern spells at full price", "a buy you could afford was refused (Ominous Seer's discount)", "legality check"),
+    ("Oct 30", "Who attacks first, Dark Gifts, triples in a rebuilt hand", "combats and warbands rebuilt wrong", "combat replay"),
+    ("Oct 30", "Trinket stealth cost in training: Freeze + End with Gold", "the network learned to dodge the unspent-Gold cost by freezing", "case study"),
+]
 SIMULATOR = [
     ("Combats replayed from your logs", "92.5-95%", "of 106 logged combats end as the simulator predicts (win, tie or loss)"),
     ("Actions offered", "94%", "of your logged decisions: the simulator allows exactly the actions the game offered"),
@@ -69,6 +83,8 @@ h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 36px 0 6p
 .legend { display: flex; gap: 18px; font-size: 13px; color: var(--text-2); margin: 4px 0 0; flex-wrap: wrap; }
 .key { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
 .k1 { background: var(--s1); } .k2 { background: var(--s2); } .k3 { background: var(--s3); } .k4 { background: var(--s4); }
+.warn { color: #c2410c; font-size: 13px; } .bar-rule { fill: #d9480f; } .bar-signal { fill: #e8a33d; }
+.dot { stroke: none; } .dot.s1 { fill: var(--s1); } .dot.s2 { fill: var(--s2); } .dot.s3 { fill: var(--s3); } .dot.s4 { fill: var(--s4); }
 .wrap { overflow-x: auto; } table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 6px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
 th { color: var(--text-2); font-weight: 500; } td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -347,6 +363,157 @@ def _games():
             "refresh": refresh / len(recruit) if recruit else None}
 
 
+FIDELITY_LABELS = [
+    ("legal", "Allowed actions", "of your logged decisions: the simulator allows exactly what the game offered"),
+    ("actions", "Single actions", "of your actions, replayed one at a time: the warband matches the game's next"),
+    ("turns", "Whole turns", "of your turns, replayed from their start: never part from the game (random draws aside)"),
+    ("transitions", "Between turns", "of turn changes: Gold, Tier and costs at the next turn match"),
+    ("combat", "Combats", "how likely the simulator finds each combat's real result (average)"),
+]
+
+
+def _pct_chart(history, keys, label, lo=0.8):
+    """Shares over time, higher is better (top): `history` = [{time, key: share}], one line per key."""
+    w, h, left, right, top, bottom = 760, 220, 44, 150, 10, 26
+    pw, ph = w - left - right, h - top - bottom
+    n = len(history)
+    x = lambda i: left + (pw * i / (n - 1) if n > 1 else pw / 2)
+    y = lambda v: top + ph * (1 - (max(lo, v) - lo) / (1 - lo))
+    out = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="{_esc(label)}" class="chart">']
+    for t in (lo, (lo + 1) / 2, 1.0):
+        out.append(f'<line x1="{left}" x2="{left + pw}" y1="{y(t):.1f}" y2="{y(t):.1f}" class="grid"/>'
+                   f'<text x="{left - 6}" y="{y(t) + 4:.1f}" class="tick" text-anchor="end">{t:.0%}</text>')
+    for k, (key, name) in enumerate(keys):
+        pts = [(i, r[key]) for i, r in enumerate(history) if r.get(key) is not None]
+        if not pts:
+            continue
+        cls = f"s{1 + k % 4}"
+        d = " ".join(f'{"M" if j == 0 else "L"}{x(i):.1f},{y(v):.1f}' for j, (i, v) in enumerate(pts))
+        out.append(f'<path d="{d}" class="line {cls}"/>')
+        for i, v in pts:
+            out.append(f'<circle cx="{x(i):.1f}" cy="{y(v):.1f}" r="4" class="dot {cls}"><title>'
+                       f'{_esc(name)}: {v:.1%} ({_esc(history[i]["time"].replace("T", " "))})</title></circle>')
+        i, v = pts[-1]
+        out.append(f'<text x="{x(i) + 8:.1f}" y="{y(v) + 4:.1f}" class="direct">{_esc(name)} {v:.1%}</text>')
+    if n:
+        for i in sorted({0, n - 1}):
+            out.append(f'<text x="{x(i):.1f}" y="{h - 6}" class="tick" text-anchor="middle">'
+                       f'{_esc(history[i]["time"][5:16].replace("T", " "))}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def _bars(rows, label):
+    """Stacked bars per game: `rows` = [(name, rules, signals)]; rules broken on top in the warning
+    colour, signals below."""
+    w, h, left, top, bottom = 760, 200, 44, 10, 40
+    pw, ph = w - left - 20, h - top - bottom
+    hi = max([r + s for _, r, s in rows] + [4])
+    bw = min(70, pw / max(1, len(rows)) * 0.6)
+    out = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="{_esc(label)}" class="chart">']
+    for t in (0, hi // 2, hi):
+        yy = top + ph * (1 - t / hi)
+        out.append(f'<line x1="{left}" x2="{left + pw}" y1="{yy:.1f}" y2="{yy:.1f}" class="grid"/>'
+                   f'<text x="{left - 6}" y="{yy + 4:.1f}" class="tick" text-anchor="end">{t}</text>')
+    for i, (name, rules, signals) in enumerate(rows):
+        cx = left + pw * (i + 0.5) / len(rows)
+        y0 = top + ph
+        for val, cls, what in ((signals, "bar-signal", "signals"), (rules, "bar-rule", "rules broken")):
+            if val:
+                hh = ph * val / hi
+                out.append(f'<rect x="{cx - bw / 2:.1f}" y="{y0 - hh:.1f}" width="{bw:.1f}" height="{hh:.1f}" '
+                           f'class="{cls}"><title>{_esc(name)}: {val} {what}</title></rect>')
+                y0 -= hh
+        out.append(f'<text x="{cx:.1f}" y="{y0 - 5:.1f}" class="direct" text-anchor="middle">{rules + signals}</text>'
+                   f'<text x="{cx:.1f}" y="{h - 22}" class="tick" text-anchor="middle">{_esc(name)}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def _audit_section():
+    """The audit's state in plain words: the simulator against your games, the advice reviewed,
+    what was found and fixed, the last promotion's play audit (docs/ROBUSTNESS.md)."""
+    out = ["<h2>Audit: is it faithful, and is the advice sensible?</h2>",
+           '<p class="sub">Checked by itself after every game you play (docs/ROBUSTNESS.md). The simulator is '
+           'compared with your real games; every piece of advice the overlay showed is re-checked; a network '
+           'reaches the overlay only after a play audit.</p>']
+    base_path, last_path = DATA / "replay" / "fidelity_baseline.json", DATA / "replay" / "fidelity_last.json"
+    reviews = sorted((DATA / "review").glob("*.json"), key=lambda f: f.name)[-6:] if (DATA / "review").is_dir() else []
+    last_rev = json.loads(reviews[-1].read_text(encoding="utf-8")) if reviews else None
+    reg = (json.loads(last_path.read_text(encoding="utf-8")).get("regressions") or []) if last_path.exists() else []
+    audited = [r for r in _jsonl(DATA / "models" / "promotions.jsonl") if r.get("play_audit")]
+    boxes = [("Bugs found and fixed", str(len(AUDIT_FIXES)), "in the simulator, the bridge and the advice (list below)"),
+             ("Simulator vs your games", "no drop" if not reg else f"{len(reg)} drops",
+              "the five checks against their baseline, after the last game" if not reg else "; ".join(reg[:2]))]
+    if last_rev is not None:
+        rules = sum(1 for x in last_rev if x.get("rule"))
+        boxes.append(("Advice rules broken, last game", str(rules),
+                      f"{len(last_rev) - rules} usually-wrong signals to look at"))
+    if audited:
+        worse = audited[-1]["play_audit"].get("worse") or {}
+        boxes.append(("Last play audit", "passed" if not worse else "failed",
+                      ", ".join(worse) or "a network reaches the overlay only after it"))
+    else:
+        boxes.append(("Play audit", "waiting", "runs once a network passes the training gates"))
+    out.append(_tiles(boxes))
+    if base_path.exists():
+        base = json.loads(base_path.read_text(encoding="utf-8"))
+        last = json.loads(last_path.read_text(encoding="utf-8")) if last_path.exists() else {"now": base, "regressions": []}
+        now = last.get("now") or base
+        tiles = []
+        for key, label, note in FIDELITY_LABELS:
+            if key not in now:
+                continue
+            r, b = now[key]["rate"], base.get(key, {}).get("rate", now[key]["rate"])
+            change = "" if abs(r - b) < 0.0005 else f" ({'+' if r > b else ''}{(r - b) * 100:.1f} vs baseline)"
+            tiles.append((label, f"{r:.1%}", f"{note}; {now[key]['n']} cases{change}"))
+        out.append("<h3>The simulator against your games</h3>" + _tiles(tiles))
+        hist = _jsonl(DATA / "replay" / "fidelity_history.jsonl")
+        if hist:
+            out.append('<p class="sub">Over time (each check after a game; higher is better):</p>')
+            out.append(_pct_chart(hist, [(k, label) for k, label, _ in FIDELITY_LABELS], "Simulator agreement over time"))
+        reg = last.get("regressions") or []
+        if reg:
+            out.append('<p class="warn">Worse than the baseline since the last check: ' +
+                       "; ".join(_esc(x) for x in reg[:8]) + "</p>")
+        else:
+            out.append('<p class="sub">No drop against the baseline in the last check.</p>')
+    if reviews:
+        out.append("<h3>The advice in your recent games, re-checked</h3>")
+        bar_rows = []
+        for f in reviews:
+            found = json.loads(f.read_text(encoding="utf-8"))
+            bar_rows.append((f.stem.replace("Hearthstone_2026_", "")[:11].replace("_", " "),
+                             sum(1 for x in found if x.get("rule")), sum(1 for x in found if not x.get("rule"))))
+        out.append(_bars(bar_rows, "Findings per game"))
+        out.append('<p class="sub">Rules are things advice must never do (a bug when broken); signals are '
+                   'usually wrong and worth a look; "you did better" means your own turn beat the advised one '
+                   'against the next opponent.</p><table><tr><th>Game</th><th>Rules broken</th>'
+                   '<th>Signals</th><th>Examples</th></tr>')
+        for f in reversed(reviews):
+            found = json.loads(f.read_text(encoding="utf-8"))
+            rules = [x for x in found if x.get("rule")]
+            signals = [x for x in found if not x.get("rule")]
+            ex = "; ".join(f"round {x['round']}: {x['kind']} ({x['detail']})" for x in (rules + signals)[:3])
+            name = f.stem.replace("Hearthstone_", "").replace("_", " ")
+            out.append(f"<tr><td>{_esc(name)}</td><td>{len(rules)}</td><td>{len(signals)}</td><td>{_esc(ex) or '-'}</td></tr>")
+        out.append("</table>")
+    out.append("<h3>Found and fixed</h3><table><tr><th>When</th><th>What was wrong</th><th>What it did</th>"
+               "<th>Found by</th></tr>" + "".join(
+                   f"<tr><td>{a}</td><td>{_esc(b)}</td><td>{_esc(c)}</td><td>{_esc(d)}</td></tr>"
+                   for a, b, c, d in AUDIT_FIXES) + "</table>")
+    if audited:
+        r = audited[-1]
+        worse = r["play_audit"].get("worse") or {}
+        verdict = "passed" if not worse else "failed: " + ", ".join(worse)
+        out.append(f'<p class="sub">Last play audit ({_esc(r["time"][:16].replace("T", " "))}, '
+                   f'{_esc(str(r["candidate"]))}): {_esc(verdict)}.</p>')
+    else:
+        out.append('<p class="sub">Play audit: no candidate has reached it yet since it began (it runs once a '
+                   'network passes the training gates).</p>')
+    return "".join(out)
+
+
 def render():
     net = _network()
     promos, promo_pts = _promotions()
@@ -388,6 +555,8 @@ def render():
                      f'and the public average over all players. Real lobbies scale explosively late; the '
                      f'network has to learn to keep up (the real-warband training is aimed at this).</p>')
         parts.append(_curve_chart(curve))
+
+    parts.append(_audit_section())
 
     if status.is_file():
         parts.append("<h2>In plain words</h2>" + _markdown(status.read_text(encoding="utf-8")))
@@ -496,7 +665,7 @@ def render():
                      "Refresh (the self-play habit; newer networks should refresh more).</li>")
     parts.append("</ul>")
 
-    parts.append("<h2>Can the simulator be trusted?</h2>" + _tiles(SIMULATOR))
+
 
     parts.append("<h2>Running now</h2>")
     if jobs:
