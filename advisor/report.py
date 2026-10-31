@@ -35,7 +35,8 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "search2": "generations + learning the plan search's choices",
     "lib2": "real warbands + a longer horizon (gamma 1, lambda 0.995)",
     "big1": "a larger network (8.6M) copying the best",
-    "big2": "the larger network in PPO, 30% of games from your real round starts",
+    "big2": "the larger network: real starts, library seats + comps, comp starts, your choices",
+    "sig1": "search2 continued with the same signals as big2 (the small network, faster)",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 SIMULATOR = [
