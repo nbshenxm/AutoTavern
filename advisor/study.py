@@ -115,17 +115,24 @@ def warband_stats(r):
     return sum(int(a) + int(b) for a, b in (x.rsplit(" ", 1)[1].split("/") for x in r["warband"]))
 
 
-def curve(net, games=16, seed=92_000_000):
+def curve(net, games=16, seed=92_000_000, lobby="self"):
     """By round: the median warband Attack+Health and mean Tavern Tier of the network's seats in
     its own games, with the same for the real lobbies in the logs (both warbands of every
-    combat) and the public average (Firestone's warband stats over all heroes)."""
+    combat) and the public average (Firestone's warband stats over all heroes). `lobby`
+    "library": seats 5-7 fight with the top-1% library warbands (the training lobby) and only
+    the network's seats 0-4 count: its growth when its opponents grow as real ones do, not only
+    against copies of itself."""
     import collections
     from pathlib import Path
+    config, seats = None, range(8)
+    if lobby == "library":
+        from advisor import library
+        config, seats = {**GAME_CONFIG, "library": library.library([5, 6, 7], comps=True)}, range(5)
     sim = collections.defaultdict(list)
     for i in range(games):
-        recs, _, _ = play(seed + i, net, True)
-        for (_, turn), r in recs.items():
-            if "tier" in r:
+        recs, _, _ = play(seed + i, net, True, teacher_config=config)
+        for (seat, turn), r in recs.items():
+            if "tier" in r and seat in seats:
                 sim[turn].append((warband_stats(r), r["tier"]))
     real = collections.defaultdict(list)
     combats = Path(__file__).resolve().parents[1] / "data" / "replay" / "combats.jsonl"
@@ -164,6 +171,8 @@ def main():
     ap.add_argument("--trace", type=int, default=0)
     ap.add_argument("--seed", type=int, default=90_000_000)
     ap.add_argument("--curve", metavar="OUT", help="only the strength curve, as JSON (curve())")
+    ap.add_argument("--lobby", choices=("self", "library"), default="self",
+                    help="the curve's lobby: the network in every seat, or with top-1% library seats 5-7")
     a = ap.parse_args()
     if a.curve:
         torch.set_num_threads(4)
@@ -171,7 +180,8 @@ def main():
         from datetime import datetime
         from pathlib import Path
         Path(a.curve).write_text(json.dumps({"network": ck.get("source"), "made": datetime.now().isoformat(timespec="seconds"),
-                                             "rounds": curve(net, a.games)}), encoding="utf-8")
+                                             "lobby": a.lobby, "rounds": curve(net, a.games, lobby=a.lobby)}),
+                             encoding="utf-8")
         return
     torch.set_num_threads(4)
     net, teacher_config = None, None
