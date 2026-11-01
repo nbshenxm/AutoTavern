@@ -9,12 +9,13 @@ Everything runs on the office and the cluster without the home PC:
 
 - [x] Cluster: solo1 (best yet for 2 h, then a reward hack: play-and-cancel until the action cap); fixed and restarted as solo2 (job 97164)
 - [x] Cluster: the teacher test, done 18:58: no search teacher beats the network (EXPERIMENTS.md); search data dropped
-- [ ] Office: emb1 vs sig1 (the new information vs the blind control) until Nov 1 16:00
+- [ ] Office: emb1 (restarted with the Cancel fix) until Nov 1 16:00
+- [ ] Office: big3, a 10x larger network: distilled from solo1's best (~3 h), then AutoTavern-style training starts by itself (sig1, the control, stopped for room)
 - [ ] Office: the hourly promotion check with the play audit (a network that passes reaches best.pt; the overlay gets it at the next home sync)
 
 ## Next up (tomorrow afternoon, when the PC is back)
 
-- [ ] emb1 vs sig1: keep the new information or not (your positions, top-1% lobbies)
+- [ ] big3 against solo2 and emb1 on the same measures (larger network: does it help?)
 - [ ] solo1 against the office runs on the same measures; its best.pt to the office for the promotion check
 - [ ] R2 at 20:00 (late game >= 0.25x or from your positions < 2.50): ship whatever is best, say plainly if it misses
 - [ ] If neither solo1 nor emb1 moved: the next approach for R3 (larger network on the cluster, or opponents' trinket counters)
@@ -25,7 +26,6 @@ Everything runs on the office and the cluster without the home PC:
 - [ ] R3 (Nov 2): late >= 0.30x, from your positions < 2.45, Gold left <= 6
 - [ ] R4 (Nov 3): late >= 0.40x, on-type buys >= 50%
 - [ ] R5 (Nov 4): late >= 0.50x; 5 of your games measured
-- [ ] A larger network (AutoTavern used 18M parameters; ours 0.9M) once a setup clearly learns
 - [ ] Opponents' trinket counters in the observation (the bridge's live values)
 - [ ] Shrink the office runs' memory at their next restart (room for tests there)
 
