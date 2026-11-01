@@ -3,37 +3,28 @@
 What's being worked on, kept current (the progress page shows it under "Where we are"). The
 release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 
-## While the PC is off (Oct 31 18:45 to Nov 1 afternoon)
+## Running
 
-Everything runs on the office and the cluster without the home PC:
+- [ ] Office: big3 (10x larger network) training on alone against 7 library seats, until Nov 2 16:00
+- [ ] Cluster: solo2 (the small network, the same setup), hourly tasks; now measured against big3
 
-- [x] Cluster: solo1 (best yet for 2 h, then a reward hack: play-and-cancel until the action cap); fixed and restarted as solo2 (job 97164)
-- [x] Cluster: the teacher test, done 18:58: no search teacher beats the network (EXPERIMENTS.md); search data dropped
-- [x] Office: emb1 ended 16:00; after its restart clearly worse (head to head 5.4-5.7, your positions 2.6-2.8)
-- [x] Office: big3, a 10x larger network: distilled (75% agreement), training since 06:45; passed the training gates at 15:43 (head to head 4.27, confirmed 4.25)
-- [ ] Office: the hourly promotion check with the play audit (a network that passes reaches best.pt; the overlay gets it at the next home sync)
+## Next up
 
-## Next up (tomorrow afternoon, when the PC is back)
-
-- [ ] big3's play audit, made fair (the self-play games exclude the same no-ops as training): it held big3 back on Freeze/moves and cards lost (Activate with a full hand)
-- [ ] Cards lost to a full hand: a cost in training if the fair audit still shows it
-- [ ] solo1 against the office runs on the same measures; its best.pt to the office for the promotion check
-- [ ] R2 at 20:00 (late game >= 0.25x or from your positions < 2.50): ship whatever is best, say plainly if it misses
-- [ ] If neither solo1 nor emb1 moved: the next approach for R3 (larger network on the cluster, or opponents' trinket counters)
-- [ ] The office runs without search data from their next restart (the teacher test: it doesn't help)
+- [ ] Cards lost to a full hand: a cost for them in training (big3 activates card-making minions with 9-10 cards)
+- [ ] Your games with big3: does the advice feel right late (refreshes, Gold spent)? Ctrl+Shift+B marks what doesn't
+- [ ] R3 (Nov 2 20:00): late >= 0.30x, from your positions < 2.45, Gold left <= 6 (big3: 0.19x, 2.36, 1.85)
+- [ ] The late-game number measures self-play against copies of itself: add the same curve in the top-1% library lobby
 
 ## Later
 
-- [ ] R3 (Nov 2): late >= 0.30x, from your positions < 2.45, Gold left <= 6
-- [ ] R4 (Nov 3): late >= 0.40x, on-type buys >= 50%
+- [ ] R4 (Nov 3): late >= 0.40x, on-type buys >= 50% (big3: 48.5%)
 - [ ] R5 (Nov 4): late >= 0.50x; 5 of your games measured
 - [ ] Opponents' trinket counters in the observation (the bridge's live values)
-- [ ] Shrink the office runs' memory at their next restart (room for tests there)
+- [ ] The full 18M network AutoTavern used (big3 is d384 x 8 layers)
 
-## Done today
+## Done today (Nov 1)
 
-- [x] R1 shipped (tag bg-r1): next-step advice, trinket offers and picks, checks fixed; strength unchanged
-- [x] Audit: Gold-left check fixed, play audit with the review's rules, fidelity check repaired
-- [x] Observation v4 and card text; the cluster set up (its own folder) and solo1 started
-- [x] solo1 measured like every run (head to head, your positions, top-1% lobby)
-- [x] Progress page: "Where we are" with every running job and these checklists
+- [x] R2 shipped (tag bg-r2): big3 iteration 180, the first network to beat the 18:21 one
+- [x] The Cancel reward hack found and fixed (solo1, emb1); solo2 restarted from before it
+- [x] Teacher test: no search plays better than the network; the advice runs without it (0.3 s)
+- [x] A 10x larger network distilled and trained (big3); the play audit made fair
