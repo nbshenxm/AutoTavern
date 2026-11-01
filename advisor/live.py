@@ -470,6 +470,29 @@ SEARCH = {"k": 0, "temperature": 1.0}  # plan search (advisor.search): k sampled
 CLOSE = 0.03
 
 
+# Without the plan search (SEARCH k = 0): the network's second most likely first step, when it
+# is at least this share as likely as the step it chose
+CLOSE_PROB = 0.5
+
+
+def policy_second(g, net, allowed, first):
+    """The network's second most likely first step (another card, not the same card at another
+    position) as a one-step plan, when it is at least CLOSE_PROB as likely as `first`."""
+    from advisor.policy import act
+    L = dict(taverngym.layout())
+    step = lambda a: ("play", (a - L["A_PLAY"]) // L["N_POS"]) if L["A_PLAY"] <= a < L["A_MAGNETIZE"] else a
+    _, p, _ = act(net, g, 0, np.array(allowed) if allowed is not None else None)
+    order = np.argsort(-p)
+    p_first = p[first]
+    for a in order:
+        a = int(a)
+        if p[a] <= 0 or p[a] < CLOSE_PROB * p_first:
+            return None
+        if step(a) != step(first):
+            return [a]
+    return None
+
+
 def second_option(candidates, first):
     """The best candidate plan (search.best_plan's) that starts with another step than `first`,
     when it scores within CLOSE of the best; None otherwise. (A card played at another position
@@ -522,7 +545,10 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)")
                 r["n"] = n
     # What the overlay shows: the next step, and a close second (second_option) after an "or"
     shown = rows[:1]
-    alt = second_option(candidates, plan[0][0]) if plan and d["kind"] == "options" else None
+    alt = None
+    if plan and d["kind"] == "options":
+        alt = (second_option(candidates, plan[0][0]) if candidates
+               else policy_second(g, net, allowed, plan[0][0]) if net is not None else None)
     if alt is not None and shown:
         _, alt_rows, _, _ = plan_turn(g, locale, net, allowed, alt)
         if alt_rows:
@@ -694,9 +720,10 @@ def main():
     ap.add_argument("--live-dir", default=str(LIVE_DIR))
     ap.add_argument("--locale", default="enUS", choices=["enUS", "zhCN"])
     ap.add_argument("--log-file", help="write output here (the plugin runs pythonw, no console)")
-    ap.add_argument("--search", type=int, default=8, metavar="K",
-                    help="plan search over the greedy plan and K sampled ones (0: off; at 8 it "
-                    "places 0.48 better than the network alone, docs/EXPERIMENTS.md)")
+    ap.add_argument("--search", type=int, default=0, metavar="K",
+                    help="plan search over the greedy plan and K sampled ones (0: off, the default "
+                    "since Nov 1: it plays no better than the network alone, the teacher test in "
+                    "docs/EXPERIMENTS.md, and with big3 it takes 2 s an advice instead of 0.3)")
     ap.add_argument("--model", default=str(MODEL),
                     help="policy network (advisor.train checkpoint); the scripted bot without one")
     a = ap.parse_args()
