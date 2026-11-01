@@ -674,6 +674,9 @@ def main():
     ap.add_argument("--wasted-gold", type=float, default=WASTED_GOLD, metavar="COEF",
                     help="the cost per Gold left at End Turn while a buy or Refresh is legal (0: placement only, "
                          "AutoTavern's reward)")
+    ap.add_argument("--card-lost", type=float, default=0.0, metavar="COEF",
+                    help="the cost per card lost to a full hand (the env's card_lost_penalty; big3 lost "
+                         "0.8 a game activating card-making minions with 9-10 cards)")
     ap.add_argument("--epochs", type=int, default=3, help="PPO epochs over each batch")
     ap.add_argument("--minibatch", type=int, default=4096)
     ap.add_argument("--solo", action="store_true",
@@ -767,6 +770,7 @@ def main():
         train_config = {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength, comps=a.library_comps), "skip_recruit": a.solo}}
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=controlled,
                    config=train_config, threads=a.threads)
+    env.card_lost_penalty = -a.card_lost
     seats = [Seat() for _ in range(env.n_slots)]
     obs = env.observe()
     pool = load_pool(out, a.device)
@@ -800,6 +804,7 @@ def main():
             train_config = {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength, comps=a.library_comps), "skip_recruit": a.solo}}
             env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=controlled,
                            config=train_config, threads=a.threads)
+            env.card_lost_penalty = -a.card_lost
             seats = [Seat() for _ in range(env.n_slots)]
             obs = env.observe()
             log({"library": len(train_config["library"]["boards"])})

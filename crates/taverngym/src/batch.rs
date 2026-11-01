@@ -70,6 +70,10 @@ pub struct BatchEnv {
     threads: usize,
     /// Reward for a rejected action (the action is ignored).
     pub illegal_penalty: f32,
+    /// Reward per card the seat loses to a full hand (`PlayerStats::cards_lost`) between its
+    /// action and its next one (0 = off): a card-making minion activated with 9-10 cards in hand
+    /// costs real games what self-play doesn't charge for.
+    pub card_lost_penalty: f32,
 }
 
 /// One slot's observation outputs: features, card indices, legal mask, ready flag.
@@ -180,6 +184,7 @@ impl BatchEnv {
             episodes: Vec::new(),
             threads: threads.max(1),
             illegal_penalty: -0.01,
+            card_lost_penalty: 0.0,
         };
         env.episodes = (0..n_games).map(|i| env.fresh(i, 0)).collect();
         Ok(env)
@@ -333,6 +338,11 @@ impl BatchEnv {
         let ready: Vec<bool> = (0..self.controlled.len())
             .map(|j| !e.finished[j] && !over(&e.game) && e.game.needs_action(self.controlled[j]))
             .collect();
+        let lost_before: Vec<i32> = self
+            .controlled
+            .iter()
+            .map(|&p| e.game.players[p].stats.cards_lost)
+            .collect();
         for (j, (a, r)) in slots.iter_mut().enumerate() {
             **r = SlotResult::default();
             let p = self.controlled[j];
@@ -354,6 +364,10 @@ impl BatchEnv {
         advance(&mut e.game, &self.controlled);
         for (j, (_, r)) in slots.iter_mut().enumerate() {
             let p = self.controlled[j];
+            if ready[j] && self.card_lost_penalty != 0.0 {
+                let lost = e.game.players[p].stats.cards_lost - lost_before[j];
+                r.reward += self.card_lost_penalty * lost.max(0) as f32;
+            }
             if !e.finished[j] && (over(&e.game) || !e.game.players[p].alive) {
                 e.finished[j] = true;
                 r.done = true;

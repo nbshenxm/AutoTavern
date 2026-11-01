@@ -276,6 +276,14 @@ impl PyBatchEnv {
     fn set_illegal_penalty(&mut self, v: f32) {
         self.env.illegal_penalty = v;
     }
+    #[getter]
+    fn card_lost_penalty(&self) -> f32 {
+        self.env.card_lost_penalty
+    }
+    #[setter]
+    fn set_card_lost_penalty(&mut self, v: f32) {
+        self.env.card_lost_penalty = v;
+    }
     /// (features f32, cards i32, masks u8, ready u8) as bytes, one row per slot.
     fn observe<'py>(&self, py: Python<'py>) -> PyResult<BatchObs<'py>> {
         let n = self.env.n_slots();

@@ -54,6 +54,15 @@ class BatchEnv:
     def illegal_penalty(self, value):
         self._env.illegal_penalty = float(value)
 
+    @property
+    def card_lost_penalty(self):
+        """Reward per card a seat loses to a full hand between its action and its next (0: off)."""
+        return self._env.card_lost_penalty
+
+    @card_lost_penalty.setter
+    def card_lost_penalty(self, value):
+        self._env.card_lost_penalty = float(value)
+
     def slot(self, i):
         """(game index, seat) of slot `i`."""
         k = len(self.controlled)
