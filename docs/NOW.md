@@ -7,7 +7,7 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 
 Everything runs on the office and the cluster without the home PC:
 
-- [ ] Cluster: solo1, AutoTavern's setup (job 96998, hourly tasks, about 40 iterations each; ~20 by tomorrow afternoon)
+- [x] Cluster: solo1 (best yet for 2 h, then a reward hack: play-and-cancel until the action cap); fixed and restarted as solo2 (job 97164)
 - [x] Cluster: the teacher test, done 18:58: no search teacher beats the network (EXPERIMENTS.md); search data dropped
 - [ ] Office: emb1 vs sig1 (the new information vs the blind control) until Nov 1 16:00
 - [ ] Office: the hourly promotion check with the play audit (a network that passes reaches best.pt; the overlay gets it at the next home sync)
