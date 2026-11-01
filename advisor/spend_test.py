@@ -42,7 +42,7 @@ def spend_mask(env, obs, ready, mode, start_turn):
         m[i, L["A_END"]] = False
 
 
-def places(net, states, mode, seed, threads=8, games=64, config=CONFIG):
+def places(net, states, mode, seed, threads=8, games=64, config=CONFIG, masker=spend_mask):
     out = []
     for k in range(0, len(states), games):
         wait_while_playing(print)  # home rule
@@ -61,7 +61,7 @@ def places(net, states, mode, seed, threads=8, games=64, config=CONFIG):
             ready = np.flatnonzero(obs["ready"] & obs["action_mask"].any(1))
             ready = np.array([i for i in ready if i // 8 not in got], dtype=np.int64)
             if mode != "none":
-                spend_mask(env, obs, ready, mode, start_turn)
+                masker(env, obs, ready, mode, start_turn)
             actions = np.zeros(env.n_slots, dtype=np.int64)
             play_frozen(obs, ready, net_of, actions, "cpu")
             _, done, info = env.step(actions)
