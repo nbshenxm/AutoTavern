@@ -10,10 +10,11 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 
 ## Next up
 
-- [ ] Cards lost to a full hand: a cost for them in training (big3 activates card-making minions with 9-10 cards)
+- [x] Cards lost to a full hand: a cost in training (card_lost_penalty, tested); big3 restarted with it 17:49
 - [ ] Your games with big3: does the advice feel right late (refreshes, Gold spent)? Ctrl+Shift+B marks what doesn't
 - [ ] R3 (Nov 2 20:00): late >= 0.30x, from your positions < 2.45, Gold left <= 6 (big3: 0.19x, 2.36, 1.85)
-- [ ] The late-game number measures self-play against copies of itself: add the same curve in the top-1% library lobby
+- [ ] The late-game curve in the top-1% library lobby too (study --lobby library): measuring big3 and the old best
+- [ ] big3's entropy rose 0.85 -> 1.3 (tiny steps): watch that its greedy play doesn't suffer
 
 ## Later
 
