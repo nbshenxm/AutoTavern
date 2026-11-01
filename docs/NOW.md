@@ -13,8 +13,9 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [x] Cards lost to a full hand: a cost in training (card_lost_penalty, tested); big3 restarted with it 17:49
 - [ ] Your games with big3: does the advice feel right late (refreshes, Gold spent)? Ctrl+Shift+B marks what doesn't
 - [ ] R3 (Nov 2 20:00): late >= 0.30x, from your positions < 2.45, Gold left <= 6 (big3: 0.19x, 2.36, 1.85)
-- [ ] The late-game curve in the top-1% library lobby too (study --lobby library): measuring big3 and the old best
-- [ ] big3's entropy rose 0.85 -> 1.3 (tiny steps): watch that its greedy play doesn't suffer
+- [x] The late-game curve in the top-1% lobby (study --lobby library): big3 0.18x, the old best 0.17x; early 2.06x, mid 1.21x (old 1.87, 1.05)
+- [ ] Levelling: big3 is tier 2.8 at round 10 in that lobby (your lobbies 5.3, the old best 3.9). Level test running (office): made to Upgrade on a curve, does it place better?
+- [ ] big3's entropy rose 0.85 -> 1.3, back to 0.96 at it 240; from your positions 2.20 (best 2.30): watching
 
 ## Later
 

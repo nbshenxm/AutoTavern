@@ -39,6 +39,8 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "sig1": "search2 continued with the same signals as big2 (the small network, faster)",
     "emb1": "sig1 with observation version 4 and the card text (the A/B against sig1)",
     "solo1": "AutoTavern's setup: alone against seven library seats, their PPO settings (cluster)",
+    "solo2": "solo1 restarted from before the Cancel hack (cluster)",
+    "big3": "a 10x larger network (d384 x 8) distilled from solo1, then solo1's setup: R2",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 # Bugs the audits found and fixed (docs/ROBUSTNESS.md): date, what was wrong, what it did, found by
@@ -454,14 +456,21 @@ def _current():
     rounds 10-13), real (the best's placement from your positions, latest evaluation), Gold left
     (rounds 13+) and on-type (minion buys, rounds 10-12 and 13+) from compare_play."""
     now = {}
-    curve_path = PROGRESS / "curve.json"
-    if curve_path.exists():
+    for key, name in (("late", "curve.json"), ("late_lib", "curve_lib_best.json")):
+        curve_path = PROGRESS / name
+        if not curve_path.exists():
+            continue
         curve = {r["round"]: r for r in json.loads(curve_path.read_text(encoding="utf-8"))["rounds"]}
         q = sorted(curve[r]["network"]["stats"] / curve[r]["your_lobbies"]["stats"] for r in range(10, 14)
                    if r in curve and curve[r].get("your_lobbies") and curve[r]["your_lobbies"]["stats"])
         if q:
-            now["late"] = q[len(q) // 2]
-    reals = [r["vs_best_real"]["best"] for run in RUNS for r in _jsonl(PROGRESS / "train" / run / "log.jsonl")
+            now[key] = q[len(q) // 2]
+        if key == "late_lib" and curve.get(10, {}).get("network"):  # (the top-1% lobby's games)
+            now["tier10"] = (curve[10]["network"]["tier"], curve[10]["your_lobbies"]["tier"])
+    # (the run whose log changed last: older runs' records measured an older best)
+    logs = sorted((PROGRESS / "train" / run / "log.jsonl" for run in RUNS
+                   if (PROGRESS / "train" / run / "log.jsonl").exists()), key=lambda p: p.stat().st_mtime)
+    reals = [r["vs_best_real"]["best"] for r in (_jsonl(logs[-1]) if logs else [])
              if isinstance(r.get("vs_best_real"), dict) and r["vs_best_real"].get("best")]
     if reals:
         now["real"] = reals[-1]
@@ -559,9 +568,11 @@ def _targets():
     if not rows:
         return ""
     now = _current()
-    names = {"late": "late game", "real": "from your positions", "gold": "Gold left, rounds 13+", "ontype": "on-type buys"}
+    names = {"late": "late game", "real": "from your positions", "gold": "Gold left, rounds 13+", "ontype": "on-type buys",
+             "late_lib": "late game in the top-1% lobby", "tier10": "tier at round 10 (top-1% lobby; your lobbies)"}
     shown = {"late": lambda x: f"{x:.2f}x", "real": lambda x: f"{x:.2f}", "gold": lambda x: f"{x:.1f}",
-             "ontype": lambda x: f"{x:.0f}%"}
+             "ontype": lambda x: f"{x:.0f}%", "late_lib": lambda x: f"{x:.2f}x",
+             "tier10": lambda x: f"{x[0]:.1f} ({x[1]:.1f})"}
     better = {"late": lambda v, t: v >= t, "real": lambda v, t: v < t, "gold": lambda v, t: v <= t,
               "ontype": lambda v, t: v >= t}
     out = ["<h2>Releases</h2>", '<p class="sub">One a day at 20:00 with dated targets (docs/ROADMAP.md); '
