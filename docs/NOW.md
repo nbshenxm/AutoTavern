@@ -9,13 +9,14 @@ Everything runs on the office and the cluster without the home PC:
 
 - [x] Cluster: solo1 (best yet for 2 h, then a reward hack: play-and-cancel until the action cap); fixed and restarted as solo2 (job 97164)
 - [x] Cluster: the teacher test, done 18:58: no search teacher beats the network (EXPERIMENTS.md); search data dropped
-- [ ] Office: emb1 (restarted with the Cancel fix) until Nov 1 16:00
-- [ ] Office: big3, a 10x larger network: distilled from solo1's best (~3 h), then AutoTavern-style training starts by itself (sig1, the control, stopped for room)
+- [x] Office: emb1 ended 16:00; after its restart clearly worse (head to head 5.4-5.7, your positions 2.6-2.8)
+- [x] Office: big3, a 10x larger network: distilled (75% agreement), training since 06:45; passed the training gates at 15:43 (head to head 4.27, confirmed 4.25)
 - [ ] Office: the hourly promotion check with the play audit (a network that passes reaches best.pt; the overlay gets it at the next home sync)
 
 ## Next up (tomorrow afternoon, when the PC is back)
 
-- [ ] big3 against solo2 and emb1 on the same measures (larger network: does it help?)
+- [ ] big3's play audit, made fair (the self-play games exclude the same no-ops as training): it held big3 back on Freeze/moves and cards lost (Activate with a full hand)
+- [ ] Cards lost to a full hand: a cost in training if the fair audit still shows it
 - [ ] solo1 against the office runs on the same measures; its best.pt to the office for the promotion check
 - [ ] R2 at 20:00 (late game >= 0.25x or from your positions < 2.50): ship whatever is best, say plainly if it misses
 - [ ] If neither solo1 nor emb1 moved: the next approach for R3 (larger network on the cluster, or opponents' trinket counters)
