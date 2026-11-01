@@ -694,9 +694,10 @@ def test_the_plan_search_masks_cancel():
 
 
 
+
 def test_a_card_lost_to_a_full_hand_costs_its_penalty():
-    # card_lost_penalty: a full hand (10) and Mangled Bandit (Activate: discard a card, get 3
-    # Blood Gems): 2 cards lost, so the seat's reward over the Activate and its target is 2 x -0.05
+    # card_lost_penalty: a full hand (10) and Fruit Vendor (Activate (1): get 2 Tavern Dish
+    # Bananas): both are lost, so the Activate's reward is 2 x -0.05
     import json as _json
 
     import taverngym
@@ -705,24 +706,16 @@ def test_a_card_lost_to_a_full_hand_costs_its_penalty():
     L = dict(taverngym.layout())
     g = recruit_game(4)
     debug(g, cmd="set_player", p=0, gold=10)
-    debug(g, cmd="add_minion", p=0, zone="board", card="BG28_582")
+    debug(g, cmd="add_minion", p=0, zone="board", card="BG36_346")
     for _ in range(10 - len(_json.loads(g.view(0))["me"]["hand"])):
         debug(g, cmd="add_minion", p=0, zone="hand", card="BGS_004", no_triple=True)
+    board = _json.loads(g.view(0))["me"]["board"]
+    a = L["A_ACTIVATE"] + next(i for i, m in enumerate(board) if m["id"] == "BG36_346")
     env = taverngym.BatchEnv(1, seed=21, controlled=[0], config=train.CONFIG)
     env.card_lost_penalty = -0.05
     fresh = _json.loads(env.save(0))
     env.load(0, _json.dumps({"game": _json.loads(g.state_json()), "index": fresh["index"], "finished": [False]}))
-    total = 0.0
-    board = _json.loads(g.view(0))["me"]["board"]
-    a = L["A_ACTIVATE"] + next(i for i, m in enumerate(board) if m["id"] == "BG28_582")
-    for _ in range(3):
-        obs = env.observe()
-        if not obs["ready"][0]:
-            break
-        m = obs["action_mask"][0]
-        act = a if m[a] else int(next(i for i in range(L["A_CHOOSE"], L["A_PLAY"]) if m[i]))
-        r, _, _ = env.step(np.array([act]))
-        total += float(r[0])
-        if act != a:
-            break
-    assert abs(total - (-0.10)) < 1e-6, total
+    assert env.observe()["action_mask"][0][a]
+    r, _, _ = env.step(np.array([a]))
+    lost = _json.loads(env.save(0))["game"]["players"][0]["stats"]["cards_lost"]
+    assert lost == 2 and abs(float(r[0]) - (-0.10)) < 1e-6, (lost, r)
