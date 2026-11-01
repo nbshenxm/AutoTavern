@@ -42,7 +42,7 @@ MARGINS = {"crash": 0, "illegal_first": 0.02, "detour": 0, "end_with_gold": 0.08
            "long_arrange": 0.05, "long_plan": 0.05, "stalled_games": 0, "move_share": 0.05,
            "freeze_share": 0.02, "cards_lost": 0.5, "gold_left": 1.0, "hand_only_plays": 0.02}
 # Bumped when a measure changes, so a cached audit of the best is redone (promote.audit_cache)
-VERSION = 2
+VERSION = 3
 
 
 def advice_audit(net, starts, n=60, k=4):
@@ -83,12 +83,15 @@ def advice_audit(net, starts, n=60, k=4):
 
 
 def game_audit(net, games=4, seed=55_000_000):
-    """Complete games with `net` in every seat (sampled)."""
+    """Complete games with `net` in every seat (sampled), with the no-ops training and the
+    advice exclude excluded here too (a second Freeze in a row, Cancel while anything else is
+    legal): a network trained without them never learned to avoid them itself."""
     stalled = moves = freezes = actions = lost = hand_only = plays = 0
     gold_left, ends = 0, 0
     rng = np.random.default_rng(seed)
     for i in range(games):
         g = taverngym.Game(seed + i, json.dumps(GAME_CONFIG))
+        last = {}
         for _ in range(300_000):
             if g.is_over():
                 break
@@ -98,7 +101,16 @@ def game_audit(net, games=4, seed=55_000_000):
                     continue
                 v = json.loads(g.view(seat))
                 probs, _ = search._policy(net, g, seat)
+                probs = np.array(probs, dtype=np.float64)
+                legal = int((probs > 0).sum())
+                if last.get(seat) == L["A_FREEZE"] and legal > 1:
+                    probs[L["A_FREEZE"]] = 0.0
+                if probs[L["A_CANCEL"]] > 0 and (probs > 0).sum() > 1:
+                    probs[L["A_CANCEL"]] = 0.0
+                if probs.sum() <= 0:
+                    probs, _ = search._policy(net, g, seat)
                 a = int(rng.choice(len(probs), p=probs / probs.sum()))
+                last[seat] = a
                 actions += 1
                 moves += a >= L["A_MOVE"]
                 if L["A_PLAY"] <= a < L["A_MAGNETIZE"]:  # a card that works from the hand, played
