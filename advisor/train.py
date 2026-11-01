@@ -93,6 +93,7 @@ def wasted_gold(obs, i, a):
 
 
 _L = dict(layout())
+A_CANCEL = _L["A_CANCEL"]
 
 
 def action_mix(actions):
@@ -131,6 +132,11 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
             # A second Freeze straight after one is a no-op (it unfreezes what was just frozen)
             again = (last[own] == A_FREEZE) & (mask.sum(1) > 1)
             mask[again, A_FREEZE] = False
+            # Cancel undoes the play that asked for a target: a no-op. Played and cancelled in a
+            # loop, it burned a turn's actions until the cap ended the turn without an End Turn
+            # (and its wasted-Gold cost): solo1 and emb1 learned that loop (Nov 1)
+            undo = mask[:, A_CANCEL] & (mask.sum(1) > 1)
+            mask[undo, A_CANCEL] = False
             obs["action_mask"][own] = mask
             m = torch.from_numpy(mask).to(device)
             with torch.no_grad():
@@ -665,6 +671,9 @@ def main():
                     help="library warbands scaled toward the top 1%% by round (0 = as logged)")
     ap.add_argument("--library-comps", action="store_true",
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
+    ap.add_argument("--wasted-gold", type=float, default=WASTED_GOLD, metavar="COEF",
+                    help="the cost per Gold left at End Turn while a buy or Refresh is legal (0: placement only, "
+                         "AutoTavern's reward)")
     ap.add_argument("--epochs", type=int, default=3, help="PPO epochs over each batch")
     ap.add_argument("--minibatch", type=int, default=4096)
     ap.add_argument("--solo", action="store_true",
@@ -706,6 +715,7 @@ def main():
     if not a.run:
         ap.error("--run is required for training")
     budget = a.minutes * 60 + a.hours * 3600
+    globals()["WASTED_GOLD"] = a.wasted_gold  # (wasted_gold reads it)
     out = Path(a.out) / a.run
     out.mkdir(parents=True, exist_ok=True)
     logf = open(out / "log.jsonl", "a", encoding="utf-8")

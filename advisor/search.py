@@ -67,14 +67,20 @@ def detour_mask(view, seen):
     both sell a minion and play the same card (golden or not) from hand, in either order (sell
     the warband's copy and play the hand's, or the other way round: one gold for what the sold
     one had gained), unless the card has a Battlecry to trigger again; nor presses Freeze twice in
-    a row (the second unfreezes: a no-op). `seen`: what note_sold recorded."""
+    a row (the second unfreezes: a no-op), nor Cancel while anything else is legal (it undoes the
+    play that asked for a target). `seen`: what note_sold recorded."""
     from advisor.policy import L
     sold, played = seen.setdefault("sold", set()), seen.setdefault("played", set())
     froze = seen.get("last") == L["A_FREEZE"]
-    if not sold and not played and not froze:
-        return None
     mask = np.array(view["mask"], bool)
+    # Cancel (undo a play that asked for a target) is a no-op too: never part of a plan
+    undo = bool(mask[L["A_CANCEL"]]) and mask.sum() > 1
+    if not sold and not played and not froze and not undo:
+        return None
     changed = False
+    if undo:
+        mask[L["A_CANCEL"]] = False
+        changed = True
     if froze and mask[L["A_FREEZE"]] and mask.sum() > 1:  # Freeze twice in a row: a no-op
         mask[L["A_FREEZE"]] = False
         changed = True

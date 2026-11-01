@@ -661,3 +661,33 @@ def test_solo_library_seats_skip_their_recruit_turns():
     st = _json.loads(taverngym.Game(9, _json.dumps(cfg)).state_json())
     train.load_start(env, 0, st)
     assert env.observe()["features"].shape[0] == 2
+
+
+def test_collect_never_samples_cancel_while_anything_else_is_legal():
+    # Cancel undoes a play that asked for a target: played and cancelled in a loop, it burned
+    # turns until the action cap ended them without End Turn (solo1 and emb1, Nov 1)
+    from taverngym import BatchEnv
+
+    torch.manual_seed(0)
+    net = EntityNet(card_dim=8, d=32, layers=1, heads=2)
+    with torch.no_grad():  # a network that would pick Cancel whenever it can
+        net.global_head.bias[5] = 50.0
+    env = BatchEnv(4, seed=11, controlled=list(range(8)), config=train.CONFIG)
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    train.collect(env, net, env.observe(), seats, 4096, "cpu")
+    items = [it for s in seats for it in s.items]
+    assert items and not any(it[3] == train.A_CANCEL and it[2].sum() > 1 for it in items)
+
+
+def test_the_plan_search_masks_cancel():
+    import numpy as _np
+    from advisor import search
+    from advisor.policy import L
+
+    mask = _np.zeros(L["N_ACTIONS"], bool)
+    mask[[L["A_END"], L["A_CANCEL"]]] = True
+    m = search.detour_mask({"mask": mask.tolist(), "me": {"hand": [], "board": []}}, {})
+    assert m is not None and not m[L["A_CANCEL"]] and m[L["A_END"]]
+    only = _np.zeros(L["N_ACTIONS"], bool)
+    only[L["A_CANCEL"]] = True  # nothing else legal: left as it is
+    assert search.detour_mask({"mask": only.tolist(), "me": {"hand": [], "board": []}}, {}) is None
