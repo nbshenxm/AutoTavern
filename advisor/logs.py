@@ -63,7 +63,7 @@ VOLUMIZER_ATK, VOLUMIZER_HP = 4468, 4469  # player tags (unnamed in hearthstone'
 
 
 DEITIES = ("BGFYM_000", "BGFYM_011")  # C'Thun, Y'Shaarj: one per lobby (Aberration lobbies)
-_DEITY_RX = re.compile(r"CardID=(BGFYM_0(?:00|11))(?:_G)?")
+_DEITY_RX = re.compile(r"cardid=(BGFYM_0(?:00|11))", re.I)  # (entity references write "cardId=")
 
 
 def lobby_deity(lines):
