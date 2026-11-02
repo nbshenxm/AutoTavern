@@ -220,3 +220,17 @@ def test_the_volumizer_bonus_is_rebuilt():
     assert player_stats({"board": [], "volumizer": [28, 19]}) == {"volumizer_atk": 28, "volumizer_hp": 19}
     green = {"card": "BG34_170t3", "atk": 60, "hp": 51, "golden": False}
     assert player_stats({"board": [], "hand": [green]}) == {"volumizer_atk": 57, "volumizer_hp": 48}
+
+
+def test_easterly_winds_is_rebuilt_as_its_stacks():
+    # The log's Easterly Winds player enchantment holds the total per Refresh (+110/+110);
+    # TavernGym keeps stacks of +9/+9 (plus the Tavern-spell bonus)
+    from advisor import bridge
+    from advisor.state import CAT
+
+    p0 = {"effects": []}
+    bridge.refresh_effects(p0, {"player_ench": [{"card": "BG34_854pe", "data": [110, 110]}], "spell_atk": 0})
+    assert p0["effects"] == [{"card": CAT["BG34_444"]["cid"], "stacks": 12}]
+    p0 = {"effects": []}
+    bridge.refresh_effects(p0, {"player_ench": [{"card": "BG34_854pe", "data": [110, 110]}], "spell_atk": 2})
+    assert p0["effects"][0]["stacks"] == 10

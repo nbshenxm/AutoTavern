@@ -116,6 +116,25 @@ def hero_game(d, seed=7):
     return taverngym.Game.from_json(json.dumps(st)), gaps
 
 
+# "After the Tavern is Refreshed this game, give a random minion in it +9/+9" (Easterly Winds:
+# Pocket Cyclone and Air Revenant cast it again and again): the log keeps one player enchantment
+# with the total per Refresh; TavernGym keeps stacks of the spell, each +9/+9 plus the Tavern-spell
+# bonus. Missing, a rebuilt Pocket Cyclone player's Refreshes buffed nothing (+337/+337 in a log)
+EASTERLY = ("BG34_854pe", "BG34_444", 9)
+
+
+def refresh_effects(p0, me):
+    """Player effects the log shows as a total, as TavernGym's stacks (in state JSON `p0`)."""
+    ench, card, base = EASTERLY
+    total = next((e["data"][0] for e in me.get("player_ench", []) if e["card"] == ench and e.get("data")), 0)
+    if total <= 0 or card not in CAT:
+        return
+    stacks = max(1, round(total / (base + max(0, me.get("spell_atk", 0)))))
+    cid = CAT[card]["cid"]
+    effects = [x for x in p0.setdefault("effects", []) if x.get("card") != cid]
+    p0["effects"] = effects + [{"card": cid, "stacks": stacks}]
+
+
 def build(d, combats=(), seed=7):
     """(game, gaps) for decision `d`; `combats` are the game's earlier combats
     (`game_combats`), which give the opponents' last seen warbands."""
@@ -191,6 +210,7 @@ def build(d, combats=(), seed=7):
     p0 = st["players"][0]
     if d.get("deity"):  # the lobby's Deity, yours at its logged size (the others' unknown)
         set_deities(st, d["deity"], [(0, me)])
+    refresh_effects(p0, me)
     # Maximum Gold above the round's (an effect that gave it for good): the next turns' Gold
     if me.get("max_gold") and me["max_gold"] > base_max:
         p0["max_gold_bonus"] = me["max_gold"] - base_max
