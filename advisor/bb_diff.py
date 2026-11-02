@@ -132,6 +132,9 @@ def report(rows, n):
         sd = math.sqrt(sum((x - mean) ** 2 for x in xs) / (len(xs) - 1))
         rows_.append((mean / (sd / math.sqrt(len(xs)) + 1e-9), mean, len(xs), c))
     rows_.sort(key=lambda t: -abs(t[0]))
+    Path(ROOT / "data" / "progress" / "bb_cards.json").write_text(
+        json.dumps({c: {"n": k, "mean": round(mean, 4), "z": round(z, 2)} for z, mean, k, c in rows_}, indent=1),
+        encoding="utf-8")
     print("cards TavernGym favours (+) or disfavours (-) against Bob's Buddy, by z:")
     for z, mean, k, c in rows_[:30]:
         print(f"  {CAT[c]['name']:30s} {c:16s} n={k:4d} mean {mean:+.3f}  z {z:+.1f}")

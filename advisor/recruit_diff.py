@@ -125,6 +125,7 @@ def main():
     ap.add_argument("--decisions", default=str(ROOT / "data" / "replay" / "decisions.jsonl"))
     ap.add_argument("--combats", default=str(ROOT / "data" / "replay" / "combats.jsonl"))
     ap.add_argument("--top", type=int, default=20)
+    ap.add_argument("--json", help="per acting card: replays, mismatching, real and simulated stats")
     a = ap.parse_args()
     rows = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
@@ -151,6 +152,10 @@ def main():
         else:
             ok += 1
     print(f"{n} actions replayed; the warband matched the log exactly after {ok} ({ok / max(1, n):.1%})")
+    if a.json:
+        Path(a.json).write_text(json.dumps({k: {"replays": r, "mismatching": b, "real": sr, "sim": ss}
+                                            for k, (r, b, sr, ss) in by_card.items() if k}, indent=1),
+                                encoding="utf-8")
     print("acting card: replays, mismatching, real vs simulated stats of the mismatching minions")
     worst = sorted(by_card.items(), key=lambda kv: (-kv[1][1], -kv[1][0]))[:a.top]
     for card, (r, b, sr, ss) in worst:
