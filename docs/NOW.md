@@ -22,9 +22,10 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 
 ## Tomorrow morning (Nov 2)
 
-- [ ] big3ad's probes (cluster, 01:45 and 05:45): does it level in your positions now (was 0% in rounds 4-9)? Its tier at round 10 in the top-1% lobby (big3 2.8)
-- [ ] big3ad vs big3 (office, the control): head to head, from your positions, the top-1% lobby
-- [ ] Promote whichever is better for R3 (Nov 2 20:00); if big3ad levels and holds its strength, it goes first
+- [x] big3ad levels now: tier at round 10 in the top-1% lobby 4.4-4.6 (big3 2.9), round 13 5.7-5.9 (4.1); turns with an Upgrade in your rounds 10-11 82-91% (14%). Strength the same as big3 (head to head 4.2-4.6 vs R2, your positions 2.15-2.44)
+- [x] big3 iteration 510 promoted automatically 06:53 (head to head 4.28 vs R2, audit clean); on the home advisor and the cluster by hand (the home sync was off overnight)
+- [ ] The late game hasn't moved: 0.16-0.20x for both (R3 wants 0.30). Levelling is learned, a scaling engine isn't: genre scorecards running (office)
+- [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
 
 ## Later
 
