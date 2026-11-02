@@ -18,26 +18,10 @@ import json
 import sys
 from pathlib import Path
 
-from advisor.state import arm_powers, damage_cap, debug, recruit_game, set_deities, set_side
+from advisor.state import OWED_POWERS, arm_powers, damage_cap, debug, owe, recruit_game, set_deities, set_side
 
 SURPRISE = 0.02
 SIDES = ("friendly", "opponent")
-
-
-# Hero Powers that take a Tavern minion and bring it to the next combat (TavernGym: the player's
-# `owed` list): Lock and Load fires it at a random enemy minion
-OWED_POWERS = {"BG22_HERO_000p_Alt"}
-
-
-def owe(g, st, p, power_card, minions):
-    """Put `minions` (logged Tavern minions) in seat `p`'s owed list of state JSON `st` for
-    `power_card` (made in seat 7 of game `g`, an empty seat in a combat replay)."""
-    from advisor.state import CAT, add_minion
-    for m in minions:
-        debug(g, cmd="clear_zone", p=7, zone="board")
-        if add_minion(g, 7, "board", m, [], "owed"):
-            made = json.loads(g.state_json())["players"][7]["board"][-1]
-            st["players"][p].setdefault("owed", []).append([CAT[power_card]["cid"], made, True])
 
 
 def setup(c, snap, seed, used=(), owed=()):
@@ -58,7 +42,6 @@ def setup(c, snap, seed, used=(), owed=()):
                    lambda h: h.get("card") in used)
         for power, minions in owed:
             owe(g, st, 0, power, minions)
-        st["players"][7]["board"] = []
         g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
 

@@ -84,14 +84,14 @@ def _target_choice(g, d, target):
     return opts.index(eid) if eid in opts else None
 
 
-def compare(d, nxt, combats):
+def compare(d, nxt, combats, earlier=()):
     """[(acting card, minion card, real (atk, hp), simulated (atk, hp))] for the warband after
     the chosen action, or None when it can't be replayed."""
     acts = chosen_actions(d)
     if acts is None:
         return None
     actions, target, acting = acts
-    g, gaps = bridge.build(d, bridge.game_combats(combats, d))
+    g, gaps = bridge.build(d, bridge.game_combats(combats, d), earlier=earlier)
     if gaps:
         return None
     try:
@@ -133,10 +133,16 @@ def main():
     by_card = collections.defaultdict(lambda: [0, 0, 0, 0])  # replays, mismatching, sum real, sum sim
     examples = {}
     n = ok = 0
+    turn, key = [], None
     for d, nxt in zip(rows, rows[1:]):
-        if (d["log"], d["segment"], d["turn"]) != (nxt["log"], nxt["segment"], nxt["turn"]):
+        k = (d["log"], d["segment"], d["turn"])
+        if k != key:
+            turn, key = [], k
+        earlier = list(turn)
+        turn.append(d)
+        if k != (nxt["log"], nxt["segment"], nxt["turn"]):
             continue
-        res = compare(d, nxt, combats)
+        res = compare(d, nxt, combats, earlier)
         if res is None:
             continue
         n += 1

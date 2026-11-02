@@ -20,7 +20,8 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, recruit_game, set_deities,
+from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, recruit_game, set_deities,
+                           turn_so_far,
                            set_side)
 
 SPELL_TYPES = ("SPELL", "BATTLEGROUND_SPELL")
@@ -135,7 +136,7 @@ def refresh_effects(p0, me):
     p0["effects"] = effects + [{"card": cid, "stacks": stacks}]
 
 
-def build(d, combats=(), seed=7):
+def build(d, combats=(), seed=7, earlier=()):
     """(game, gaps) for decision `d`; `combats` are the game's earlier combats
     (`game_combats`), which give the opponents' last seen warbands."""
     if choice_options(d)[0] == "hero":
@@ -211,6 +212,16 @@ def build(d, combats=(), seed=7):
     if d.get("deity"):  # the lobby's Deity, yours at its logged size (the others' unknown)
         set_deities(st, d["deity"], [(0, me)])
     refresh_effects(p0, me)
+    if earlier:  # what the turn's earlier decisions did that the log no longer shows
+        armed, owed = turn_so_far(earlier, dict(taverngym.layout()))
+        if len(p0["board"]) == len(me["board"]):
+            for m, logged in zip(p0["board"], me["board"]):
+                if armed.get(logged.get("eid")):
+                    m["counter"] = armed[logged["eid"]]
+        # (the offers' spare seat below is 7 in a full lobby: made elsewhere then)
+        scratch = 6 if len(seats(d)) >= 7 else 7
+        for power, minions in owed:
+            owe(g, st, 0, power, minions, scratch)
     # Maximum Gold above the round's (an effect that gave it for good): the next turns' Gold
     if me.get("max_gold") and me["max_gold"] > base_max:
         p0["max_gold_bonus"] = me["max_gold"] - base_max

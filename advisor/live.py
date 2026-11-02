@@ -121,10 +121,25 @@ class Tracker:
         return self._seen(d)
 
     def _seen(self, d):
-        """Note the Tavern's cards (the lobby's types) and attach all seen so far."""
+        """Note the Tavern's cards (the lobby's types) and attach all seen so far; keep the
+        turn's decisions (their chosen options fill in as you act: bridge.build reads what the
+        turn did, an armed Living Prison, a Lock and Load minion owed)."""
         self.tavern_seen.update(x["card"] for x in d["state"].get("shop", []) if x.get("card"))
         d["tavern_seen"] = sorted(self.tavern_seen)
+        key = (self.segment, d.get("turn"))
+        if key != getattr(self, "turn_key", None):
+            self.turn_key, self.turn_decisions = key, []
+        self.turn_decisions.append(d)
         return d
+
+    def earlier(self, d):
+        """The turn's decisions before `d`."""
+        out = []
+        for x in getattr(self, "turn_decisions", []):
+            if x is d:
+                break
+            out.append(x)
+        return out
 
     def open_choice(self, block):
         """The player's unanswered choice between minions inside an unfinished block (Dark
@@ -511,9 +526,9 @@ def second_option(candidates, first):
     return None
 
 
-def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)"):
+def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)", earlier=()):
     t0 = time.perf_counter()
-    g, gaps = bridge.build(d, bridge.game_combats(combats, d) if combats else ())
+    g, gaps = bridge.build(d, bridge.game_combats(combats, d) if combats else (), earlier=earlier)
     mask = json.loads(g.view(0))["mask"]
     if d["kind"] == "choices":  # a Discover: the real options are the pending choice
         client, allowed = set(), [bool(x) for x in mask]
@@ -657,7 +672,7 @@ def replay(path, skins, locale, live_dir=None, limit=None, policy=(None, "script
             d = tr.feed(line)
             if d is None:
                 continue
-            a = advise(d, tr.combats(), locale, *policy)
+            a = advise(d, tr.combats(), locale, *policy, earlier=tr.earlier(d))
             times.append(a["ms"])
             n += 1
             if live_dir:
@@ -704,7 +719,7 @@ def follow(log_dir, skins, locale, live_dir, poll=0.1, policy=(None, "scripted b
         if latest is not None and not tr.combat:  # only the newest decision matters after a burst
             try:
                 current = policy.get() if isinstance(policy, Policy) else policy
-                advice = advise(latest, tr.combats(), locale, *current)
+                advice = advise(latest, tr.combats(), locale, *current, earlier=tr.earlier(latest))
                 publish(advice, live_dir)
                 record(advice, latest, live_dir)
             except Exception as e:  # keep following; the next decision tries again

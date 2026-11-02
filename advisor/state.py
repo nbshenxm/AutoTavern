@@ -83,6 +83,52 @@ def set_deities(st, card, sides):
                                      "golden": False, "reborn": False}
 
 
+# Hero Powers that take a Tavern minion and bring it to the next combat (TavernGym: the player's
+# `owed` list): Lock and Load fires it at a random enemy minion
+OWED_POWERS = {"BG22_HERO_000p_Alt"}
+LIVING_PRISON = "BG36_180"
+
+
+def owe(g, st, p, power_card, minions, scratch=7):
+    """Put `minions` (logged Tavern minions) in seat `p`'s owed list of state JSON `st` for
+    `power_card`, each made in seat `scratch`'s hand (empty in a rebuild; emptied again)."""
+    for m in minions:
+        debug(g, cmd="clear_zone", p=scratch, zone="hand")
+        if add_minion(g, scratch, "hand", m, [], "owed"):
+            made = json.loads(g.state_json())["players"][scratch]["hand"][-1]["item"].get("Minion")
+            if made:
+                st["players"][p].setdefault("owed", []).append([CAT[power_card]["cid"], made, True])
+    debug(g, cmd="clear_zone", p=scratch, zone="hand")
+    st["players"][scratch]["hand"] = []
+
+
+def turn_so_far(earlier, L):
+    """From the turn's earlier Options decisions (in order, with their chosen options): (Living
+    Prisons' armed count by eid: activations since the last buy, the minions owed to the next
+    combat by power: [(power, [Tavern minions])]). The log shows neither once it happened."""
+    from advisor import turn_replay
+    armed, owed = {}, {}
+    for x in earlier:
+        ch = x.get("chosen") or {}
+        opts = x.get("options") or []
+        if x.get("kind") != "options" or not isinstance(ch.get("option"), int) or ch["option"] >= len(opts):
+            continue
+        e = opts[ch["option"]].get("entity") or {}
+        card = normal_form(e.get("card") or "")[0]
+        if card == LIVING_PRISON and e.get("owner") == "friendly":
+            armed[e.get("eid")] = armed.get(e.get("eid"), 0) + 1
+            continue
+        if card in OWED_POWERS and ch.get("target"):
+            m = next((s for s in x["state"].get("shop", []) if s.get("eid") == ch["target"].get("eid")), None)
+            if m is not None:
+                owed.setdefault(card, []).append(m)
+            continue
+        act = turn_replay.action_of(x, L)
+        if act and act[0] and L["A_BUY"] <= act[0][0] < L["A_BUY"] + L["N_SHOP"]:
+            armed = {}  # a buy: every armed Prison takes it
+    return armed, list(owed.items())
+
+
 def arm_powers(powers, logged, used):
     """Arm the ARMED_POWERS among `powers` (a player's state JSON powers, in the order of the
     logged `logged` hero powers) that `used(logged power)` says were used this turn."""
