@@ -67,8 +67,35 @@ static class Program
         input.SetTiers((int?)p["tier"] ?? 1, (int?)q["tier"] ?? 1);
         Fill(input.Player, (JArray)p["minions"], true, sim);
         Fill(input.Opponent, (JArray)q["minions"], false, sim);
+        Counters(input.Player, (JObject)p["counters"]);
+        Counters(input.Opponent, (JObject)q["counters"]);
+        Trinkets(input.Player, (JArray)p["trinkets"], true, sim);
+        Trinkets(input.Opponent, (JArray)q["trinkets"], false, sim);
         var n = (int?)j["n"] ?? 1000;
         return new SimulationRunner().SimulateMultiThreaded(input, n, 1, 20000).Result;
+    }
+
+    // Player-level "this game" counters by Bob's Buddy's property name (UndeadAttackBonus,
+    // VolumizerAtkBuff, TastyLobsterCounter, BloodGemAtkBuff...)
+    static void Counters(Player side, JObject counters)
+    {
+        if (counters == null) return;
+        foreach (var kv in counters)
+        {
+            var prop = typeof(Player).GetProperty(kv.Key);
+            if (prop != null && prop.CanWrite && prop.PropertyType == typeof(int))
+                prop.SetValue(side, (int)kv.Value);
+        }
+    }
+
+    static void Trinkets(Player side, JArray trinkets, bool friendly, Simulator sim)
+    {
+        if (trinkets == null) return;
+        foreach (var t in trinkets)
+        {
+            try { side.Trinkets.Add(sim.TrinketFactory.Create((string)t, friendly)); }
+            catch (Exception) { }  // a trinket Bob's Buddy doesn't model
+        }
     }
 
     static void Fill(Player side, JArray minions, bool friendly, Simulator sim)
