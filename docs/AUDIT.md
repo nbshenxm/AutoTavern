@@ -28,11 +28,15 @@ worth too much) whatever the network decides.
 | replay | Lock and Load's taken minion never owed to the combat | a minion short: p 0.43, 0.65 for logged wins | owed: 0.88, 0.84 |
 | TavernGym | Offensive / Defensive Sacrifice (Dark Gifts) could give the stats to the host itself when its Deathrattle was triggered while it lived (Deathstrider, Herald Sticker) | the host buffed itself | another friendly minion |
 | rebuild | Easterly Winds (Pocket Cyclone, Air Revenant: "after the Tavern is Refreshed this game, a random minion +9/+9", cast again and again) never rebuilt: the log keeps its per-Refresh total | a rebuilt position's Refreshes buffed nothing where the log had +110/+110 or +337/+337 | the total as TavernGym's stacks |
+| rebuild | each rebuilt Volumizer raised the player's Volumizer bonus again (its "when Magnetized" part ran), and a later re-sync took 2/2 off rebuilt Volumizers | Robot Magnetized oversized Volumizers; one action exact fell to 88.9% while fixing | counters and minions' stats set last: 93.6% |
+| rebuild | Volumizer stacks and Polarizing Beatboxer's echo enchantment counted as one Magnetization (the log sums them) | Beatboxer 581 of 5,008 real over the turn change | estimated counts: Robot 24.7k / 25.8k, Beatboxer 5.9k / 5.0k, Reveille 2.4k / 2.4k |
+| rebuild | an armed Living Prison and Lock and Load's owed minion are only in the turn's earlier decisions | a Kelp Keeper buy: Prison 215 rebuilt, 503 real | the rebuild (and the live advisor, recruit_diff) read the turn's decisions: 503 |
+| rebuild | "improve this" counters unread (Spark Snapper, Ultraviolet Ascendant, Sacrificial Wrathguard, Lurking Leviathan; Patient Scout, Sky Admiral Rogers) | every rebuilt one started at 0: a Snapper with 16 improvements gave a 4/6 Satellite (Gatekeeper Amalgam played 10/12, real 42/60) | read from the amount the log shows |
 | log parse + rebuild | the lobby's Deity and its size (player tags BACON_OLD_GOD_ATTACK/HEALTH) never read: rebuilt lobbies drew a random Deity at printed size | a Y'Shaarj where your lobby had a 7/4 C'Thun: a won fight at p 0.14 (Bob's Buddy 1.00) | the logged Deity and size |
 
 ## Results so far
 
-- One action: 93.4% of 2,278 logged actions exact; the big scalers within 0.1-3% in total stats
+- One action: 93.6% of 2,278 logged actions exact (93.4% before this round); the big scalers within 0.1-3% in total stats
   (Methodical Madness 308,908 real / 308,944).
 - Combat and the turn change: 0.92-1.05x the real growth through round 9, 0.86x from round 10
   (left: the Volumizer stack count, Tarecgosa's combat).
@@ -58,9 +62,10 @@ worth too much) whatever the network decides.
 
 - The +3.1 SD combat bias: 8 fights you won from < 45% (Pocket Cyclone, the Deathstrider-Lobster
   Beasts, an Undead board under Expedition Plans, ...)
-- Rebuild gaps: Blood Gem Barrage's stacks (the log keeps the Gem size, not the count); the Volumizer stack's Magnetization count (Beatboxer); Living Prison armed earlier
-  in the turn; Blood Gems that Gem Confiscation steals; Gatekeeper Amalgam played as printed
-  stats; Lock and Load in the live advice (needs the turn's decisions)
+- Rebuild gaps: Blood Gem Barrage's stacks (the log keeps the Gem size, not the count); Blood Gems
+  that Gem Confiscation steals (rebuilt minions hold Gem stats as plain stats); Volumizer counts
+  are estimates (+-15% per card); trinkets' take effects run again in a rebuild (cards in hand are
+  cleared; persistent effects other than Easterly Winds would double)
 - Card-text edge cases (likely): Guiding Candle's Tier 6 Refreshes skip other "when Refreshed" effects; Bob-blehead still offers
   Tier 1-2 spells; Ruby Tusk counts a doubled Gem twice
 - Card-text readings to confirm (unsure): Snake Eyes' lockout length; Galakrond / Token of the
