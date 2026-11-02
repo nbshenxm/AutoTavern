@@ -15,6 +15,8 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [ ] R3 (Nov 2 20:00): late >= 0.30x, from your positions < 2.45, Gold left <= 6 (big3: 0.19x, 2.36, 1.85)
 - [x] The late-game curve in the top-1% lobby (study --lobby library): big3 0.18x, the old best 0.17x; early 2.06x, mid 1.21x (old 1.87, 1.05)
 - [ ] Levelling: big3 is tier 2.8 at round 10 in that lobby (your lobbies 5.3, the old best 3.9). Level test running (office): made to Upgrade on a curve, does it place better?
+- [x] Why: every network gives Upgrade ~0.000 in your round 4-9 positions (inherited from the first self-play; forced exploration trained only the value). Self-imitation of forced Upgrades that pay (--explore-sil) added and tested
+- [ ] A run with it (big3 + --explore 0 0.03 --explore-sil 0.5): needs a GPU line (stop solo2 or big3?)
 - [ ] big3's entropy rose 0.85 -> 1.3, back to 0.96 at it 240; from your positions 2.20 (best 2.30): watching
 
 ## Later
