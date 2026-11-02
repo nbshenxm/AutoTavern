@@ -43,11 +43,13 @@ def main():
     ap.add_argument("--seed", type=int, default=51_000_000)
     ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--library", type=int, nargs="*", default=[])
+    ap.add_argument("--strength", type=float, default=1.0,
+                    help="the library's strength (advisor.library: 1 = toward the top 1%%, 0 = your lobbies as logged)")
     a = ap.parse_args()
     base = dict(CONFIG)
     if a.library:
         from advisor import library
-        base["library"] = library.library(a.library, comps=True)
+        base["library"] = library.library(a.library, strength=a.strength, comps=a.strength >= 1)
     t = teacher.config(seats=[0])
     res = {}
     for name, turns in CURVES.items():

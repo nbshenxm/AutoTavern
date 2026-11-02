@@ -21,8 +21,11 @@ from advisor.policy import load
 
 ROOT = Path(__file__).resolve().parents[1]
 L = dict(taverngym.layout())
-KINDS = ["refresh", "buy", "sell", "play", "upgrade", "activate", "hero_power", "freeze"]
+KINDS = ["refresh", "buy", "sell", "play", "upgrade", "activate", "hero_power", "freeze", "dark_gift"]
 BANDS = [("rounds 7-9", range(7, 10)), ("rounds 10-12", range(10, 13)), ("rounds 13+", range(13, 30))]
+# --early: the opening (your note, Nov 2: too many Freezes for early triples, weak minions bought
+# where an Upgrade or a Dark Gift was better, Health not traded under the 5/10/15 damage caps)
+EARLY_BANDS = [("rounds 2-3", range(2, 4)), ("rounds 4-6", range(4, 7))]
 
 
 def kind_of(a):
@@ -34,6 +37,8 @@ def kind_of(a):
         return "freeze"
     if a in (L["A_HERO_POWER"], L["A_HERO_POWER"] + 1):
         return "hero_power"
+    if a == L["A_DARK_GIFT"]:
+        return "dark_gift"
     if L["A_BUY"] <= a < L["A_BUY"] + L["N_SHOP"]:
         return "buy"
     if L["A_SELL"] <= a < L["A_SELL"] + L["N_BOARD"]:
@@ -59,6 +64,8 @@ def logged_kind(d):
         return "upgrade"
     if "LockAll" in card:
         return "freeze"
+    if "DarkGift" in card:
+        return "dark_gift"
     if card.startswith("TB_BaconShop_DragBuy"):
         return "buy"
     if card == "TB_BaconShop_DragSell":
@@ -139,7 +146,11 @@ def main():
     ap.add_argument("--decisions", default=str(ROOT / "data" / "replay" / "decisions.jsonl"))
     ap.add_argument("--combats", default=str(ROOT / "data" / "replay" / "combats.jsonl"))
     ap.add_argument("--json", help="write the table here too")
+    ap.add_argument("--early", action="store_true", help="the opening: rounds 2-6 (EARLY_BANDS)")
     a = ap.parse_args()
+    global BANDS
+    if a.early:
+        BANDS = EARLY_BANDS
     from advisor.train import wait_while_playing
     torch.set_num_threads(4)
     net, ck = load(a.checkpoint)
@@ -147,7 +158,7 @@ def main():
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
     turns = collections.defaultdict(list)
     for d in rows:
-        if d["kind"] == "options" and d["turn"] % 2 == 1 and (d["turn"] + 1) // 2 >= 7:
+        if d["kind"] == "options" and d["turn"] % 2 == 1 and (d["turn"] + 1) // 2 >= BANDS[0][1][0]:
             turns[(d["log"], d["segment"], d["turn"])].append(d)
     acc = {b: {"you": collections.Counter(), "net": collections.Counter(), "n": 0,
                "gold_you": [], "gold_net": [], "buys_you": [], "buys_net": []} for b, _ in BANDS}
