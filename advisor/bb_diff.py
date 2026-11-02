@@ -55,7 +55,12 @@ def combat_trinkets():
                   and c.get("reachable") and rx.search(c.get("text") or ""))
 
 
-def fight(rng, by_tier, k, trinkets=()):
+# Hero Powers that act in combat by themselves (passive: no activation, no choice)
+COMBAT_POWERS = ("BG20_HERO_282p", "BG22_HERO_002p", "BG22_HERO_003p", "BG22_HERO_305p", "BG23_HERO_201p",
+                 "TB_BaconShop_HP_037a", "TB_BaconShop_HP_061", "TB_BaconShop_HP_069", "TB_BaconShop_HP_086")
+
+
+def fight(rng, by_tier, k, trinkets=(), powers=()):
     tier = rng.randint(2, 6)
     t2 = min(6, max(2, tier + rng.choice((-1, 0, 0, 1))))
     sides = []
@@ -63,6 +68,8 @@ def fight(rng, by_tier, k, trinkets=()):
         side = {"tier": t, "health": 30, "minions": board(rng, by_tier, t)}
         if trinkets and rng.random() < 0.6:
             side["trinkets"] = rng.sample(trinkets, rng.randint(1, 2))
+        if powers and rng.random() < 0.6:
+            side["hero_powers"] = [{"card": rng.choice(powers)}]
         sides.append(side)
     return {"id": k, "turn": 2 * tier + rng.randint(0, 2), "player": sides[0], "opponent": sides[1]}
 
@@ -75,6 +82,8 @@ def taverngym(f, n, seed):
         debug(g, cmd="set_player", p=p, tier=side["tier"], health=side["health"])
         for t in side.get("trinkets", []):
             debug(g, cmd="give_trinket", p=p, card=t)
+        for i, h in enumerate(side.get("hero_powers", [])):
+            debug(g, cmd="set_hero_power", p=p, slot=i, card=h["card"])
         debug(g, cmd="clear_zone", p=p, zone="board")
         for m in side["minions"]:
             debug(g, cmd="add_minion", p=p, zone="board", card=m["card"], no_triple=True)
@@ -91,6 +100,7 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out", default=str(ROOT / "data" / "progress" / "bb_diff.jsonl"))
     ap.add_argument("--trinkets", action="store_true", help="each side 0-2 combat trinkets (combat_trinkets)")
+    ap.add_argument("--powers", action="store_true", help="each side maybe a combat Hero Power (COMBAT_POWERS)")
     a = ap.parse_args()
     rng = random.Random(a.seed)
     by_tier = pool()
@@ -103,7 +113,7 @@ def main():
             if r.get("seed") == a.seed:
                 done[r["id"]] = r
     trinkets = combat_trinkets() if a.trinkets else ()
-    fights = [fight(rng, by_tier, k, trinkets) for k in range(a.fights)]
+    fights = [fight(rng, by_tier, k, trinkets, COMBAT_POWERS if a.powers else ()) for k in range(a.fights)]
     todo = [f for f in fights if f["id"] not in done]
     if todo:
         bb = subprocess.Popen([str(EXE)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
@@ -141,7 +151,8 @@ def report(rows, n):
     cards = collections.defaultdict(list)
     for r, x in zip(ok, d):
         for sign, side in ((1, "player"), (-1, "opponent")):
-            for c in {m["card"] for m in r["fight"][side]["minions"]} | set(r["fight"][side].get("trinkets", [])):
+            for c in ({m["card"] for m in r["fight"][side]["minions"]} | set(r["fight"][side].get("trinkets", []))
+                      | {h["card"] for h in r["fight"][side].get("hero_powers", [])}):
                 cards[c].append(sign * x)
     rows_ = []
     for c, xs in cards.items():

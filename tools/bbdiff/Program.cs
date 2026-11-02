@@ -71,6 +71,8 @@ static class Program
         Counters(input.Opponent, (JObject)q["counters"]);
         Trinkets(input.Player, (JArray)p["trinkets"], true, sim);
         Trinkets(input.Opponent, (JArray)q["trinkets"], false, sim);
+        HeroPowers(input.Player, (JArray)p["hero_powers"], true);
+        HeroPowers(input.Opponent, (JArray)q["hero_powers"], false);
         var n = (int?)j["n"] ?? 1000;
         return new SimulationRunner().SimulateMultiThreaded(input, n, 1, 20000).Result;
     }
@@ -96,6 +98,15 @@ static class Program
             try { side.Trinkets.Add(sim.TrinketFactory.Create((string)t, friendly)); }
             catch (Exception) { }  // a trinket Bob's Buddy doesn't model
         }
+    }
+
+    // {"card": id, "activated": bool, "data": n, "data2": n}
+    static void HeroPowers(Player side, JArray powers, bool friendly)
+    {
+        if (powers == null) return;
+        foreach (JObject h in powers)
+            side.AddHeroPower((string)h["card"], friendly, (bool?)h["activated"] ?? false,
+                              (int?)h["data"] ?? 0, (int?)h["data2"] ?? 0);
     }
 
     static void Fill(Player side, JArray minions, bool friendly, Simulator sim)
