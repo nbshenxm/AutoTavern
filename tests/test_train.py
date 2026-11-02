@@ -779,3 +779,16 @@ def test_a_card_lost_to_a_full_hand_costs_its_penalty():
     r, _, _ = env.step(np.array([a]))
     lost = _json.loads(env.save(0))["game"]["players"][0]["stats"]["cards_lost"]
     assert lost == 2 and abs(float(r[0]) - (-0.10)) < 1e-6, (lost, r)
+
+
+def test_the_early_library_is_your_lobbies_then_the_top():
+    # --library-early START FULL: your lobbies' median through START, the top curve from FULL
+    from advisor import library
+
+    top = {r: 100.0 * r for r in range(1, 15)}
+    path = Path(__file__).resolve().parents[1] / "data" / "library" / "boards.json"
+    if not path.exists():
+        pytest.skip("no library boards")
+    e = library.early_curve(6, 10, path=path, curve=top)
+    assert e[10] == top[10] and e[14] == top[14]
+    assert all(e[r] != top[r] or r >= 10 for r in (2, 4, 6))  # (the logged median, not the top)

@@ -145,6 +145,29 @@ def _scaled(m, f):
     return m
 
 
+def early_curve(start, full, path=BOARDS, curve=None):
+    """The library's target by round: your lobbies' median warband (the logged boards) through
+    round `start`, rising linearly to the top 1%'s (`curve`) by round `full`. Your lobbies are
+    about average through round 8 and the top 1% up to 1.7x stronger (scale_factors): against
+    top-1% openings from round 1, filling the warband and freezing pays, levelling and trading
+    Health under the early damage caps doesn't (the networks Freeze 5-8x as often as you in
+    rounds 2-6 and never Upgrade; Nov 2)."""
+    import statistics
+    if curve is None:
+        from advisor import meta
+        curve = meta.warband_curve()
+    boards = json.loads(Path(path).read_text(encoding="utf-8"))
+    by_round = collections.defaultdict(list)
+    for b in boards:
+        by_round[b["round"]].append(sum(m["atk"] + m["hp"] for m in b["minions"]))
+    out = {}
+    for r, top in curve.items():
+        mine = statistics.median(by_round[r]) if by_round.get(r) else top
+        w = 0.0 if r <= start else 1.0 if r >= full else (r - start) / (full - start)
+        out[r] = mine + w * (top - mine)
+    return out
+
+
 def adaptive_curve(learner, margin, curve=None, min_n=50):
     """The library's curve for a learner whose warband's Attack+Health by round has the medians
     `learner` ({round: [stats]}): `margin` times its median, never above the top 1%'s (`curve`),

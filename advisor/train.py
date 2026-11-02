@@ -691,6 +691,9 @@ def main():
                     help="the training library's curve: MARGIN x the learner's own median warband by "
                          "round, at most the top 1%%'s (advisor.library.adaptive_curve); evaluations keep "
                          "the full strength")
+    ap.add_argument("--library-early", type=int, nargs=2, default=None, metavar=("START", "FULL"),
+                    help="the training library at your lobbies' logged strength through round START, "
+                         "rising to the top 1%% by round FULL (advisor.library.early_curve)")
     ap.add_argument("--adaptive-every", type=int, default=10, metavar="N",
                     help="iterations between --library-adaptive's recalibrations")
     ap.add_argument("--wasted-gold", type=float, default=WASTED_GOLD, metavar="COEF",
@@ -793,7 +796,10 @@ def main():
         lib_version = library.BOARDS.stat().st_mtime_ns
         lib_curve = None  # (--library-adaptive: set by the first recalibration)
 
+        base_curve = library.early_curve(*a.library_early) if a.library_early else None
+
         def lib_config(curve=None):
+            curve = curve if curve is not None else base_curve
             floor = 0.02 if curve is not None else 1.0
             return {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength,
                                                             comps=a.library_comps, curve=curve,
@@ -840,7 +846,7 @@ def main():
             # library's new curve: new games with them
             lib_version = library.BOARDS.stat().st_mtime_ns
             if recalibrate:
-                lib_curve = library.adaptive_curve(learner, a.library_adaptive)
+                lib_curve = library.adaptive_curve(learner, a.library_adaptive, base_curve)
                 log({"adaptive": {r: round(v) for r, v in lib_curve.items()},
                      "learner": {r: round(float(np.median(x))) for r, x in sorted(learner.items()) if len(x) >= 50}})
             train_config = lib_config(lib_curve)
