@@ -36,7 +36,7 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [x] Rebuild: Blood Gems kept apart (Gem Confiscation 7 of 7), improve-this counters, Living Prison and Lock and Load from the turn's decisions
 - [ ] Your opening (Nov 2): networks Freeze 5-8x as often as you in rounds 2-6, never Upgrade (you 0.55/turn), buy more off-type minions. Rules checked (damage caps 5/10/15, Triple Reward Tier on play): right. big3open (office, from 16:00): the opening lobby at your lobbies' strength, measured with compare_play --early
 - [ ] Rebuild the home module when the advisor is closed (Vol'jin fix needs it); restart the advisor for the Satellite/Volumizer fixes
-- [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
+- [ ] R3 (tonight, at your check-in): big3 it 510 unless big3ad or big3open beats it head to head; their opening measured (compare_play --early)
 
 ## Later
 
