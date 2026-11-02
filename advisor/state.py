@@ -341,13 +341,15 @@ def set_side(g, p, s, gaps, label):
     stats = player_stats(s)
     if stats:
         debug(g, cmd="set_stats", p=p, stats=stats)
-    for m in s["board"][:7]:
-        add_minion(g, p, "board", m, gaps, label)
-    for m in s.get("hand", [])[:10]:
-        add_minion(g, p, "hand", m, gaps, label)
+    made = []  # (zone, index, logged minion)
+    for zone_name, minions in (("board", s["board"][:7]), ("hand", s.get("hand", [])[:10])):
+        for m in minions:
+            if add_minion(g, p, zone_name, m, gaps, label):
+                made.append((zone_name, len(zone(g, p, zone_name)) - 1, m))
     # Rebuilding attachments runs their "when Magnetized" part: each Volumizer raised the
     # player's Volumizer bonus again (a rebuilt Resourceful Robot then Magnetized oversized
-    # Volumizers). The logged counters are the truth: set them again
+    # Volumizers). The logged counters are the truth: set them again (the minions' logged stats
+    # are set again last)
     if stats:
         debug(g, cmd="set_stats", p=p, stats=stats)
     # The client's Tavern spell bonus is the total; TavernGym adds the warband's and trinkets'
@@ -356,3 +358,8 @@ def set_side(g, p, s, gaps, label):
         a, h = debug(g, cmd="spell_extra", p=p)
         debug(g, cmd="set_stats", p=p, stats={"spell_atk": max(0, 2 * s.get("spell_atk", 0) - a),
                                               "spell_hp": max(0, 2 * s.get("spell_hp", 0) - h)})
+    # Last: the minions' logged stats (each set_stats re-syncs "this game" bonuses against what
+    # a minion had when made, inflated while its attachments ran; a later re-sync took 2/2 off
+    # every rebuilt Volumizer)
+    for zone_name, i, m in made:
+        debug(g, cmd="edit_minion", p=p, zone=zone_name, index=i, atk=m["atk"], hp=max(1, m["hp"]))
