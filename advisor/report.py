@@ -41,6 +41,7 @@ RUNS = {  # the runs worth a line on the chart: what each one is
     "solo1": "AutoTavern's setup: alone against seven library seats, their PPO settings (cluster)",
     "solo2": "solo1 restarted from before the Cancel hack (cluster)",
     "big3": "a 10x larger network (d384 x 8) distilled from solo1, then solo1's setup: R2",
+    "big3sil": "big3 + forced Upgrades and self-imitation of the ones that paid (cluster)",
 }
 # Checks of the simulator against your logs (docs/REPLAY.md); remade by hand when rerun
 # Bugs the audits found and fixed (docs/ROBUSTNESS.md): date, what was wrong, what it did, found by
