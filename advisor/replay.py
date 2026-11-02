@@ -18,7 +18,8 @@ import json
 import sys
 from pathlib import Path
 
-from advisor.state import OWED_POWERS, arm_powers, damage_cap, debug, owe, recruit_game, set_deities, set_side
+from advisor.state import (OWED_POWERS, arm_powers, damage_cap, debug, owe, power_state, recruit_game, set_deities,
+                           set_side)
 
 SURPRISE = 0.02
 SIDES = ("friendly", "opponent")
@@ -34,16 +35,16 @@ def setup(c, snap, seed, used=(), owed=()):
     debug(g, cmd="set_turn", turn=max(1, c["turn"] // 2))
     for p, side in enumerate(SIDES):
         set_side(g, p, snap[side], gaps, side)
-    if used or owed or c.get("deity"):
-        import taverngym
-        st = json.loads(g.state_json())
-        set_deities(st, c.get("deity"), [(0, snap["friendly"]), (1, snap["opponent"])])
-        arm_powers(st["players"][0]["powers"], snap["friendly"].get("hero_powers", []),
-                   lambda h: h.get("card") in used)
-        for power, minions in owed:
-            owe(g, st, 0, power, minions)
-        g = taverngym.Game.from_json(json.dumps(st))
-    return g, gaps
+    import taverngym
+    st = json.loads(g.state_json())
+    for p, side in enumerate(SIDES):
+        power_state(st["players"][p]["powers"], snap[side].get("hero_powers", []))
+    set_deities(st, c.get("deity"), [(0, snap["friendly"]), (1, snap["opponent"])])
+    arm_powers(st["players"][0]["powers"], snap["friendly"].get("hero_powers", []),
+               lambda h: h.get("card") in used)
+    for power, minions in owed:
+        owe(g, st, 0, power, minions)
+    return taverngym.Game.from_json(json.dumps(st)), gaps
 
 
 def owed_minions(decisions):

@@ -129,6 +129,21 @@ def turn_so_far(earlier, L):
     return armed, list(owed.items())
 
 
+# Hero Powers whose improvements the log shows (TAG_SCRIPT_DATA_NUM_3: what they give now):
+# the TavernGym field and its value. Unread, a rebuilt Wax Warband gave +1/+1 per type where your
+# logged ones gave up to +11/+11 (a combat's Start of Combat: +40 real, +4 rebuilt)
+POWER_FROM_DATA = {"TB_BaconShop_HP_037a": ("uses_game", lambda d: d[2] - 1)}
+
+
+def power_state(powers, logged):
+    """Set what the log shows of each Hero Power (POWER_FROM_DATA) in state JSON `powers`."""
+    for power, h in zip(powers, logged):
+        f = POWER_FROM_DATA.get(h.get("card"))
+        data = h.get("data") or []
+        if f and len(data) >= 3 and data[2] > 0:
+            power[f[0]] = max(0, f[1](data))
+
+
 def arm_powers(powers, logged, used):
     """Arm the ARMED_POWERS among `powers` (a player's state JSON powers, in the order of the
     logged `logged` hero powers) that `used(logged power)` says were used this turn."""

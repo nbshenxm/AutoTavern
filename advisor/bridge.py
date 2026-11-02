@@ -20,7 +20,8 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, recruit_game, set_deities,
+from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, power_state, recruit_game,
+                           set_deities,
                            turn_so_far,
                            set_side)
 
@@ -314,6 +315,7 @@ def build(d, combats=(), seed=7, earlier=()):
         if x.get("kind") != "minion" and x.get("cost") is not None and base is not None                 and x["cost"] != base:
             slot["price"] = int(x["cost"])
     arm_powers(p0["powers"], me["hero_powers"], lambda h: h.get("exhausted"))
+    power_state(p0["powers"], me["hero_powers"])
     for power, logged in zip(p0["powers"], me["hero_powers"]):
         if logged.get("exhausted"):
             power["uses_turn"] = max(1, power.get("uses_turn", 0))
