@@ -111,9 +111,10 @@ def build(combats):
 STRENGTH, MAX_SCALE = 1.0, 3.0
 
 
-def scale_factors(boards, strength=STRENGTH, curve=None):
+def scale_factors(boards, strength=STRENGTH, curve=None, floor=1.0):
     """round -> the factor this round's boards' stats are multiplied by: toward `curve` (the top
-    1%'s average by round), from the median of the boards of that round."""
+    1%'s average by round), from the median of the boards of that round; at least `floor` (below
+    1: boards may be made weaker than logged, toward an adaptive curve)."""
     import statistics
     if curve is None:
         from advisor import meta
@@ -128,18 +129,41 @@ def scale_factors(boards, strength=STRENGTH, curve=None):
             out[r] = 1.0
             continue
         target = mine + strength * (top - mine)
-        out[r] = min(MAX_SCALE, max(1.0, target / mine))
+        out[r] = min(MAX_SCALE, max(floor, target / mine))
     return out
 
 
 def _scaled(m, f):
-    if f <= 1.0:
+    if f == 1.0:
         return m
     m = dict(m)
     for k in ("atk", "hp", "max_hp"):
-        m[k] = round(m[k] * f)
+        m[k] = max(1 if k != "atk" else 0, round(m[k] * f))
+    if f < 1.0:
+        m["peak_atk"], m["peak_hp"] = round(m["peak_atk"] * f), round(m["peak_hp"] * f)
     m["peak_atk"], m["peak_hp"] = max(m["peak_atk"], m["atk"]), max(m["peak_hp"], m["hp"])
     return m
+
+
+def adaptive_curve(learner, margin, curve=None, min_n=50):
+    """The library's curve for a learner whose warband's Attack+Health by round has the medians
+    `learner` ({round: [stats]}): `margin` times its median, never above the top 1%'s (`curve`),
+    never falling from one round to the next; rounds with fewer than `min_n` samples keep the
+    top 1%'s. Real lobbies' late warbands (15k stats by round 13) are beyond anything a
+    simulated player builds (advisor.level_bots): against them the late game is lost whatever
+    one does, so investing in it (levelling, an engine) never pays. Against a lobby a little
+    stronger than itself, it does; the lobby rises as the learner does (AutoTavern recalibrated
+    their library seats the same way)."""
+    import statistics
+    if curve is None:
+        from advisor import meta
+        curve = meta.warband_curve()
+    out, prev = {}, 0.0
+    for r in sorted(curve):
+        xs = learner.get(r) or []
+        t = curve[r] if len(xs) < min_n else min(curve[r], margin * statistics.median(xs))
+        out[r] = prev = max(prev, float(t), 1.0)
+    return out
 
 
 # A comp seat's Tavern Tier by round (a quick top player's curve; Tier 6 from round 10)
@@ -222,16 +246,17 @@ def zone_of(g, p=1):
     return json.loads(g.state_json())["players"][p]["board"]
 
 
-def library(seats, path=BOARDS, strength=STRENGTH, curve=None, comps=False):
+def library(seats, path=BOARDS, strength=STRENGTH, curve=None, comps=False, floor=1.0):
     """The `library` entry of a RulesConfig: `seats` fight with the boards in `path`, each seat
     following one real player (track) all game, the stats scaled toward the top 1% by round
     (`strength`; 0 = as logged), and grown along that curve between the rounds a player was seen.
-    `comps`: the curated comps' warbands too (comp_boards), each a player to follow."""
+    `comps`: the curated comps' warbands too (comp_boards), each a player to follow. `floor`:
+    the least scale factor (adaptive_curve: below 1)."""
     if curve is None:
         from advisor import meta
         curve = meta.warband_curve()
     boards = json.loads(Path(path).read_text(encoding="utf-8"))
-    factors = scale_factors(boards, strength, curve) if strength else {}
+    factors = scale_factors(boards, strength, curve, floor) if strength else {}
     if comps:  # curated comps' warbands, already at the top 1%'s strength (not scaled again)
         boards += comp_boards(curve=curve)
     ids = {t: i + 1 for i, t in enumerate(sorted({b["track"] for b in boards if b.get("track")}))}

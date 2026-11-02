@@ -390,6 +390,37 @@ def test_the_real_positions_promotion_pair(monkeypatch):
     assert r["n"] == 4 and r["diff"] == 0 and not promote.real_better(r)
 
 
+def test_the_adaptive_library_follows_the_learner_late_and_the_top_early(tmp_path):
+    # --library-adaptive: each round's boards scaled to MARGIN x the learner's median, never
+    # above the top curve, never falling round to round; too few samples: the top curve
+    import json as _json
+
+    import taverngym
+    from advisor import library
+
+    top = {r: 100.0 * r for r in range(1, 15)}
+    learner = {5: [1000] * 60, 10: [200] * 60, 12: [300] * 10}
+    curve = library.adaptive_curve(learner, 1.5, top)
+    assert curve[5] == 500 and curve[9] == 900  # the learner leads: the top curve
+    assert curve[10] == 900  # 1.5 x 200 = 300, but never below round 9's
+    assert curve[12] == 1200  # 10 samples: the top curve
+    g = taverngym.Game(1, _json.dumps(train.CONFIG))
+    for _ in range(200):
+        for s in range(8):
+            if g.needs_action(s):
+                g.step(s, g.bot_action(s))
+    template = next(m for p in _json.loads(g.state_json())["players"] for m in p["board"])
+    boards = [{"round": r, "tier": 3, "minions": [{**template, "atk": 50 * r, "hp": 50 * r}] * 2}
+              for r in range(1, 15)]
+    path = tmp_path / "boards.json"
+    path.write_text(_json.dumps(boards))
+    low = {r: 20.0 * r for r in range(1, 15)}  # a fifth of the boards' 200 x r
+    lib = library.library([7], path, curve=low, floor=0.02)
+    by_round = {b["round"]: sum(m["atk"] + m["hp"] for m in b["minions"]) for b in lib["boards"]}
+    assert by_round[10] == 200 and by_round[5] == 100
+    assert library.library([7], path, curve=low)["boards"][9]["minions"][0]["atk"] == 500  # floor 1
+
+
 def test_a_library_seat_follows_one_player(tmp_path):
     # Boards of two tracks (Attack = 100 * track + round): a library seat's warband comes from
     # one track all game, the latest round up to the current one, grown by the curve in between

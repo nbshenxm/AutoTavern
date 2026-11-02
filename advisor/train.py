@@ -683,6 +683,12 @@ def main():
                     help="library warbands scaled toward the top 1%% by round (0 = as logged)")
     ap.add_argument("--library-comps", action="store_true",
                     help="library seats also play the curated comps (advisor.library.comp_boards)")
+    ap.add_argument("--library-adaptive", type=float, default=0.0, metavar="MARGIN",
+                    help="the training library's curve: MARGIN x the learner's own median warband by "
+                         "round, at most the top 1%%'s (advisor.library.adaptive_curve); evaluations keep "
+                         "the full strength")
+    ap.add_argument("--adaptive-every", type=int, default=10, metavar="N",
+                    help="iterations between --library-adaptive's recalibrations")
     ap.add_argument("--wasted-gold", type=float, default=WASTED_GOLD, metavar="COEF",
                     help="the cost per Gold left at End Turn while a buy or Refresh is legal (0: placement only, "
                          "AutoTavern's reward)")
@@ -781,7 +787,15 @@ def main():
     if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
         from advisor import library
         lib_version = library.BOARDS.stat().st_mtime_ns
-        train_config = {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength, comps=a.library_comps), "skip_recruit": a.solo}}
+        lib_curve = None  # (--library-adaptive: set by the first recalibration)
+
+        def lib_config(curve=None):
+            floor = 0.02 if curve is not None else 1.0
+            return {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength,
+                                                            comps=a.library_comps, curve=curve,
+                                                            floor=floor),
+                                          "skip_recruit": a.solo}}
+        train_config = lib_config()
     env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it0, controlled=controlled,
                    config=train_config, threads=a.threads)
     env.card_lost_penalty = -a.card_lost
@@ -805,6 +819,9 @@ def main():
     anchor_from = (ck.get("anchor_from") if a.resume else None) or it0 + a.critic_warmup
     log({"start": a.run, "params": sum(p.numel() for p in net.parameters()), "device": a.device,
          "iteration": it0, "slots": env.n_slots})
+    # --library-adaptive: the learner's warband (seat 0's Attack+Health) by round, recent games
+    import collections
+    learner = collections.defaultdict(lambda: collections.deque(maxlen=3000))
     if it0 == 0:
         log({"iteration": 0, "eval": evaluate(net, a.device, a.eval_episodes, threads=a.threads)})
     it = it0
@@ -812,10 +829,17 @@ def main():
         wait_while_playing(log)
         it += 1
         ts = time.time()
-        if a.library and library.BOARDS.stat().st_mtime_ns != lib_version:
-            # New real warbands (the home sync uploads them after you play): new games with them
+        recalibrate = (a.library_adaptive and it % a.adaptive_every == 0
+                       and sum(len(x) for x in learner.values()) >= 1000)
+        if a.library and (library.BOARDS.stat().st_mtime_ns != lib_version or recalibrate):
+            # New real warbands (the home sync uploads them after you play), or the adaptive
+            # library's new curve: new games with them
             lib_version = library.BOARDS.stat().st_mtime_ns
-            train_config = {**CONFIG, "library": {**library.library(a.library, strength=a.library_strength, comps=a.library_comps), "skip_recruit": a.solo}}
+            if recalibrate:
+                lib_curve = library.adaptive_curve(learner, a.library_adaptive)
+                log({"adaptive": {r: round(v) for r, v in lib_curve.items()},
+                     "learner": {r: round(float(np.median(x))) for r, x in sorted(learner.items()) if len(x) >= 50}})
+            train_config = lib_config(lib_curve)
             env = BatchEnv(a.games, seed=a.seed * 1_000_003 + it, controlled=controlled,
                            config=train_config, threads=a.threads)
             env.card_lost_penalty = -a.card_lost
@@ -831,6 +855,11 @@ def main():
                                   explore=a.explore)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
+        if a.library_adaptive:  # one look at each game's seat 0, wherever it is
+            for gi in range(env.n_games):
+                v = json.loads(env.game(gi).view(0))
+                if v["me"]["alive"] and v["turn"] and v["me"]["board"]:
+                    learner[v["turn"]].append(sum(m["atk"] + m["hp"] for m in v["me"]["board"]))
         batch = advantages(seats, a.gamma, a.lam)
         tc = time.time()
         net.train()
