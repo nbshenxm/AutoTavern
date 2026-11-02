@@ -30,6 +30,8 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [ ] Open: Volumizer stacks' Magnetization count (Beatboxer), Living Prison, Gatekeeper Amalgam, Bramble Tunneler; Tarecgosa (combat)
 - [x] Combats calibrated: fixed Hero Powers armed for the next combat (Y'Shaarj) and Lock and Load's owed minion; TavernGym still underrates your side by ~9 wins of 212 (3.1 SD)
 - [ ] The 8 fights you won from < 45%: case by case (Pocket Cyclone, Deathstrider-Lobster, Undead under Expedition Plans...)
+- [x] Audit (docs/AUDIT.md): card-text review of ~700 scripts (no scaling contradiction; Sacrifice fixed); Bob's Buddy on 6,000 random warbands (mean |diff| 0.038; both strong outliers decided by your logs for TavernGym); the Deity rebuilt (combats +3.1 -> +2.9 SD)
+- [ ] Audit next: the rest of the +2.9 SD (close fights); spells, trinkets and Hero Powers with few log checks
 - [ ] Rebuild the home module when the advisor is closed (Vol'jin fix needs it); restart the advisor for the Satellite/Volumizer fixes
 - [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
 
