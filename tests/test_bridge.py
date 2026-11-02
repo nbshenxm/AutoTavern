@@ -234,3 +234,19 @@ def test_easterly_winds_is_rebuilt_as_its_stacks():
     p0 = {"effects": []}
     bridge.refresh_effects(p0, {"player_ench": [{"card": "BG34_854pe", "data": [110, 110]}], "spell_atk": 2})
     assert p0["effects"][0]["stacks"] == 10
+
+
+def test_rebuilt_volumizers_leave_the_logged_bonus_alone():
+    # Attaching a Volumizer runs its "first time Magnetized" bonus; a rebuild must end with the
+    # logged bonus, and a stacked Volumizer enchantment stands for several Magnetizations
+    from advisor.state import recruit_game, set_side
+
+    g = recruit_game(1)
+    robot = {"card": "BG36_366", "atk": 300, "hp": 300, "max_hp": 300, "golden": False, "keywords": [],
+             "ench": [{"card": "BG34_170t3e", "data": [68, 50]}, {"card": "BG34_170te", "data": [42, 29]}]}
+    side = {"board": [robot], "hand": [], "hero_powers": [], "trinkets": [], "player_ench": [],
+            "volumizer": [28, 19], "hero": "TB_BaconShop_HERO_27", "tier": 5, "health": 20}
+    set_side(g, 0, side, [], "test")
+    p = json.loads(g.state_json())["players"][0]
+    assert (p["stats"]["volumizer_atk"], p["stats"]["volumizer_hp"]) == (28, 19)
+    assert len(p["board"][0]["attached"]) > 2 and (p["board"][0]["atk"], p["board"][0]["hp"]) == (300, 300)

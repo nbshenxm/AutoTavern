@@ -53,6 +53,10 @@ PLAYER_ENCHANTMENTS = {
 }
 TASTY_LOBSTER = "BG36_202"
 VOLUMIZERS = ("BG34_170t", "BG34_170t2", "BG34_170t3")  # Red, Blue, Green
+# Polarizing Beatboxer keeps the Magnetizations it echoes in one enchantment of its own (their
+# summed stats): rebuilt as that many Magnetizations (Utility Drone counts them), estimated as
+# Volumizers, the usual echo. Ignored, Utility Drone gave a Beatboxer nothing (+40/+50 real)
+BEATBOXER_ECHO, ECHO_AS = "BG26_149e", "BG34_170t3"
 # Enchantments whose first number is Attack until the owner's next turn: shown in the logged
 # Attack, gone at the next turn's start (advisor.carry_test: the only such one in the logs, 27 of
 # 29 drops equal to it). Rebuilt as permanent, a swapped minion kept thousands of Attack.
@@ -242,6 +246,10 @@ def add_minion(g, p, where, m, gaps, label):
     idx = len(zone(g, p, where)) - 1
     gifts = set()
     for e in m["ench"]:
+        if e["card"] == BEATBOXER_ECHO:  # its echoes: one enchantment, their summed stats
+            for _ in range(volumizers(e, ECHO_AS, g, p)):
+                debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=ECHO_AS)
+            continue
         a = attachment(e["card"])
         if a and not (a in gifts and CAT[a]["kind"] == "dark_gift"):  # a gift once, its e2/e3 too
             gifts.add(a)
@@ -291,6 +299,11 @@ def set_side(g, p, s, gaps, label):
         add_minion(g, p, "board", m, gaps, label)
     for m in s.get("hand", [])[:10]:
         add_minion(g, p, "hand", m, gaps, label)
+    # Rebuilding attachments runs their "when Magnetized" part: each Volumizer raised the
+    # player's Volumizer bonus again (a rebuilt Resourceful Robot then Magnetized oversized
+    # Volumizers). The logged counters are the truth: set them again
+    if stats:
+        debug(g, cmd="set_stats", p=p, stats=stats)
     # The client's Tavern spell bonus is the total; TavernGym adds the warband's and trinkets'
     # part (Humon'gozz, Enchanted Sentinel, Heart of the Forest...) to its this-game bonus
     if s.get("spell_atk") or s.get("spell_hp"):
