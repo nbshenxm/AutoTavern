@@ -80,9 +80,9 @@ static class Program
             var minion = factory.CreateFromCardId(card, friendly);
             minion.baseAttack = (int)m["atk"];
             minion.baseHealth = (int)m["hp"];
-            minion.golden = (bool?)m["golden"] ?? false;
+            minion.golden = (bool?)m["golden"] ?? minion.golden;  // (the factory knows a golden card id)
             minion.taunt = (bool?)m["taunt"] ?? minion.taunt;
-            minion.div = ((bool?)m["div"] ?? minion.div > 0) ? 1 : 0;
+            if (m["div"] != null) minion.div = (bool)m["div"] ? Math.Max(1, minion.div) : 0;  // (a hit count: Dark Paradox 3)
             minion.reborn = (bool?)m["reborn"] ?? minion.reborn;
             minion.windfury = (bool?)m["windfury"] ?? minion.windfury;
             minion.poisonous = (bool?)m["poisonous"] ?? minion.poisonous;
