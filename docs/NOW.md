@@ -26,7 +26,9 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [x] big3 iteration 510 promoted automatically 06:53 (head to head 4.28 vs R2, audit clean); on the home advisor and the cluster by hand (the home sync was off overnight)
 - [ ] The late game hasn't moved: 0.16-0.20x for both (R3 wants 0.30). Levelling is learned, a scaling engine isn't: genre scorecards running (office)
 - [x] Simulator check across turns (carry_test): rebuilt real boards lost Magnetizations (a log keeps all Satellites in one enchantment): rounds 7-9 gained 0.42x the real growth, now 1.03x. Fixed for the live advice (restart the advisor) and training's real starts
-- [ ] What's left in rounds 10+ (0.88x): Volumizer engines (Resourceful Robot, Auto Reveille, Polarizing Beatboxer)
+- [x] Card-by-card scaling check (within the turn: 93.4% of 2,278 actions exact, big scalers within 3%; over the turn change: per card). Fixed: the Volumizer bonus (Robot 13.7k -> 21.7k of 25.8k real), Vol'jin's swap kept as permanent Attack
+- [ ] Open: Volumizer stacks' Magnetization count (Beatboxer), Living Prison, Gatekeeper Amalgam, Bramble Tunneler; Tarecgosa (combat)
+- [ ] Rebuild the home module when the advisor is closed (Vol'jin fix needs it); restart the advisor for the Satellite/Volumizer fixes
 - [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
 
 ## Later
