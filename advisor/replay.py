@@ -24,7 +24,23 @@ SURPRISE = 0.02
 SIDES = ("friendly", "opponent")
 
 
-def setup(c, snap, seed, used=()):
+# Hero Powers that take a Tavern minion and bring it to the next combat (TavernGym: the player's
+# `owed` list): Lock and Load fires it at a random enemy minion
+OWED_POWERS = {"BG22_HERO_000p_Alt"}
+
+
+def owe(g, st, p, power_card, minions):
+    """Put `minions` (logged Tavern minions) in seat `p`'s owed list of state JSON `st` for
+    `power_card` (made in seat 7 of game `g`, an empty seat in a combat replay)."""
+    from advisor.state import CAT, add_minion
+    for m in minions:
+        debug(g, cmd="clear_zone", p=7, zone="board")
+        if add_minion(g, 7, "board", m, [], "owed"):
+            made = json.loads(g.state_json())["players"][7]["board"][-1]
+            st["players"][p].setdefault("owed", []).append([CAT[power_card]["cid"], made, True])
+
+
+def setup(c, snap, seed, used=(), owed=()):
     """A TavernGym game holding the logged combat on seats 0 (friendly) and 1 (opponent).
     Returns (game, gaps): gaps are the logged parts the setup could not carry. `used`: the
     friendly Hero Powers used in the turn before it (the combat's own snapshot shows none used),
@@ -34,13 +50,33 @@ def setup(c, snap, seed, used=()):
     debug(g, cmd="set_turn", turn=max(1, c["turn"] // 2))
     for p, side in enumerate(SIDES):
         set_side(g, p, snap[side], gaps, side)
-    if used:
+    if used or owed:
         import taverngym
         st = json.loads(g.state_json())
         arm_powers(st["players"][0]["powers"], snap["friendly"].get("hero_powers", []),
                    lambda h: h.get("card") in used)
+        for power, minions in owed:
+            owe(g, st, 0, power, minions)
+        st["players"][7]["board"] = []
         g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
+
+
+def owed_minions(decisions):
+    """(log, player id, combat turn) -> [(power, [Tavern minions it took])] in the turn before."""
+    out = collections.defaultdict(lambda: collections.defaultdict(list))
+    for d in decisions:
+        ch = d.get("chosen") or {}
+        if d["kind"] != "options" or d["turn"] % 2 != 1 or not ch.get("target"):
+            continue
+        opts = d.get("options") or []
+        opt = opts[ch["option"]] if isinstance(ch.get("option"), int) and ch["option"] < len(opts) else {}
+        power = (opt.get("entity") or {}).get("card")
+        if power in OWED_POWERS:
+            m = next((x for x in d["state"].get("shop", []) if x.get("eid") == ch["target"].get("eid")), None)
+            if m is not None:
+                out[(d["log"], d["player_id"], d["turn"] + 1)][power].append(m)
+    return {k: list(v.items()) for k, v in out.items()}
 
 
 def used_powers(decisions):
@@ -54,11 +90,11 @@ def used_powers(decisions):
             for k, d in last.items()}
 
 
-def replay(c, n, mode, seed, used=()):
+def replay(c, n, mode, seed, used=(), owed=()):
     snap = c["start"] if mode == "start" else c["first_attack"]
     if snap is None:
         return None
-    g, gaps = setup(c, snap, seed, used)
+    g, gaps = setup(c, snap, seed, used, owed)
     cmd = {"cmd": "combat_preview", "a": 0, "b": 1, "n": n, "details": True,
            "ghost_b": snap["opponent"].get("health", 1) <= 0}
     if mode == "attack":
@@ -110,13 +146,15 @@ def main():
     a = ap.parse_args()
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
     dpath = Path(a.combats).with_name("decisions.jsonl")
-    used = used_powers(map(json.loads, open(dpath, encoding="utf-8"))) if dpath.exists() else {}
+    decisions = [json.loads(l) for l in open(dpath, encoding="utf-8")] if dpath.exists() else []
+    used, owed = used_powers(decisions), owed_minions(decisions)
     rows = []
     for c in combats:
         for mode in a.modes.split(","):
             # (the attack mode starts after Start of Combat: what an armed power did is on the board)
-            u = used.get((c["log"], c["player_id"], c["turn"]), ()) if mode == "start" else ()
-            r = replay(c, a.n, mode, a.seed, u)
+            k = (c["log"], c["player_id"], c["turn"])
+            u, o = (used.get(k, ()), owed.get(k, ())) if mode == "start" else ((), ())
+            r = replay(c, a.n, mode, a.seed, u, o)
             if r is not None:
                 rows.append(r)
     summary = summarize(rows)
