@@ -60,6 +60,13 @@ COMBAT_POWERS = ("BG20_HERO_282p", "BG22_HERO_002p", "BG22_HERO_003p", "BG22_HER
                  "TB_BaconShop_HP_037a", "TB_BaconShop_HP_061", "TB_BaconShop_HP_069", "TB_BaconShop_HP_086")
 
 
+# A Hero Power's script data in the client (your logs): Wax Warband's buff size (1 fresh: its
+# improvements are not modelled here), Drek'Thar's and Vanndar's "unlocked" (Turn 7). Without
+# it Bob's Buddy gave a fresh Wax Warband nothing (TavernGym +0.079, z +9)
+POWER_DATA = {"TB_BaconShop_HP_037a": lambda t: 1, "BG22_HERO_002p": lambda t: int(t >= 7),
+              "BG22_HERO_003p": lambda t: int(t >= 7)}
+
+
 def fight(rng, by_tier, k, trinkets=(), powers=()):
     tier = rng.randint(2, 6)
     t2 = min(6, max(2, tier + rng.choice((-1, 0, 0, 1))))
@@ -71,7 +78,11 @@ def fight(rng, by_tier, k, trinkets=(), powers=()):
         if powers and rng.random() < 0.6:
             side["hero_powers"] = [{"card": rng.choice(powers)}]
         sides.append(side)
-    return {"id": k, "turn": 2 * tier + rng.randint(0, 2), "player": sides[0], "opponent": sides[1]}
+    turn = 2 * tier + rng.randint(0, 2)
+    for side in sides:  # the data HDT passes (the client's script data, as your logs show it)
+        for h in side.get("hero_powers", []):
+            h["data"] = POWER_DATA.get(h["card"], lambda t: 0)(turn)
+    return {"id": k, "turn": turn, "player": sides[0], "opponent": sides[1]}
 
 
 def taverngym(f, n, seed):
