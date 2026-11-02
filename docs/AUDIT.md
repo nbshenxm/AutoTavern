@@ -32,6 +32,8 @@ worth too much) whatever the network decides.
 | rebuild | Volumizer stacks and Polarizing Beatboxer's echo enchantment counted as one Magnetization (the log sums them) | Beatboxer 581 of 5,008 real over the turn change | estimated counts: Robot 24.7k / 25.8k, Beatboxer 5.9k / 5.0k, Reveille 2.4k / 2.4k |
 | rebuild | an armed Living Prison and Lock and Load's owed minion are only in the turn's earlier decisions | a Kelp Keeper buy: Prison 215 rebuilt, 503 real | the rebuild (and the live advisor, recruit_diff) read the turn's decisions: 503 |
 | rebuild | "improve this" counters unread (Spark Snapper, Ultraviolet Ascendant, Sacrificial Wrathguard, Lurking Leviathan; Patient Scout, Sky Admiral Rogers) | every rebuilt one started at 0: a Snapper with 16 improvements gave a 4/6 Satellite (Gatekeeper Amalgam played 10/12, real 42/60) | read from the amount the log shows |
+| log parse + rebuild | Hero Power improvements (TAG_SCRIPT_DATA_NUM_3, never parsed): Wax Warband rebuilt unimproved | your Start of Combat gains +8...+40 came out +4/+6 | read: 8 of 9 logged combats exact |
+| rebuild | Blood Gem stats rebuilt as plain stats | Gem Confiscation stole nothing | kept apart: 7 of 7 exact |
 | log parse + rebuild | the lobby's Deity and its size (player tags BACON_OLD_GOD_ATTACK/HEALTH) never read: rebuilt lobbies drew a random Deity at printed size | a Y'Shaarj where your lobby had a 7/4 C'Thun: a won fight at p 0.14 (Bob's Buddy 1.00) | the logged Deity and size |
 
 ## Results so far
@@ -55,6 +57,13 @@ worth too much) whatever the network decides.
   0.043. Leaning beyond chance, unresolved (not in your logs): Faerie Dragon Scale (z +4.0), All-Purpose
   Kibble (+3.2), Reinforced Shield (+2.8); Wildfire Elemental (+3.2: TavernGym deals the excess even
   when it dies in the exchange). All four match their text in TavernGym.
+- Bob's Buddy with combat Hero Powers (3,000 fights, 9 passive combat powers, script data as HDT passes it):
+  mean |difference| 0.050; leaning: Wax Warband (z +6: TavernGym's fresh one; your logs agree with
+  TavernGym once its size is read), Broodmother (+4.6), Swatting Insects (-3.8), Tentacular (+3.5),
+  Frostwolf Fervor (-3.1): the last four not in your logs (their data unknown to the harness).
+- The standing check (advisor.fidelity, baseline Nov 2): legal 96.8%, one action 93.8%, whole turns
+  86.3%, transitions 99.4%, combats 88.6% (calibration +2.8 SD), carry 0.70x / 1.06x / 0.88x,
+  Bob's Buddy sample 0.047; any drop past its tolerance exits 1 (the home sync logs it).
 - No seat bias: your combats with you in seat 0 and seat 1 give 98.8 and 99.3 predicted wins.
 - The remaining +2.9 SD is spread (Beasts +1.2, Mechs +1.3, the rest +2.4 SD); ties are calibrated.
 
