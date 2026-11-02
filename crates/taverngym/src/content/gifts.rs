@@ -987,7 +987,9 @@ fn soc(f: crate::script::Fx) -> Script {
 
 fn sacrifice(c: &mut Ctx, me: Me, attack: bool) {
     let (a, h) = c.deathrattle_stats(me.side, me.eid).unwrap_or((0, 0));
-    if let Some(t) = c.random_friendly(me.side, |_| true) {
+    // "to another friendly minion": a Deathrattle triggered while the host lives (a Rally that
+    // triggers the left-most Deathrattle, Herald Sticker) must not pick the host
+    if let Some(t) = c.random_friendly_other(me, |_| true) {
         if attack {
             c.buff(t, a, 0);
         } else {

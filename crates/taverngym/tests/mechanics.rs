@@ -14084,3 +14084,22 @@ fn observation_shows_what_the_players_cards_count() {
     let counters = hp + N_POWERS * V4_POWER_F;
     assert_eq!(o.floats[counters], 0.7, "Undead Attack");
 }
+
+#[test]
+fn a_sacrifice_triggered_while_its_host_lives_buffs_another_minion() {
+    // Offensive Sacrifice: "Deathrattle: Give this minion's Attack to another friendly minion".
+    // Triggered while the host lives (a Rally of Deathstrider's, Herald Sticker), it never picks
+    // the host (it did: random_friendly included it)
+    for seed in 0..20 {
+        let mut g = game(9300 + seed);
+        let mut host = gifted(&mut g, 0, "BG_ICC_026t", &["BG36_MidGameEffect_000t"]);
+        host.atk = 50;
+        let other = minion(&mut g, 0, "BG_ICC_026t");
+        let (h, o) = (host.eid, other.eid);
+        let mut ctx = taverngym::engine::Ctx::new(&mut g, [vec![host, other], vec![]], [Some(0), None], true);
+        ctx.trigger_deathrattles(0, h);
+        let atk = |e| ctx.boards[0].iter().find(|m| m.eid == e).unwrap().atk;
+        assert_eq!(atk(h), 50, "seed {seed}: the host gave itself its Attack");
+        assert!(atk(o) > 1, "seed {seed}: the other minion got nothing");
+    }
+}
