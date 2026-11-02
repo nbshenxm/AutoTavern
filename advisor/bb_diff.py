@@ -46,11 +46,25 @@ def board(rng, by_tier, tier):
     return out
 
 
-def fight(rng, by_tier, k):
+def combat_trinkets():
+    """Reachable trinkets whose text acts in combat (Start of Combat, Avenge, Deathrattles,
+    attacks, summons, "in combat")."""
+    import re
+    rx = re.compile(r"Start of Combat|in combat|this combat|Avenge|Deathrattle|attacks?\b|summon", re.I)
+    return sorted(k for k, c in CAT.items() if (c.get("kind") or "").startswith("trinket")
+                  and c.get("reachable") and rx.search(c.get("text") or ""))
+
+
+def fight(rng, by_tier, k, trinkets=()):
     tier = rng.randint(2, 6)
     t2 = min(6, max(2, tier + rng.choice((-1, 0, 0, 1))))
-    return {"id": k, "turn": 2 * tier + rng.randint(0, 2), "player": {"tier": tier, "health": 30, "minions": board(rng, by_tier, tier)},
-            "opponent": {"tier": t2, "health": 30, "minions": board(rng, by_tier, t2)}}
+    sides = []
+    for t in (tier, t2):
+        side = {"tier": t, "health": 30, "minions": board(rng, by_tier, t)}
+        if trinkets and rng.random() < 0.6:
+            side["trinkets"] = rng.sample(trinkets, rng.randint(1, 2))
+        sides.append(side)
+    return {"id": k, "turn": 2 * tier + rng.randint(0, 2), "player": sides[0], "opponent": sides[1]}
 
 
 def taverngym(f, n, seed):
@@ -59,6 +73,8 @@ def taverngym(f, n, seed):
     debug(g, cmd="set_turn", turn=f["turn"])
     for p, side in ((0, f["player"]), (1, f["opponent"])):
         debug(g, cmd="set_player", p=p, tier=side["tier"], health=side["health"])
+        for t in side.get("trinkets", []):
+            debug(g, cmd="give_trinket", p=p, card=t)
         debug(g, cmd="clear_zone", p=p, zone="board")
         for m in side["minions"]:
             debug(g, cmd="add_minion", p=p, zone="board", card=m["card"], no_triple=True)
@@ -74,6 +90,7 @@ def main():
     ap.add_argument("--n", type=int, default=300)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out", default=str(ROOT / "data" / "progress" / "bb_diff.jsonl"))
+    ap.add_argument("--trinkets", action="store_true", help="each side 0-2 combat trinkets (combat_trinkets)")
     a = ap.parse_args()
     rng = random.Random(a.seed)
     by_tier = pool()
@@ -85,7 +102,8 @@ def main():
             r = json.loads(line)
             if r.get("seed") == a.seed:
                 done[r["id"]] = r
-    fights = [fight(rng, by_tier, k) for k in range(a.fights)]
+    trinkets = combat_trinkets() if a.trinkets else ()
+    fights = [fight(rng, by_tier, k, trinkets) for k in range(a.fights)]
     todo = [f for f in fights if f["id"] not in done]
     if todo:
         bb = subprocess.Popen([str(EXE)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
@@ -123,7 +141,7 @@ def report(rows, n):
     cards = collections.defaultdict(list)
     for r, x in zip(ok, d):
         for sign, side in ((1, "player"), (-1, "opponent")):
-            for c in {m["card"] for m in r["fight"][side]["minions"]}:
+            for c in {m["card"] for m in r["fight"][side]["minions"]} | set(r["fight"][side].get("trinkets", [])):
                 cards[c].append(sign * x)
     rows_ = []
     for c, xs in cards.items():
