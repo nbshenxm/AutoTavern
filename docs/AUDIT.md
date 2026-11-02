@@ -27,6 +27,7 @@ worth too much) whatever the network decides.
 | rebuild, replay | Hero Powers used in Recruit for the next combat not armed (Y'Shaarj, Rafaam) | logged wins at p 0.00 | armed: 0.54 / 0.11 / 0.04 (the summon is random) |
 | replay | Lock and Load's taken minion never owed to the combat | a minion short: p 0.43, 0.65 for logged wins | owed: 0.88, 0.84 |
 | TavernGym | Offensive / Defensive Sacrifice (Dark Gifts) could give the stats to the host itself when its Deathrattle was triggered while it lived (Deathstrider, Herald Sticker) | the host buffed itself | another friendly minion |
+| log parse + rebuild | the lobby's Deity and its size (player tags BACON_OLD_GOD_ATTACK/HEALTH) never read: rebuilt lobbies drew a random Deity at printed size | a Y'Shaarj where your lobby had a 7/4 C'Thun: a won fight at p 0.14 (Bob's Buddy 1.00) | the logged Deity and size |
 
 ## Results so far
 
@@ -34,10 +35,16 @@ worth too much) whatever the network decides.
   (Methodical Madness 308,908 real / 308,944).
 - Combat and the turn change: 0.92-1.05x the real growth through round 9, 0.86x from round 10
   (left: the Volumizer stack count, Tarecgosa's combat).
-- Combat outcome: predicted 99.9 wins of 212, actual 109 (+3.1 SD): TavernGym still underrates
-  your side in close fights.
+- Combat outcome: predicted 100.6 wins of 212, actual 109 (+2.9 SD; +3.1 before the Deity fix):
+  TavernGym still underrates your side in close fights.
 - Card text: ~700 scripts, no number or scaling contradiction; edge cases listed below.
-- Bob's Buddy: (running; the first run had two harness bugs, golden and Divine Shield hits)
+- Bob's Buddy, random warbands (6,000 fights, every in-pool minion, after fixing the harness: golden flags,
+  shield hit counts): mean |difference| in (win - loss) 0.038. The two cards that still lean far
+  (Dark Paradox z +6.4, golden Scarlet Survivor z +5.4) were settled by your logs in TavernGym's
+  favour (Dark Paradox's shield takes 3 hits; Survivors at 6+ Attack have Divine Shield, 18 of 18);
+  the rest are at chance level (z <= 2.7 over ~400 cards).
+- Bob's Buddy, your 212 combats (plain inputs only, no enchantment effects): +4.6 SD, worse than
+  TavernGym's +2.9: the bias left is mostly in what neither gets from the log, not TavernGym's rules.
 
 ## Open
 
