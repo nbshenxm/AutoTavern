@@ -162,6 +162,21 @@ def satellites(e):
     return max(1, round(data[0] / 4))
 
 
+def volumizers(e, card, g, p):
+    """How many Volumizers a logged Volumizer enchantment stands for (one per colour holds all of
+    them; its data their summed stats, each its printed stats plus the "+X this game" bonus of its
+    moment). Estimated with the bonus at half its current size; each is a Magnetization (Utility
+    Drone counts them; one per stack gave a Polarizing Beatboxer 1,953 of 5,008 over a turn)."""
+    data = (e.get("data") or [0, 0]) + [0, 0]
+    if data[0] + data[1] <= 0:
+        return 1
+    st = json.loads(g.state_json())["players"][p]["stats"]
+    base, golden = normal_form(card)
+    k = 2 if golden else 1
+    per = k * (CAT[base]["atk"] + CAT[base]["hp"]) + (st.get("volumizer_atk", 0) + st.get("volumizer_hp", 0)) / 2
+    return max(1, round((data[0] + data[1]) / max(1.0, per)))
+
+
 def player_stats(s):
     """PlayerStats fields recoverable from a logged side."""
     out = {}
@@ -230,7 +245,8 @@ def add_minion(g, p, where, m, gaps, label):
         a = attachment(e["card"])
         if a and not (a in gifts and CAT[a]["kind"] == "dark_gift"):  # a gift once, its e2/e3 too
             gifts.add(a)
-            for _ in range(satellites(e) if a == SATELLITE else 1):
+            n = satellites(e) if a == SATELLITE else volumizers(e, a, g, p) if normal_form(a)[0] in VOLUMIZERS else 1
+            for _ in range(n):
                 debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=a)
     kept = [k for k in zone(g, p, where)[idx].get("keywords", []) if k not in LOGGED_KW]
     temp = sum(e["data"][0] for e in m["ench"] if e["card"] in TEMP_ATTACK and e.get("data"))
