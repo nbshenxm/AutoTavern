@@ -269,13 +269,18 @@ class TrinketPrior:
 
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
            amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0,
-           prior=None, prior_coef=0.0, chunk=CHUNK, human=None, human_coef=0.0):
+           prior=None, prior_coef=0.0, chunk=CHUNK, human=None, human_coef=0.0, sil=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
     probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
     policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
     `anchor_coef` times KL(anchor || policy). `search`: a SearchBuffer (advisor.search_games);
     each step also adds `search_coef` times the cross-entropy to the search's choices. `human`:
-    the same for the player's own logged choices (advisor.human_data), `human_coef` times."""
+    the same for the player's own logged choices (advisor.human_data), `human_coef` times.
+    `sil`: self-imitation (Oh et al. 2018) of the forced exploration steps that did better than
+    the value expected: `sil` times -log p(action) x max(advantage, 0). PPO can't learn a forced
+    step (its ratio is meaningless), so an action the network gives ~0 (an Upgrade: 0.000 in
+    your round 4-9 positions, Nov 1) stays at ~0 however much it pays; this learns it where it
+    pays, and nothing where it doesn't."""
     f = torch.from_numpy(np.stack([b[0][0] for b in batch]))
     c = torch.from_numpy(np.stack([b[0][1] for b in batch]))
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
@@ -285,6 +290,7 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     learn = torch.tensor([not (len(b[0]) > 8 and b[0][8]) for b in batch], dtype=torch.float32)
     ret = torch.tensor([b[1] for b in batch], dtype=torch.float32)
     adv = torch.tensor([b[2] for b in batch], dtype=torch.float32)
+    gain = adv.clamp(min=0) / (adv.std() + 1e-8)  # (self-imitation: better than expected)
     adv = (adv - adv.mean()) / (adv.std() + 1e-8)
     n = len(batch)
     stats = {"pi": 0.0, "v": 0.0, "ent": 0.0, "kl": 0.0}
@@ -314,6 +320,12 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                 v_loss = (v - ret[part].to(device)).pow(2).mean()
                 entropy = dist.entropy().mean()
                 loss = vf * v_loss if value_only else pi_loss + vf * v_loss - ent * entropy
+                if sil > 0 and not value_only:
+                    forced = 1 - keep
+                    if forced.any():
+                        sil_loss = -(lp * forced * gain[part].to(device)).sum() / len(part)
+                        loss = loss + sil * sil_loss
+                        stats["sil"] = stats.get("sil", 0.0) + sil_loss.item() * w
                 if anchor is not None and anchor_coef > 0:  # in the warmup too: it holds the policy
                     with torch.no_grad():
                         al, _ = anchor(fp, cp, mp)
@@ -687,6 +699,8 @@ def main():
                          "card table's text columns (policy.EntityNet blind_v4)")
     ap.add_argument("--explore", type=float, nargs=2, default=None, metavar=("P_REFRESH", "P_UPGRADE"),
                     help="take a legal Refresh / Upgrade with these probabilities (collect's explore)")
+    ap.add_argument("--explore-sil", type=float, default=0.0, metavar="COEF",
+                    help="self-imitation of the forced steps that did better than expected (update's sil)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
                     help="this share of new games start from a logged round's position (RealStarts)")
     ap.add_argument("--comp-starts", type=float, default=0.0, metavar="SHARE",
@@ -833,7 +847,7 @@ def main():
         stats = update(net, opt, batch, a.device, epochs=a.epochs, minibatch=a.minibatch, ent=a.ent, amp=a.amp, value_only=warm,
                        anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef,
                        prior=prior, prior_coef=a.trinket_prior, chunk=a.chunk,
-                       human=hbuf, human_coef=a.human_coef)
+                       human=hbuf, human_coef=a.human_coef, sil=a.explore_sil)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
             if sbuf.drop_idle:

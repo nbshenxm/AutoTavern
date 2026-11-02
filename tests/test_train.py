@@ -613,6 +613,34 @@ def test_forced_exploration_steps_are_left_out_of_the_policy_loss():
     assert stats["pi"] == 0.0 and stats["v"] > 0
 
 
+def test_self_imitation_learns_a_forced_step_only_where_it_paid():
+    # --explore-sil: forced Refreshes that did better than expected get likelier; when none did,
+    # the self-imitation loss is zero
+    torch.manual_seed(0)
+    net = EntityNet()
+    env = train.BatchEnv(2, seed=3, controlled=list(range(8)), config=train.CONFIG, threads=1)
+    obs = env.observe()
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    obs, _ = train.collect(env, net, obs, seats, 64, "cpu", explore=(1.0, 0.0))
+    items = [it for s in seats for it in s.items if it[8] and it[3] == train.A_REFRESH]
+    assert items
+
+    def p_refresh():
+        f, c, m = (torch.from_numpy(np.stack([it[k] for it in items])) for k in range(3))
+        with torch.no_grad():
+            return torch.softmax(net(f, c, m)[0], 1)[:, train.A_REFRESH].mean().item()
+
+    for sign in (1.0, -1.0):
+        batch = [(it, 0.0, sign * (1.0 + 0.1 * (k % 3))) for k, it in enumerate(items)]
+        before = p_refresh()
+        opt = torch.optim.SGD(net.parameters(), lr=0.05)
+        stats = train.update(net, opt, batch, "cpu", epochs=1, minibatch=64, vf=0.0, ent=0.0, sil=1.0)
+        if sign > 0:
+            assert stats["sil"] > 0 and p_refresh() > before
+        else:
+            assert stats["sil"] == 0.0 and abs(p_refresh() - before) < 1e-6
+
+
 def test_a_blind_control_never_sees_version_4():
     # --blind-v4: even with weights for them, the network's output doesn't depend on version
     # 4's numbers nor on the card table's text columns
