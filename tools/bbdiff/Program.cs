@@ -88,6 +88,12 @@ static class Program
             minion.poisonous = (bool?)m["poisonous"] ?? minion.poisonous;
             minion.venomous = (bool?)m["venomous"] ?? minion.venomous;
             minion.stealth = (bool?)m["stealth"] ?? minion.stealth;
+            // The card's script data as the client shows it (HDT passes these: counters, a
+            // Divine Shield's hits left...)
+            if (m["sd1"] != null) minion.ScriptDataNum1 = (int)m["sd1"];
+            if (m["sd2"] != null) minion.ScriptDataNum2 = (int)m["sd2"];
+            if (Environment.GetEnvironmentVariable("BBDIFF_DEBUG") == "1")
+                Console.Error.WriteLine($"{card}: golden={minion.golden} div={minion.div} taunt={minion.taunt} reborn={minion.reborn} windfury={minion.windfury} atk={minion.attack()} hp={minion.health()} name={minion.minionName}");
             side.Side.Add(minion);
         }
     }

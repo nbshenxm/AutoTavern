@@ -40,7 +40,8 @@ def board(rng, by_tier, tier):
         card = CAT[cid]["golden_id"] if golden else cid
         base = CAT[card]
         grow = 1 + rng.random() * (tier - 1) * 0.8  # a midgame's buffs, more at higher Tiers
-        out.append({"card": card, "atk": max(1, round(base["atk"] * grow + rng.randint(0, tier))),
+        # (Bob's Buddy's factory makes a golden card id a plain minion unless told: HDT sets it)
+        out.append({"card": card, "golden": bool(golden), "atk": max(1, round(base["atk"] * grow + rng.randint(0, tier))),
                     "hp": max(1, round(base["hp"] * grow + rng.randint(0, tier)))})
     return out
 
