@@ -392,7 +392,7 @@ def test_the_real_positions_promotion_pair(monkeypatch):
 
 def test_the_adaptive_library_follows_the_learner_late_and_the_top_early(tmp_path):
     # --library-adaptive: each round's boards scaled to MARGIN x the learner's median, never
-    # above the top curve, never falling round to round; too few samples: the top curve
+    # above the top curve, never falling round to round; too few samples: grown as the top is
     import json as _json
 
     import taverngym
@@ -403,7 +403,8 @@ def test_the_adaptive_library_follows_the_learner_late_and_the_top_early(tmp_pat
     curve = library.adaptive_curve(learner, 1.5, top)
     assert curve[5] == 500 and curve[9] == 900  # the learner leads: the top curve
     assert curve[10] == 900  # 1.5 x 200 = 300, but never below round 9's
-    assert curve[12] == 1200  # 10 samples: the top curve
+    assert curve[11] == 990 and round(curve[12]) == 1080  # no data: 900 grown as the top grows
+    assert library.adaptive_curve({}, 1.5, top) == top
     g = taverngym.Game(1, _json.dumps(train.CONFIG))
     for _ in range(200):
         for s in range(8):

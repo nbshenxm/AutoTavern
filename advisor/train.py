@@ -291,7 +291,11 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     ret = torch.tensor([b[1] for b in batch], dtype=torch.float32)
     adv = torch.tensor([b[2] for b in batch], dtype=torch.float32)
     gain = adv.clamp(min=0) / (adv.std() + 1e-8)  # (self-imitation: better than expected)
-    adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+    # Normalized over the learned steps only: forced steps that mostly did worse (big3sil's
+    # Upgrades) would otherwise shift every learned step's advantage up (its pi loss drifted to -0.17)
+    on = learn > 0
+    ref = adv[on] if on.sum() > 1 else adv
+    adv = (adv - ref.mean()) / (ref.std() + 1e-8)
     n = len(batch)
     stats = {"pi": 0.0, "v": 0.0, "ent": 0.0, "kl": 0.0}
     rng = np.random.default_rng()

@@ -148,8 +148,8 @@ def _scaled(m, f):
 def adaptive_curve(learner, margin, curve=None, min_n=50):
     """The library's curve for a learner whose warband's Attack+Health by round has the medians
     `learner` ({round: [stats]}): `margin` times its median, never above the top 1%'s (`curve`),
-    never falling from one round to the next; rounds with fewer than `min_n` samples keep the
-    top 1%'s. Real lobbies' late warbands (15k stats by round 13) are beyond anything a
+    never falling from one round to the next; a round with fewer than `min_n` samples grows from
+    the round before as the top 1%'s does (no cliff where the learner seldom gets). Real lobbies' late warbands (15k stats by round 13) are beyond anything a
     simulated player builds (advisor.level_bots): against them the late game is lost whatever
     one does, so investing in it (levelling, an engine) never pays. Against a lobby a little
     stronger than itself, it does; the lobby rises as the learner does (AutoTavern recalibrated
@@ -158,11 +158,17 @@ def adaptive_curve(learner, margin, curve=None, min_n=50):
     if curve is None:
         from advisor import meta
         curve = meta.warband_curve()
-    out, prev = {}, 0.0
+    out, prev, prev_top = {}, 0.0, None
     for r in sorted(curve):
         xs = learner.get(r) or []
-        t = curve[r] if len(xs) < min_n else min(curve[r], margin * statistics.median(xs))
-        out[r] = prev = max(prev, float(t), 1.0)
+        if len(xs) >= min_n:
+            t = margin * statistics.median(xs)
+        elif prev and prev_top:
+            t = prev * curve[r] / prev_top
+        else:
+            t = curve[r]
+        out[r] = prev = max(prev, min(curve[r], float(t)), 1.0)
+        prev_top = curve[r] or prev_top
     return out
 
 
