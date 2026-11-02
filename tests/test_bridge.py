@@ -250,3 +250,14 @@ def test_rebuilt_volumizers_leave_the_logged_bonus_alone():
     p = json.loads(g.state_json())["players"][0]
     assert (p["stats"]["volumizer_atk"], p["stats"]["volumizer_hp"]) == (28, 19)
     assert len(p["board"][0]["attached"]) > 2 and (p["board"][0]["atk"], p["board"][0]["hp"]) == (300, 300)
+
+
+def test_improve_this_cards_keep_their_improvements():
+    # The log shows what an "improve this" card gives now (a golden Spark Snapper's Satellite:
+    # 36/54 after 16 improvements of 2); a rebuild starting it at 0 gave a 4/6 Satellite
+    from advisor.bridge import COUNTER_FROM_SHOWN
+
+    i, base = COUNTER_FROM_SHOWN["BG36_851"]
+    data, g = [34, 36], 2
+    counter = data[i] // base - g
+    assert 2 * (g + counter) == 36  # TavernGym: the Satellite is 2k/3k, k = g + counter

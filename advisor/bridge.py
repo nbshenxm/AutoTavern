@@ -46,6 +46,16 @@ COUNTER_FROM_DATA = {
     "BG36_523": lambda d: 6 - d[0],  # Enterprising Escapee: Gold spent toward 6
     "BG36_367": lambda d: 3 - d[0],  # Auto Reveille: cards bought toward 3
 }
+# "Improve this" cards: the log shows the amount they give now; TavernGym's counter adds the
+# base (golden: twice) per improvement and gives base x (golden 2 or 1 + counter). Card ->
+# (which number, base). Unread, a rebuilt Spark Snapper with 18 improvements gave a 2/3 (4/6)
+# Satellite instead of 36/54 (a Gatekeeper Amalgam played: 42/60 real, 10/12 rebuilt)
+COUNTER_FROM_SHOWN = {
+    "BG36_851": (1, 2),  # Spark Snapper: the Satellite's Attack (data: improvements' Attack, it)
+    "BG31_810": (0, 3),  # Ultraviolet Ascendant: +3/+3 to your other Elementals
+    "BG36_362": (0, 2),  # Sacrificial Wrathguard: Tavern minions +2/+2
+    "BG35_602": (1, 3),  # Lurking Leviathan: +3 Attack to a summoned Beast
+}
 
 
 FAELIN_POWER = "BG22_HERO_201p"  # Expedition Plans
@@ -309,9 +319,15 @@ def build(d, combats=(), seed=7, earlier=()):
     # Per-minion counters the log shows in the card's script data
     if len(p0["board"]) == len(me["board"]):
         for m, logged in zip(p0["board"], me["board"]):
-            f = COUNTER_FROM_DATA.get(normal_form(logged["card"])[0])
+            cid, golden = normal_form(logged["card"])
+            f = COUNTER_FROM_DATA.get(cid)
             if f is not None and len(logged.get("data") or []) >= 2:
                 m["counter"] = max(0, f(logged["data"]))
+            if cid in COUNTER_FROM_SHOWN and len(logged.get("data") or []) >= 2:
+                i, base = COUNTER_FROM_SHOWN[cid]
+                g = 2 if golden or logged.get("golden") else 1
+                if logged["data"][i] > 0:
+                    m["counter"] = max(0, logged["data"][i] // base - g)
             # An Activate already used this turn (once a turn: the client drops the minion's
             # INTERACTABLE_OBJECT to 0); a rebuilt minion would offer it again
             if logged.get("interactable") == 0:
