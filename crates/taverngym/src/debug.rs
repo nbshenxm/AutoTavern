@@ -1046,6 +1046,12 @@ pub enum DebugCmd {
         keywords: Option<Vec<String>>,
         golden: Option<bool>,
         attach: Option<String>,
+        /// The part of the (new) Attack / Health that lasts until the owner's next turn (a
+        /// logged Spirit Swap: the stats shown include it, the next turn's don't).
+        #[serde(default)]
+        temp_atk: Option<i32>,
+        #[serde(default)]
+        temp_hp: Option<i32>,
     },
     ClearZone {
         p: PlayerId,
@@ -1346,6 +1352,8 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
             keywords,
             golden,
             attach,
+            temp_atk,
+            temp_hp,
         } => {
             check(p)?;
             let attach = match attach {
@@ -1372,6 +1380,12 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                 if record {
                     m.record(None, crate::state::ModKind::Set, m.atk, m.max_hp);
                 }
+            }
+            if let Some(t) = temp_atk {
+                m.temp_atk = t;
+            }
+            if let Some(t) = temp_hp {
+                m.temp_hp = t;
             }
             if let Some(ks) = keywords {
                 let mut k = Kw::NONE;

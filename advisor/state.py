@@ -53,6 +53,10 @@ PLAYER_ENCHANTMENTS = {
 }
 TASTY_LOBSTER = "BG36_202"
 VOLUMIZERS = ("BG34_170t", "BG34_170t2", "BG34_170t3")  # Red, Blue, Green
+# Enchantments whose first number is Attack until the owner's next turn: shown in the logged
+# Attack, gone at the next turn's start (advisor.carry_test: the only such one in the logs, 27 of
+# 29 drops equal to it). Rebuilt as permanent, a swapped minion kept thousands of Attack.
+TEMP_ATTACK = {"BG20_HERO_201p2e2"}  # Vol'jin's Spirit Swap
 BLOOD_GEM = "BG20_GEM"
 SURVEYOR_PORTRAIT = "BG30_MagicItem_943"
 # A two-step Hero Power shows its second step as another card; TavernGym asks both steps
@@ -201,8 +205,9 @@ def add_minion(g, p, where, m, gaps, label):
             for _ in range(satellites(e) if a == SATELLITE else 1):
                 debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=a)
     kept = [k for k in zone(g, p, where)[idx].get("keywords", []) if k not in LOGGED_KW]
+    temp = sum(e["data"][0] for e in m["ench"] if e["card"] in TEMP_ATTACK and e.get("data"))
     debug(g, cmd="edit_minion", p=p, zone=where, index=idx, atk=m["atk"], hp=max(1, m["hp"]),
-          keywords=sorted(set(m["keywords"]) | set(kept)))
+          keywords=sorted(set(m["keywords"]) | set(kept)), **({"temp_atk": temp} if temp else {}))
     if not CAT[cid]["implemented"]:
         gaps.append(f"{label} unscripted {cid}")
     return True
