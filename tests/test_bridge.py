@@ -261,3 +261,31 @@ def test_improve_this_cards_keep_their_improvements():
     data, g = [34, 36], 2
     counter = data[i] // base - g
     assert 2 * (g + counter) == 36  # TavernGym: the Satellite is 2k/3k, k = g + counter
+
+
+def test_blood_gem_stats_are_rebuilt_apart():
+    # A minion's Blood Gem stats (BG20_GEMe) are kept apart in TavernGym for what moves Gems
+    import json as _json
+
+    from advisor import bridge
+
+    dec = Path(__file__).resolve().parents[1] / "data" / "replay" / "decisions.jsonl"
+    if not dec.exists():
+        pytest.skip("no logged decisions")
+    for line in open(dec, encoding="utf-8"):
+        d = _json.loads(line)
+        if d["kind"] != "options":
+            continue
+        board = d["state"]["friendly"]["board"]
+        i = next((k for k, m in enumerate(board) if any(e["card"] == "BG20_GEMe" and e["data"][0] > 5
+                                                       for e in m["ench"])), None)
+        if i is None:
+            continue
+        g, gaps = bridge.build(d)
+        if gaps:
+            continue
+        m = _json.loads(g.state_json())["players"][0]["board"][i]
+        want = sum(e["data"][0] for e in board[i]["ench"] if e["card"] == "BG20_GEMe")
+        assert m["gem_atk"] == want and m["gems"] >= 1
+        return
+    pytest.skip("no minion with Blood Gem stats in the logs")
