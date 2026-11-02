@@ -25,6 +25,8 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [x] big3ad levels now: tier at round 10 in the top-1% lobby 4.4-4.6 (big3 2.9), round 13 5.7-5.9 (4.1); turns with an Upgrade in your rounds 10-11 82-91% (14%). Strength the same as big3 (head to head 4.2-4.6 vs R2, your positions 2.15-2.44)
 - [x] big3 iteration 510 promoted automatically 06:53 (head to head 4.28 vs R2, audit clean); on the home advisor and the cluster by hand (the home sync was off overnight)
 - [ ] The late game hasn't moved: 0.16-0.20x for both (R3 wants 0.30). Levelling is learned, a scaling engine isn't: genre scorecards running (office)
+- [x] Simulator check across turns (carry_test): rebuilt real boards lost Magnetizations (a log keeps all Satellites in one enchantment): rounds 7-9 gained 0.42x the real growth, now 1.03x. Fixed for the live advice (restart the advisor) and training's real starts
+- [ ] What's left in rounds 10+ (0.88x): Volumizer engines (Resourceful Robot, Auto Reveille, Polarizing Beatboxer)
 - [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
 
 ## Later
