@@ -18,28 +18,47 @@ import json
 import sys
 from pathlib import Path
 
-from advisor.state import damage_cap, debug, recruit_game, set_side
+from advisor.state import arm_powers, damage_cap, debug, recruit_game, set_side
 
 SURPRISE = 0.02
 SIDES = ("friendly", "opponent")
 
 
-def setup(c, snap, seed):
+def setup(c, snap, seed, used=()):
     """A TavernGym game holding the logged combat on seats 0 (friendly) and 1 (opponent).
-    Returns (game, gaps): gaps are the logged parts the setup could not carry."""
+    Returns (game, gaps): gaps are the logged parts the setup could not carry. `used`: the
+    friendly Hero Powers used in the turn before it (the combat's own snapshot shows none used),
+    armed when they act in combat (state.ARMED_POWERS)."""
     g = recruit_game(seed)
     gaps = []
     debug(g, cmd="set_turn", turn=max(1, c["turn"] // 2))
     for p, side in enumerate(SIDES):
         set_side(g, p, snap[side], gaps, side)
+    if used:
+        import taverngym
+        st = json.loads(g.state_json())
+        arm_powers(st["players"][0]["powers"], snap["friendly"].get("hero_powers", []),
+                   lambda h: h.get("card") in used)
+        g = taverngym.Game.from_json(json.dumps(st))
     return g, gaps
 
 
-def replay(c, n, mode, seed):
+def used_powers(decisions):
+    """(log, player id, combat turn) -> the hero power cards the player's last decision of the
+    turn before shows used (exhausted)."""
+    last = {}
+    for d in decisions:
+        if d["kind"] == "options" and d["turn"] % 2 == 1:
+            last[(d["log"], d["player_id"], d["turn"] + 1)] = d
+    return {k: {h["card"] for h in d["state"]["friendly"].get("hero_powers", []) if h.get("exhausted")}
+            for k, d in last.items()}
+
+
+def replay(c, n, mode, seed, used=()):
     snap = c["start"] if mode == "start" else c["first_attack"]
     if snap is None:
         return None
-    g, gaps = setup(c, snap, seed)
+    g, gaps = setup(c, snap, seed, used)
     cmd = {"cmd": "combat_preview", "a": 0, "b": 1, "n": n, "details": True,
            "ghost_b": snap["opponent"].get("health", 1) <= 0}
     if mode == "attack":
@@ -90,10 +109,14 @@ def main():
     ap.add_argument("--out", help="JSON report (default: next to the combats file)")
     a = ap.parse_args()
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
+    dpath = Path(a.combats).with_name("decisions.jsonl")
+    used = used_powers(map(json.loads, open(dpath, encoding="utf-8"))) if dpath.exists() else {}
     rows = []
     for c in combats:
         for mode in a.modes.split(","):
-            r = replay(c, a.n, mode, a.seed)
+            # (the attack mode starts after Start of Combat: what an armed power did is on the board)
+            u = used.get((c["log"], c["player_id"], c["turn"]), ()) if mode == "start" else ()
+            r = replay(c, a.n, mode, a.seed, u)
             if r is not None:
                 rows.append(r)
     summary = summarize(rows)

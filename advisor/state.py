@@ -57,6 +57,18 @@ VOLUMIZERS = ("BG34_170t", "BG34_170t2", "BG34_170t3")  # Red, Blue, Green
 # Attack, gone at the next turn's start (advisor.carry_test: the only such one in the logs, 27 of
 # 29 drops equal to it). Rebuilt as permanent, a swapped minion kept thousands of Attack.
 TEMP_ATTACK = {"BG20_HERO_201p2e2"}  # Vol'jin's Spirit Swap
+# Hero Powers used in the Recruit phase for an effect in the next combat (TavernGym: the power's
+# counter is 1 while armed): used this turn, a rebuilt one must be armed. Y'Shaarj's Embrace
+# Your Rage unarmed lost combats the log won (a summoned minion short; advisor.replay, Nov 2)
+ARMED_POWERS = {"TB_BaconShop_HP_103", "TB_BaconShop_HP_053"}  # Y'Shaarj, Arch-Villain Rafaam
+
+
+def arm_powers(powers, logged, used):
+    """Arm the ARMED_POWERS among `powers` (a player's state JSON powers, in the order of the
+    logged `logged` hero powers) that `used(logged power)` says were used this turn."""
+    for power, h in zip(powers, logged):
+        if h.get("card") in ARMED_POWERS and used(h):
+            power["counter"] = 1
 BLOOD_GEM = "BG20_GEM"
 SURVEYOR_PORTRAIT = "BG30_MagicItem_943"
 # A two-step Hero Power shows its second step as another card; TavernGym asks both steps
