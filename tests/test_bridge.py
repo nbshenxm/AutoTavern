@@ -196,3 +196,17 @@ def test_a_trinket_offer_from_a_trinket_is_free():
     g, _ = bridge.build(d, [])
     pend = json.loads(g.state_json())["players"][0]["pending"][0]["Trinket"]
     assert pend["free"] is True
+
+
+def test_a_logged_satellite_stack_is_each_of_its_magnetizations():
+    # The log holds all of a minion's Satellites in one enchantment (data: their summed stats);
+    # Utility Drone counts each (a Glambot with [76, 76] gained exactly 19 Magnetizations' worth)
+    from advisor.state import add_minion, recruit_game
+
+    g = recruit_game(1)
+    m = {"card": "BG36_853", "atk": 103, "hp": 117, "max_hp": 117, "golden": False, "keywords": [],
+         "ench": [{"card": "BG31_171te", "data": [76, 76]}, {"card": "BG28_897e", "data": [14, 14]}]}
+    assert add_minion(g, 0, "board", m, [], "test")
+    glambot = json.loads(g.state_json())["players"][0]["board"][-1]
+    assert len(glambot["attached"]) == 19  # (card ids as numbers; BG28_897e is stats only)
+    assert (glambot["atk"], glambot["hp"]) == (103, 117)

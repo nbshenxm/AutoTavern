@@ -116,6 +116,19 @@ def attachment(ench):
     return None
 
 
+# The client's Satellite (Glambot's, Reusable Batteries', Inductive Gyroblade's): one
+# enchantment holds all of a minion's Satellites, its data their summed stats
+SATELLITE = "BG31_171t"
+
+
+def satellites(e):
+    """How many Satellites a logged Satellite enchantment stands for: its summed Attack over a
+    4/4 Satellite's (an improved Gyroblade's are bigger: then fewer than the real count). Each
+    is a Magnetization (Utility Drone counts them: a Glambot with [76, 76] took 19, Nov 2)."""
+    data = e.get("data") or [0]
+    return max(1, round(data[0] / 4))
+
+
 def player_stats(s):
     """PlayerStats fields recoverable from a logged side."""
     out = {}
@@ -171,7 +184,8 @@ def add_minion(g, p, where, m, gaps, label):
         a = attachment(e["card"])
         if a and not (a in gifts and CAT[a]["kind"] == "dark_gift"):  # a gift once, its e2/e3 too
             gifts.add(a)
-            debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=a)
+            for _ in range(satellites(e) if a == SATELLITE else 1):
+                debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=a)
     kept = [k for k in zone(g, p, where)[idx].get("keywords", []) if k not in LOGGED_KW]
     debug(g, cmd="edit_minion", p=p, zone=where, index=idx, atk=m["atk"], hp=max(1, m["hp"]),
           keywords=sorted(set(m["keywords"]) | set(kept)))
