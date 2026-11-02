@@ -119,7 +119,9 @@ def main():
         bb = subprocess.Popen([str(EXE)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
                               encoding="utf-8")
         with open(out, "a", encoding="utf-8") as fh:
+            from advisor.train import pause_if_playing
             for f in todo:
+                pause_if_playing()  # (home: never while you play)
                 bb.stdin.write(json.dumps({**f, "n": a.n}) + "\n")
                 bb.stdin.flush()
                 b = json.loads(bb.stdout.readline())

@@ -181,7 +181,9 @@ def check_bb():
     bb = subprocess.Popen([str(bb_diff.EXE)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
                           encoding="utf-8")
     diffs = []
+    from advisor.train import pause_if_playing
     for f in fights:
+        pause_if_playing()  # (home: never while you play)
         bb.stdin.write(json.dumps({**f, "n": 200}) + "\n")
         bb.stdin.flush()
         b = json.loads(bb.stdout.readline())
