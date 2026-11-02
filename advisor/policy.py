@@ -10,6 +10,7 @@ live advisor. Both take the 3,227 observation floats (signed log) and the 124 ca
 """
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -292,8 +293,12 @@ def make(config=None):
 def save(net, path, extra=None):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Written whole, then renamed: a reader (a copy to the cluster, promote, a probe) never sees
+    # half a file (a copy of big3's last.pt mid-write was a corrupt archive, Nov 1)
+    tmp = path.with_name(path.name + ".tmp")
     torch.save({"config": net.config, "state": net.state_dict(), "obs": OBS_LAYOUT,
-                **(extra or {})}, path)
+                **(extra or {})}, tmp)
+    os.replace(tmp, path)
 
 
 def adapt(state, old, new=OBS_LAYOUT):
