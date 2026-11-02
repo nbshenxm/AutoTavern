@@ -63,6 +63,22 @@ TEMP_ATTACK = {"BG20_HERO_201p2e2"}  # Vol'jin's Spirit Swap
 ARMED_POWERS = {"TB_BaconShop_HP_103", "TB_BaconShop_HP_053"}  # Y'Shaarj, Arch-Villain Rafaam
 
 
+def set_deities(st, card, sides):
+    """The lobby's Deity `card` in state JSON `st`, and each seat's Deity at its logged size:
+    `sides` = [(seat, logged side)]. Rebuilt lobbies drew a random Deity at its printed size (a
+    Y'Shaarj where the lobby had a 7/4 C'Thun lost fights the log won; advisor.bb_real, Nov 2)."""
+    if card not in CAT:
+        return
+    cid = CAT[card]["cid"]
+    st["deity"] = cid
+    for p, s in sides:
+        atk, hp = (s.get("deity") or [0, 0])[:2]
+        if not (atk or hp) and st["players"][p].get("deity") is None:
+            continue
+        st["players"][p]["deity"] = {"card": cid, "atk": max(atk, CAT[card]["atk"]), "hp": max(hp, CAT[card]["hp"]),
+                                     "golden": False, "reborn": False}
+
+
 def arm_powers(powers, logged, used):
     """Arm the ARMED_POWERS among `powers` (a player's state JSON powers, in the order of the
     logged `logged` hero powers) that `used(logged power)` says were used this turn."""

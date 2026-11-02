@@ -215,7 +215,7 @@ def extract(path, skins):
             if not bg_logs.is_bg(tree):
                 continue
             meta = {"log": Path(path).parent.name, "segment": i, "build": build,
-                    "player_id": bg_logs.friendly_player_id(lines)}
+                    "player_id": bg_logs.friendly_player_id(lines), "deity": bg_logs.lobby_deity(lines)}
             out += DecisionExporter(tree, skins, meta).export().decisions
     return out
 

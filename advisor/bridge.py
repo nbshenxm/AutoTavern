@@ -20,7 +20,7 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, recruit_game,
+from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, recruit_game, set_deities,
                            set_side)
 
 SPELL_TYPES = ("SPELL", "BATTLEGROUND_SPELL")
@@ -189,6 +189,8 @@ def build(d, combats=(), seed=7):
     base_max = base_max["max_gold"] - base_max.get("max_gold_bonus", 0)
     st = json.loads(g.state_json())
     p0 = st["players"][0]
+    if d.get("deity"):  # the lobby's Deity, yours at its logged size (the others' unknown)
+        set_deities(st, d["deity"], [(0, me)])
     # Maximum Gold above the round's (an effect that gave it for good): the next turns' Gold
     if me.get("max_gold") and me["max_gold"] > base_max:
         p0["max_gold_bonus"] = me["max_gold"] - base_max

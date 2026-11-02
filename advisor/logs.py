@@ -62,6 +62,20 @@ def _hp(e):
 VOLUMIZER_ATK, VOLUMIZER_HP = 4468, 4469  # player tags (unnamed in hearthstone's GameTag)
 
 
+DEITIES = ("BGFYM_000", "BGFYM_011")  # C'Thun, Y'Shaarj: one per lobby (Aberration lobbies)
+_DEITY_RX = re.compile(r"CardID=(BGFYM_0(?:00|11))(?:_G)?")
+
+
+def lobby_deity(lines):
+    """The lobby's Deity card id, the first a log segment names (None: none named)."""
+    for line in lines:
+        if "BGFYM_0" in line:
+            m = _DEITY_RX.search(line)
+            if m:
+                return m.group(1)
+    return None
+
+
 def _data(e):
     return [e.tags.get(t, 0) for t in SCRIPT_TAGS]
 
@@ -139,6 +153,8 @@ class CombatExporter(EntityTreeExporter):
             # "Your Volumizers have +X this game": the player's tags 4468/4469 (they only climb,
             # by 1 and 3: Green, Red, Blue); the Volumizer player enchantment keeps no number
             side["volumizer"] = [player.tags.get(VOLUMIZER_ATK, 0), player.tags.get(VOLUMIZER_HP, 0)]
+            # The Deity's size ("give your Deity +2/+1"; Aberration lobbies)
+            side["deity"] = [player.tags.get(T.BACON_OLD_GOD_ATTACK, 0), player.tags.get(T.BACON_OLD_GOD_HEALTH, 0)]
         if hero is not None:
             side.update(hero=self.skins.get(hero.card_id, hero.card_id), hero_skin=hero.card_id,
                         player_id=hero.tags.get(T.PLAYER_ID, 0),
@@ -327,7 +343,7 @@ def extract(path, skins):
             if not is_bg(tree):
                 continue
             meta = {"log": Path(path).parent.name, "segment": i, "build": build,
-                    "player_id": friendly_player_id(lines)}
+                    "player_id": friendly_player_id(lines), "deity": lobby_deity(lines)}
             ex = CombatExporter(tree, skins, meta)
             ex.export()
             combats += ex.combats
