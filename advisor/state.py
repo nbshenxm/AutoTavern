@@ -52,6 +52,7 @@ PLAYER_ENCHANTMENTS = {
     "BG31_816pe": ("baller_bonus", None),  # Ballers improved (each sale: +1 to the next ones)
 }
 TASTY_LOBSTER = "BG36_202"
+VOLUMIZERS = ("BG34_170t", "BG34_170t2", "BG34_170t3")  # Red, Blue, Green
 BLOOD_GEM = "BG20_GEM"
 SURVEYOR_PORTRAIT = "BG30_MagicItem_943"
 # A two-step Hero Power shows its second step as another card; TavernGym asks both steps
@@ -157,6 +158,19 @@ def player_stats(s):
         if cid == TASTY_LOBSTER and m["data"][0] > 0:
             g = 2 if golden or m["golden"] else 1
             out["lobster_bonus"] = max(out.get("lobster_bonus", 0), m["data"][0] // (2 * g) - 1)
+    # "Your Volumizers have +X this game": a Volumizer in hand shows it over its printed stats
+    # (the log's Volumizer player enchantment, BG34_170pe, keeps no number). Missing, a rebuilt
+    # Resourceful Robot or Auto Reveille Magnetized printed-size Volumizers: half the real growth
+    # (advisor.carry_test, Nov 2)
+    # The log's player tags hold it (advisor.logs, from Nov 2); older records: a Volumizer in hand
+    if s.get("volumizer"):
+        out["volumizer_atk"], out["volumizer_hp"] = s["volumizer"][:2]
+        return out
+    for m in s.get("hand", []):
+        cid, golden = normal_form(m["card"])
+        if cid in VOLUMIZERS and not (golden or m.get("golden")):
+            out["volumizer_atk"] = max(out.get("volumizer_atk", 0), m["atk"] - CAT[cid]["atk"])
+            out["volumizer_hp"] = max(out.get("volumizer_hp", 0), m["hp"] - CAT[cid]["hp"])
     return out
 
 

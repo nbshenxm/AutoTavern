@@ -13,6 +13,7 @@ or from end and start of turn effects: where real late warbands grow most.
 import argparse
 import collections
 import json
+from pathlib import Path
 
 from advisor import bridge
 from advisor.state import CAT, add_minion, debug, normal_form
@@ -40,13 +41,30 @@ def pairs(decisions):
             yield d, nxt
 
 
-def carry(d, nxt, combats):
+def matched(before, real, sim):
+    """[(card, stats before, real stats, TavernGym stats)]: each card's copies paired in board
+    order (a position can shift when a minion dies or one is made)."""
+    def by_card(board):
+        out = collections.defaultdict(list)
+        for m in board:
+            out[normal_form(m.get("card") or m.get("id") or "")[0]].append(m["atk"] + m["hp"])
+        return out
+    b, r, t = by_card(before), by_card(real), by_card(sim)
+    rows = []
+    for card, xs in r.items():
+        for i, x in enumerate(xs):
+            rows.append((card, b[card][i] if i < len(b[card]) else None, x,
+                         t[card][i] if i < len(t[card]) else None))
+    return rows
+
+
+def carry(d, nxt, combats, seed=7):
     """{round, real, sim, per-minion [(card, real stats, sim stats)]} or None (not rebuilt)."""
     met = [c for c in combats if c["log"] == d["log"] and c["player_id"] == d["player_id"]
            and c["turn"] == d["turn"] + 1]
     if not met:
         return None
-    g, gaps = bridge.build(d, bridge.game_combats(combats, d))
+    g, gaps = bridge.build(d, bridge.game_combats(combats, d), seed=seed)
     if gaps:
         return None
     opp = met[0]["start"]["opponent"]["board"]
@@ -77,10 +95,11 @@ def carry(d, nxt, combats):
         return None
     sim = json.loads(g.view(0))["me"]["board"]
     real = nxt["state"]["friendly"]["board"]
-    rows = [(m["card"], m["atk"] + m["hp"], s["atk"] + s["hp"] if s else None)
-            for m, s in zip(real, sim + [None] * len(real))]
+    before = d["state"]["friendly"]["board"]
+    rows = [(c, x, y) for c, _, x, y in matched(before, real, sim)]
     return {"round": (d["turn"] + 1) // 2, "real": _stats(real), "sim": _stats(sim),
-            "cards": [m["card"] for m in real], "rows": rows, "before": _stats(d["state"]["friendly"]["board"])}
+            "cards": [m["card"] for m in real], "rows": rows, "before": _stats(before),
+            "per_card": matched(before, real, sim)}
 
 
 def main():
@@ -88,10 +107,12 @@ def main():
     ap.add_argument("--decisions", default="data/replay/decisions.jsonl")
     ap.add_argument("--combats", default="data/replay/combats.jsonl")
     ap.add_argument("--examples", type=int, default=12)
+    ap.add_argument("--seeds", type=int, default=1, help="combats per turn pair (their outcome is random)")
+    ap.add_argument("--json", help="the per-card table, as JSON")
     a = ap.parse_args()
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
-    out = [r for d, n in pairs(decisions) if (r := carry(d, n, combats))]
+    out = [r for d, n in pairs(decisions) for k in range(a.seeds) if (r := carry(d, n, combats, seed=7 + k))]
     by = collections.defaultdict(list)
     for r in out:
         by["rounds 1-6" if r["round"] <= 6 else "rounds 7-9" if r["round"] <= 9 else "rounds 10+"].append(r)
@@ -105,12 +126,27 @@ def main():
         exact = sum(r["real"] == r["sim"] for r in rs)
         print(f"{k}: n={len(rs)} exact {exact}  warband gained over combat and the turn change: "
               f"real {gain_real}, TavernGym {gain_sim} ({gain_sim / gain_real if gain_real else 0:.2f}x)")
-    lost = collections.Counter()
+    # Per card: what its copies gained over combat and the turn change, real and in TavernGym
+    # (averaged over the seeds), where both boards have the copy
+    cards = collections.defaultdict(lambda: {"n": 0, "real": 0.0, "sim": 0.0, "exact": 0})
     for r in out:
-        for card, real, sim in r["rows"]:
-            if sim is not None and real > sim:
-                lost[_name(card)] += real - sim
-    print("stats the log has and TavernGym doesn't, by card:", lost.most_common(15))
+        for card, b, x, y in r["per_card"]:
+            if b is None or y is None:
+                continue
+            c = cards[card]
+            c["n"] += 1 / a.seeds
+            c["real"] += (x - b) / a.seeds
+            c["sim"] += (y - b) / a.seeds
+            c["exact"] += (x == y) / a.seeds
+    ranked = sorted(cards.items(), key=lambda kv: -abs(kv[1]["real"] - kv[1]["sim"]))
+    print("cards whose gain differs most (n, real gain, TavernGym gain, exact share):")
+    for card, c in ranked[:25]:
+        if abs(c["real"] - c["sim"]) < 1:
+            break
+        print(f"  {_name(card):28s} {card:14s} n={c['n']:5.1f} real {c['real']:9.0f}  TavernGym {c['sim']:9.0f}"
+              f"  exact {c['exact'] / max(c['n'], 1e-9):.0%}")
+    if a.json:
+        Path(a.json).write_text(json.dumps({k: {**v, "name": _name(k)} for k, v in ranked}, indent=1), encoding="utf-8")
     for r in sorted(out, key=lambda r: r["sim"] - r["real"])[:a.examples]:
         print(f"  round {r['round']}: before {r['before']}, real {r['real']}, TavernGym {r['sim']}:",
               [(_name(c), x, y) for c, x, y in r["rows"] if x != y][:5])

@@ -210,3 +210,13 @@ def test_a_logged_satellite_stack_is_each_of_its_magnetizations():
     glambot = json.loads(g.state_json())["players"][0]["board"][-1]
     assert len(glambot["attached"]) == 19  # (card ids as numbers; BG28_897e is stats only)
     assert (glambot["atk"], glambot["hp"]) == (103, 117)
+
+
+def test_the_volumizer_bonus_is_rebuilt():
+    # "Your Volumizers have +X this game": the log's player tags (advisor.logs: side["volumizer"]);
+    # older records: a Volumizer in hand over its printed stats
+    from advisor.state import player_stats
+
+    assert player_stats({"board": [], "volumizer": [28, 19]}) == {"volumizer_atk": 28, "volumizer_hp": 19}
+    green = {"card": "BG34_170t3", "atk": 60, "hp": 51, "golden": False}
+    assert player_stats({"board": [], "hand": [green]}) == {"volumizer_atk": 57, "volumizer_hp": 48}

@@ -59,6 +59,9 @@ def _hp(e):
     return e.tags.get(T.HEALTH, 0) - e.tags.get(T.DAMAGE, 0)
 
 
+VOLUMIZER_ATK, VOLUMIZER_HP = 4468, 4469  # player tags (unnamed in hearthstone's GameTag)
+
+
 def _data(e):
     return [e.tags.get(t, 0) for t in SCRIPT_TAGS]
 
@@ -133,6 +136,9 @@ class CombatExporter(EntityTreeExporter):
         player = next((p for p in self.game.players if p.tags.get(T.CONTROLLER) == ctrl), None)
         if player is not None:
             side["player_ench"] = self._enchantments(player.id)
+            # "Your Volumizers have +X this game": the player's tags 4468/4469 (they only climb,
+            # by 1 and 3: Green, Red, Blue); the Volumizer player enchantment keeps no number
+            side["volumizer"] = [player.tags.get(VOLUMIZER_ATK, 0), player.tags.get(VOLUMIZER_HP, 0)]
         if hero is not None:
             side.update(hero=self.skins.get(hero.card_id, hero.card_id), hero_skin=hero.card_id,
                         player_id=hero.tags.get(T.PLAYER_ID, 0),
