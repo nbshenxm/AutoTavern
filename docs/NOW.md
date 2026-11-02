@@ -20,6 +20,12 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [ ] big3ad vs big3: P(Upgrade) in your positions, tier at round 10 and the late game in the top-1% lobby, from your positions
 - [ ] big3's entropy rose 0.85 -> 1.3, back to 0.96 at it 240; from your positions 2.20 (best 2.30): watching
 
+## Tomorrow morning (Nov 2)
+
+- [ ] big3ad's probes (cluster, 01:45 and 05:45): does it level in your positions now (was 0% in rounds 4-9)? Its tier at round 10 in the top-1% lobby (big3 2.8)
+- [ ] big3ad vs big3 (office, the control): head to head, from your positions, the top-1% lobby
+- [ ] Promote whichever is better for R3 (Nov 2 20:00); if big3ad levels and holds its strength, it goes first
+
 ## Later
 
 - [ ] R4 (Nov 3): late >= 0.40x, on-type buys >= 50% (big3: 48.5%)
