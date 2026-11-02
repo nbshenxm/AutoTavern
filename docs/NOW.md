@@ -28,6 +28,8 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [x] Simulator check across turns (carry_test): rebuilt real boards lost Magnetizations (a log keeps all Satellites in one enchantment): rounds 7-9 gained 0.42x the real growth, now 1.03x. Fixed for the live advice (restart the advisor) and training's real starts
 - [x] Card-by-card scaling check (within the turn: 93.4% of 2,278 actions exact, big scalers within 3%; over the turn change: per card). Fixed: the Volumizer bonus (Robot 13.7k -> 21.7k of 25.8k real), Vol'jin's swap kept as permanent Attack
 - [ ] Open: Volumizer stacks' Magnetization count (Beatboxer), Living Prison, Gatekeeper Amalgam, Bramble Tunneler; Tarecgosa (combat)
+- [x] Combats calibrated: fixed Hero Powers armed for the next combat (Y'Shaarj) and Lock and Load's owed minion; TavernGym still underrates your side by ~9 wins of 212 (3.1 SD)
+- [ ] The 8 fights you won from < 45%: case by case (Pocket Cyclone, Deathstrider-Lobster, Undead under Expedition Plans...)
 - [ ] Rebuild the home module when the advisor is closed (Vol'jin fix needs it); restart the advisor for the Satellite/Volumizer fixes
 - [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
 
