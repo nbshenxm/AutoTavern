@@ -32,6 +32,9 @@ release targets are in [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31).
 - [ ] The 8 fights you won from < 45%: case by case (Pocket Cyclone, Deathstrider-Lobster, Undead under Expedition Plans...)
 - [x] Audit (docs/AUDIT.md): card-text review of ~700 scripts (no scaling contradiction; Sacrifice fixed); Bob's Buddy on 6,000 random warbands (mean |diff| 0.038; both strong outliers decided by your logs for TavernGym); the Deity rebuilt (combats +3.1 -> +2.9 SD)
 - [ ] Audit next: the rest of the +2.9 SD (close fights); spells, trinkets and Hero Powers with few log checks
+- [x] fidelity: one check for all audits with a baseline (actions 93.6%, turns 86.3%, transitions 99.4%, combats calibrated +3.0 SD, carry 0.70/1.05/0.88x); a regression exits 1 (the home sync logs it)
+- [x] Rebuild: Blood Gems kept apart (Gem Confiscation 7 of 7), improve-this counters, Living Prison and Lock and Load from the turn's decisions
+- [ ] Your opening (Nov 2): networks Freeze 5-8x as often as you in rounds 2-6, never Upgrade (you 0.55/turn), buy more off-type minions. Rules checked (damage caps 5/10/15, Triple Reward Tier on play): right. Next: a run that learns the opening
 - [ ] Rebuild the home module when the advisor is closed (Vol'jin fix needs it); restart the advisor for the Satellite/Volumizer fixes
 - [ ] R3 (20:00): big3 it 510 unless big3ad beats it head to head by then
 
