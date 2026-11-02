@@ -27,6 +27,7 @@ worth too much) whatever the network decides.
 | rebuild, replay | Hero Powers used in Recruit for the next combat not armed (Y'Shaarj, Rafaam) | logged wins at p 0.00 | armed: 0.54 / 0.11 / 0.04 (the summon is random) |
 | replay | Lock and Load's taken minion never owed to the combat | a minion short: p 0.43, 0.65 for logged wins | owed: 0.88, 0.84 |
 | TavernGym | Offensive / Defensive Sacrifice (Dark Gifts) could give the stats to the host itself when its Deathrattle was triggered while it lived (Deathstrider, Herald Sticker) | the host buffed itself | another friendly minion |
+| rebuild | Easterly Winds (Pocket Cyclone, Air Revenant: "after the Tavern is Refreshed this game, a random minion +9/+9", cast again and again) never rebuilt: the log keeps its per-Refresh total | a rebuilt position's Refreshes buffed nothing where the log had +110/+110 or +337/+337 | the total as TavernGym's stacks |
 | log parse + rebuild | the lobby's Deity and its size (player tags BACON_OLD_GOD_ATTACK/HEALTH) never read: rebuilt lobbies drew a random Deity at printed size | a Y'Shaarj where your lobby had a 7/4 C'Thun: a won fight at p 0.14 (Bob's Buddy 1.00) | the logged Deity and size |
 
 ## Results so far
@@ -46,11 +47,18 @@ worth too much) whatever the network decides.
 - Bob's Buddy, your 212 combats (plain inputs only, no enchantment effects): +4.6 SD, worse than
   TavernGym's +2.9: the bias left is mostly in what neither gets from the log, not TavernGym's rules.
 
+- Bob's Buddy with combat trinkets (6,000 fights, 46 combat trinkets, 0-2 a side): mean |difference|
+  0.043. Leaning beyond chance, unresolved (not in your logs): Faerie Dragon Scale (z +4.0), All-Purpose
+  Kibble (+3.2), Reinforced Shield (+2.8); Wildfire Elemental (+3.2: TavernGym deals the excess even
+  when it dies in the exchange). All four match their text in TavernGym.
+- No seat bias: your combats with you in seat 0 and seat 1 give 98.8 and 99.3 predicted wins.
+- The remaining +2.9 SD is spread (Beasts +1.2, Mechs +1.3, the rest +2.4 SD); ties are calibrated.
+
 ## Open
 
 - The +3.1 SD combat bias: 8 fights you won from < 45% (Pocket Cyclone, the Deathstrider-Lobster
   Beasts, an Undead board under Expedition Plans, ...)
-- Rebuild gaps: the Volumizer stack's Magnetization count (Beatboxer); Living Prison armed earlier
+- Rebuild gaps: Blood Gem Barrage's stacks (the log keeps the Gem size, not the count); the Volumizer stack's Magnetization count (Beatboxer); Living Prison armed earlier
   in the turn; Blood Gems that Gem Confiscation steals; Gatekeeper Amalgam played as printed
   stats; Lock and Load in the live advice (needs the turn's decisions)
 - Card-text edge cases (likely): Guiding Candle's Tier 6 Refreshes skip other "when Refreshed" effects; Bob-blehead still offers
