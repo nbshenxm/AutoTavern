@@ -45,6 +45,9 @@ COUNTER_FROM_DATA = {
     "BG34_858": lambda d: 7 - d[0],  # Air Revenant: Gold spent toward 7
     "BG36_523": lambda d: 6 - d[0],  # Enterprising Escapee: Gold spent toward 6
     "BG36_367": lambda d: 3 - d[0],  # Auto Reveille: cards bought toward 3
+    "BG24_715": lambda d: d[0] - 1,  # Patient Scout: the Tier it Discovers from (1 + turns)
+    "BG33_823": lambda d: 9 - d[0],  # Sky Admiral Rogers: Gold spent toward 9
+    "BG35_814": lambda d: d[1],  # Scarlet Survivor: its Divine Shield already gained
 }
 # "Improve this" cards: the log shows the amount they give now; TavernGym's counter adds the
 # base (golden: twice) per improvement and gives base x (golden 2 or 1 + counter). Card ->
