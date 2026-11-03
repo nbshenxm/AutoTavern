@@ -11,7 +11,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Next up
 
-- [ ] Patch 37.0.2 is in the simulator ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)); rebuild the home advisor (close it first) and check the readings against your first games on the patch
+- [ ] Patch 37.0.2 is in the simulator ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)), home advisor rebuilt (R3 on the new rules); check the readings against your first games on the patch
 - [ ] Review ([REVIEW_20261103.md](REVIEW_20261103.md)): our check couldn't see a gain (±0.1 places); the gate (advisor.gate, paired) decides from now on
 - [ ] By the gate: R2 beat R1 by 0.14, R3 beat R2 by 0.12; since R3 nothing (big3 786 +0.01, big3hero +0.04, both inconclusive). The plateau is R3's
 - [ ] The search on the gate works but costs ~16 CPU-minutes a pair at k=2: a precise verdict needs a cheaper search or late positions only
