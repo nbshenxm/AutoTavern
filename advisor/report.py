@@ -68,6 +68,7 @@ SIMULATOR = [
     ("Actions offered", "94%", "of your logged decisions: the simulator allows exactly the actions the game offered"),
     ("Recruit rules", "all agree", "gold, costs, Tavern size and Tier odds checked against the logs"),
     ("Patch 37.0", "no changes", "no Battlegrounds card or rule changed from the simulator's 36.6.3"),
+    ("Patch 37.0.2", "in", "131 cards (stats, texts, prices), the pool, Dark Gift rules; the scripts' numbers (docs/patches/37.0.2_simulator.md)"),
 ]
 CSS = """
 :root { color-scheme: light; --surface: #fcfcfb; --text: #0b0b0b; --text-2: #52514e; --muted: #8a8984; --grid: #e6e5e0;
