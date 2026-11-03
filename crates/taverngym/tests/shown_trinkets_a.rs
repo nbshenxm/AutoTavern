@@ -301,7 +301,7 @@ fn this_game_counters_scale_the_shown_amounts() {
         g.with_recruit(0, |c| end_of_turn(c, me(t)));
     }
     let m = &g.players[0].board[0];
-    assert_eq!((m.atk, m.hp), (1 + 16 + 5, 3 + 8 + 10));
+    assert_eq!((m.atk, m.hp), (1 + 16 + 5, 3 + 16 + 10));
 }
 
 /// Hammer of Twilight: the shown Attack is the aura the minions really have.

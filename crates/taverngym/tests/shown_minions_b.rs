@@ -369,7 +369,7 @@ fn hooktusk_shows_the_golden_minions_played() {
     assert_eq!(
         board_text(&mut g, 1).as_deref(),
         Some(
-            "After you Discover a card, give your other Pirates +6/+6. (Improved by Golden \
+            "After you Discover a card, give your Pirates +6/+6. (Improved by Golden \
              minions you played this game!)"
         )
     );

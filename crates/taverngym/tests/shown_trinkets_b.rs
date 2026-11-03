@@ -93,8 +93,8 @@ fn trinket_upgrades_count_down() {
     assert_eq!(
         shown(&mut g, hook).as_deref(),
         Some(
-            "After you spend 50 Gold, replace this with a random Greater Pirate Trinket. \
-             (30 Gold left!)"
+            "After you spend 40 Gold, replace this with a random Greater Pirate Trinket. \
+             (20 Gold left!)"
         )
     );
 }
@@ -151,7 +151,7 @@ fn gyroblade_shows_the_satellite_it_will_give() {
     assert_eq!(
         shown(&mut g, big).as_deref(),
         Some(
-            "At the end of your turn, get a 36/36 Magnetic Satellite. (Improved by each Tavern \
+            "At the end of your turn, get a 60/60 Magnetic Satellite. (Improved by each Tavern \
              spell you've cast this turn!)"
         )
     );

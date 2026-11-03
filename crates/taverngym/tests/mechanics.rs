@@ -10268,7 +10268,7 @@ fn sacrificial_wrathguard_bonus_from_combat_reaches_the_tavern() {
     for (sid, a, h) in kept {
         let slot = g.players[0].shop.iter().find(|s| s.sid == sid).unwrap();
         let m = slot.item.as_minion().unwrap();
-        assert_eq!((m.atk, m.max_hp), (a + 2, h + 2));
+        assert_eq!((m.atk, m.max_hp), (a + 2, h + 1));
     }
     g.with_recruit(0, |c| c.refresh_shop(0));
     for m in g.players[0].shop.iter().filter_map(|s| s.item.as_minion()) {

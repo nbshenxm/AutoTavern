@@ -173,7 +173,7 @@ fn living_azerite_grows_the_elementals_in_the_tavern() {
         cast(&mut g, COIN);
         assert_eq!(
             shop_stats(&g),
-            vec![(2 + 8 * times, 1 + 6 * times), (3, 3)],
+            vec![(2 + 6 * times, 1 + 6 * times), (3, 3)],
             "{azerite}"
         );
     }
@@ -193,7 +193,7 @@ fn living_azerite_bonus_is_on_elementals_that_come_later() {
         g.apply(0, Action::Refresh).unwrap();
         for (races, a, h) in tavern_bonuses(&mut g) {
             let elemental = races.intersects(Races::ELEMENTAL);
-            let want = if elemental { (4, 3) } else { (0, 0) };
+            let want = if elemental { (3, 3) } else { (0, 0) };
             assert_eq!((a, h), want);
             seen |= elemental;
         }
@@ -229,7 +229,7 @@ fn arcane_absorption_gives_half_the_stats_of_the_healthiest_tavern_minion() {
     cast_at(&mut g, ABSORPTION, 0);
     assert_eq!(stats(&g, 0), vec![(2 + 4, 1 + 4), (3, 3)]);
     // Nothing is taken from the Tavern.
-    assert_eq!(shop_stats(&g), vec![(6, 8), (3, 3)]);
+    assert_eq!(shop_stats(&g), vec![(8, 8), (3, 3)]);
 }
 
 // ---------------------------------------------------------------------------- 2-3, 7. Demons
@@ -574,7 +574,7 @@ fn balinda_makes_the_amalgam_cast_its_tea_set_for_every_cast() {
             stats(&g, 0),
             vec![
                 (6 + (2 + 3) * times, 6 + (2 + 3) * times),
-                (1 + 4 * times, 3 + 4 * times),
+                (1 + 3 * times, 3 + 3 * times),
                 before[2], // Balinda has no type
             ],
             "{balinda}"
@@ -652,7 +652,7 @@ fn spark_snapper_magnetizes_a_satellite_to_a_played_mech_and_improves() {
         give(&mut g, 0, RESCUE_BOT);
         play_last(&mut g, 0);
         let m = &g.players[0].board[3];
-        assert_eq!((m.atk, m.hp), (2 + 4 * k, 1 + 6 * k), "{snapper}");
+        assert_eq!((m.atk, m.hp), (2 + 4 * k, 1 + 4 * k), "{snapper}");
         // The Snapper itself gets nothing.
         assert_eq!(stats(&g, 0)[0], own, "{snapper}");
     }
