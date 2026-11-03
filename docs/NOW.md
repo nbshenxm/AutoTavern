@@ -7,7 +7,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 ## Running
 
 - [ ] Office: big3open, the opening lobby at your lobbies' strength (until Nov 3 16:00)
-- [ ] Cluster: big3ad, the adaptive late-game lobby (hourly tasks until Nov 3)
+- [ ] Cluster: big3hero, random hero deals + Hero Power exploration (the network never picked 48 of 116 heroes)
 
 ## Next up
 
@@ -16,6 +16,8 @@ simulator audit in [AUDIT.md](AUDIT.md).
 - [ ] Commit to a type and hold cards: on-type buys 35% (you 62-69%), plays 11 a turn (you 7-8)
 
 ## Later
+
+- [ ] A Hero Power exam: per hero, use rate against yours and whether using it more pays
 
 - [ ] R4 (Nov 3): late >= 0.40x, on-type buys >= 50%
 - [ ] A rating ladder and a league of strong networks (the bar beyond Firestone's top 1%)
