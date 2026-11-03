@@ -75,6 +75,27 @@ def play(net, other, n, seed, config, states=None, device="cuda", games=64, thre
     return places
 
 
+def champion_places(champ, champ_path, n, seed, config, states, device, threads, key):
+    """play(champ, champ, ...), cached: the champion's games depend only on its weights, the
+    seeds, the starts and the simulator build, and every candidate is compared on the same ones
+    (half a gate's time)."""
+    import hashlib
+    import taverngym
+    h = hashlib.md5(Path(champ_path).read_bytes()).hexdigest()[:12]
+    from advisor import library
+    core = next(Path(taverngym.__file__).parent.glob("_core*"))  # the compiled simulator
+    build = "-".join(str(int(Path(f).stat().st_mtime)) for f in (core, library.BOARDS, library.STARTS))
+    cache = OUT / "cache" / f"{h}_{key}_{seed}_{n}_{build}.json"
+    if cache.is_file():
+        return json.loads(cache.read_text())
+    places = play(champ, champ, n, seed, config, states, device, threads=threads)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache.with_suffix(".tmp")
+    tmp.write_text(json.dumps(places))
+    tmp.replace(cache)
+    return places
+
+
 def summary(diffs):
     d = np.asarray(diffs, float)
     se = float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else float("inf")
@@ -117,7 +138,8 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
         for k, (config, st, n) in suites.items():
             s = seed + r * 1_000_003 + SUITES.index(k) * 100_003
             a = play(cand, champ, n, s, config, st, device, threads=threads)
-            b = play(champ, champ, n, s, config, st, device, threads=threads)
+            b = champion_places(champ, champ_path, n, s, config, st, device, threads,
+                                f"{k}{len(states)}")
             row["diffs"][k] = [x - y for x, y in zip(a, b)]
             row.setdefault("cand_place", {})[k] = round(float(np.mean(a)), 3)
             row.setdefault("champ_place", {})[k] = round(float(np.mean(b)), 3)
