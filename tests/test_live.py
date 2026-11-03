@@ -235,3 +235,15 @@ def test_a_spending_search_does_not_end_the_turn_with_gold():
             if plan and plan[-1] == L["A_END"]:
                 assert _json.loads(c.view(0))["me"]["gold"] < 3 or search.spend_mask(
                     _json.loads(c.view(0)), None, 3) is None
+
+
+def test_a_target_that_opens_a_discover_ends_the_plan():
+    # Captain Hooktusk: the power asks for a target, the target opens a Discover. The offer is
+    # the simulator's own roll: the plan stops there (it went on to "Choose Deadly Spore")
+    from advisor.live import random_outcome
+
+    target = {"me": {"pending": {"kind": "target"}}}
+    offer = {"me": {"pending": {"kind": "discover"}}}
+    assert random_outcome(target, 31, offer) == "choice"
+    # answering an offer inside an offer is not a new roll
+    assert random_outcome(offer, 31, {"me": {"pending": {"kind": "choose_one"}}}) is None

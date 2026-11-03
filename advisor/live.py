@@ -355,7 +355,11 @@ def random_outcome(before, a, after):
     if a == 1:
         return "tavern"
     pending = after["me"].get("pending") or {}
-    if pending and pending.get("kind") != "target" and not (30 <= a <= 45 and before["me"].get("pending")):
+    # (answering an offer inside an offer isn't a new roll; answering a target can be: Captain
+    # Hooktusk's power targets a minion, then Discovers. Taken for the former, the plan went on
+    # to "Choose Deadly Spore", the simulator's own offer, read as a misread Gryphon; Nov 2)
+    was = (before["me"].get("pending") or {}).get("kind")
+    if pending and pending.get("kind") != "target" and not (30 <= a <= 45 and was not in (None, "target")):
         return "choice"
     return None
 
