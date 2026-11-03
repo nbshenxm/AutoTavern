@@ -151,11 +151,26 @@ def main():
     global BANDS
     if a.early:
         BANDS = EARLY_BANDS
-    from advisor.train import wait_while_playing
     torch.set_num_threads(4)
     net, ck = load(a.checkpoint)
     rows = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
+    table = compare(net, rows, combats, BANDS)
+    print(f"{a.checkpoint} ({ck.get('source') or ck.get('iteration')}): per turn, you | network")
+    print(f"{'':14s}" + "".join(f"{k:>16s}" for k in KINDS + ['gold left']))
+    for band, t in table.items():
+        print(f"{band} ({t['turns']:3d})" + "".join(f"{t[k][0]:9.2f} |{t[k][1]:5.2f}" for k in KINDS + ["gold left"])
+              + f"   bought tier {t['bought tier'][0]:.2f} | {t['bought tier'][1]:.2f}, "
+              f"on-tribe {t['bought on-tribe'][0]:.0%} | {t['bought on-tribe'][1]:.0%}")
+    if a.json:
+        Path(a.json).write_text(json.dumps({"checkpoint": a.checkpoint, "bands": table}), encoding="utf-8")
+
+
+def compare(net, rows, combats, bands):
+    """{band: {"turns": n, kind: [you, network] per turn, "gold left", "bought tier", "bought
+    on-tribe"}}: your logged turns against the network's greedy turn from each one's start."""
+    from advisor.train import wait_while_playing
+    BANDS = bands
     turns = collections.defaultdict(list)
     for d in rows:
         if d["kind"] == "options" and d["turn"] % 2 == 1 and (d["turn"] + 1) // 2 >= BANDS[0][1][0]:
@@ -181,8 +196,6 @@ def main():
         x["gold_you"].append(ds[-1]["state"]["friendly"].get("gold", 0))  # Gold at the last decision
         if net_gold is not None:
             x["gold_net"].append(net_gold)
-    print(f"{a.checkpoint} ({ck.get('source') or ck.get('iteration')}): per turn, you | network")
-    print(f"{'':14s}" + "".join(f"{k:>16s}" for k in KINDS + ['gold left']))
     table = {}
     for band, _ in BANDS:
         x = acc[band]
@@ -198,10 +211,7 @@ def main():
             bq[who] = (float(np.mean([t for t, _ in b])) if b else 0.0, float(np.mean([s for _, s in b])) if b else 0.0)
         table[band]["bought tier"] = [round(bq["you"][0], 2), round(bq["net"][0], 2)]
         table[band]["bought on-tribe"] = [round(bq["you"][1], 2), round(bq["net"][1], 2)]
-        print(f"{band} ({x['n']:3d})" + "".join(f"{u:9.2f} |{v:5.2f}" for u, v in cells.values())
-              + f"   bought tier {bq['you'][0]:.2f} | {bq['net'][0]:.2f}, on-tribe {bq['you'][1]:.0%} | {bq['net'][1]:.0%}")
-    if a.json:
-        Path(a.json).write_text(json.dumps({"checkpoint": a.checkpoint, "bands": table}), encoding="utf-8")
+    return table
 
 
 if __name__ == "__main__":
