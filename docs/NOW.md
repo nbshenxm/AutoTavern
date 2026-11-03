@@ -6,13 +6,13 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Running
 
-- [ ] Office: big3hero, random hero deals + Hero Power exploration (until Nov 3 16:00; the network never picked 48 of 116 heroes)
-- [ ] Office: the gate on the past releases, R2 vs R1, R3 vs R2, big3hero vs R3: did we improve, and by how much?
+- [ ] Office: lr3, R3 at 3x the learning rate (one change); the gate against R3 at 15:12 and 19:00 decides
 
 ## Next up
 
 - [ ] Review ([REVIEW_20261103.md](REVIEW_20261103.md)): our check couldn't see a gain (±0.1 places); the gate (advisor.gate, paired) decides from now on
-- [ ] What the past releases were worth, by the gate; then the next lever chosen by it (longer fixed runs, learning rate, play-time search: each a gate)
+- [ ] By the gate: R2 beat R1 by 0.14, R3 beat R2 by 0.12; since R3 nothing (big3 786 +0.01, big3hero +0.04, both inconclusive). The plateau is R3's
+- [ ] If lr3 fails: measure what a deeper search adds on top of R3 (the gate, search in seat 0)
 - [ ] Commit to a type and hold cards: on-type buys 35% (you 62-69%), plays 11 a turn (you 7-8)
 
 ## Later
