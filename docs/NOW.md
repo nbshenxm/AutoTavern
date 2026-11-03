@@ -29,3 +29,4 @@ simulator audit in [AUDIT.md](AUDIT.md).
 - [x] R3 shipped: big3 iteration 510 and the audited rebuild of your positions
 - [x] Simulator audit: rules faithful; 15+ rebuild bugs fixed; a standing check after every game
 - [x] Positioning exam: the network is even with you (0.048 below the best order, you 0.046)
+- [x] Live plan: stops at the Discover a Hero Power opens (it showed its own pick, "Deadly Spore", as if it misread your Gryphon)
