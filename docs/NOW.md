@@ -7,11 +7,12 @@ simulator audit in [AUDIT.md](AUDIT.md).
 ## Running
 
 - [ ] Office: big3hero, random hero deals + Hero Power exploration (until Nov 3 16:00; the network never picked 48 of 116 heroes)
+- [ ] Office: the gate on the past releases, R2 vs R1, R3 vs R2, big3hero vs R3: did we improve, and by how much?
 
 ## Next up
 
-- [ ] Skill exams per network (habits gap, 0 = like you): best 0.74, big3ad 0.74, big3open 0.68; positioning even with you
-- [ ] Why training is flat (R1-R3 place 2.44 / 2.36 / 2.46, late 0.19-0.20x; big3open stopped at ~2.5): change the approach, not another tweak
+- [ ] Review ([REVIEW_20261103.md](REVIEW_20261103.md)): our check couldn't see a gain (±0.1 places); the gate (advisor.gate, paired) decides from now on
+- [ ] What the past releases were worth, by the gate; then the next lever chosen by it (longer fixed runs, learning rate, play-time search: each a gate)
 - [ ] Commit to a type and hold cards: on-type buys 35% (you 62-69%), plays 11 a turn (you 7-8)
 
 ## Later
