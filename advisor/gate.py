@@ -1,0 +1,167 @@
+"""The promotion gate: is a candidate network better than the champion, by enough to see?
+
+Training's own checks were 200-260 games (standard error ~0.1 places) and best.pt kept the
+lowest reading, so promotions partly picked luck (docs/REVIEW_20261103.md). Here both networks
+play seat 0 of the same games, under the same seeds, with the champion in the other seats; the
+paired difference in seat 0's place (candidate - champion, negative = better) cancels most of
+the luck of the draw. Suites:
+
+- real: from each of your logged round starts (RealStarts), the other seats the champion
+- library: the same starts, seats 5-7 real top-1% warbands (training's lib_eval_config)
+- fresh: new games from round 1, seats 5-7 library warbands
+
+A round is every suite once under new seeds. After each round (from the second): pass when the
+gain is clear (-mean >= Z_PASS x se), stop as not better when even the optimistic end
+(-mean + 2 x se) is under MARGIN places; otherwise go on, at most --rounds. A pass is re-run on
+fresh seeds (--recheck, the constructed track's lesson: 54.4% on the gate's deals, 51.4% on new
+ones) and only both together promote. Rounds are appended to data/gate/<name>.jsonl as they
+finish: a stopped gate resumes where it was.
+
+    python -X utf8 -m advisor.gate data/train/big3hero/last.pt data/models/best.pt
+"""
+
+import argparse
+import json
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import torch
+
+from advisor.policy import load
+from advisor.train import CONFIG, BatchEnv, RealStarts, load_start, pause_if_playing, play_frozen
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "data" / "gate"
+Z_PASS, MARGIN = 2.5, 0.03
+SEED, RECHECK_SEED = 41_000_000, 43_000_000
+SUITES = ("real", "library", "fresh")
+
+
+def library_config():
+    from advisor import library
+    return {**CONFIG, "library": library.library([5, 6, 7], strength=1.0, comps=True)}
+
+
+@torch.no_grad()
+def play(net, other, n, seed, config, states=None, device="cuda", games=64, threads=8):
+    """Seat 0's place in `n` games (game i from states[i] when given, else round 1), `net` in
+    seat 0, `other` in the rest, all greedy; game i's seed depends on (seed, i) only."""
+    places = []
+    for k in range(0, n, games):
+        m = min(games, n - k)
+        env = BatchEnv(m, seed=seed + k, controlled=list(range(8)), config=config, threads=threads)
+        if states is not None:
+            for i in range(m):
+                load_start(env, i, states[k + i])
+        net_of = {i: (net if i % 8 == 0 else other) for i in range(env.n_slots)}
+        obs = env.observe()
+        got = {}
+        for step in range(200_000):  # a guard: games end long before
+            if len(got) == m:
+                break
+            if step % 500 == 0:
+                pause_if_playing()
+            ready = np.flatnonzero(obs["ready"] & obs["action_mask"].any(1))
+            ready = np.array([i for i in ready if i // 8 not in got], dtype=np.int64)
+            actions = np.zeros(env.n_slots, dtype=np.int64)
+            play_frozen(obs, ready, net_of, actions, device)
+            _, done, info = env.step(actions)
+            for i in np.flatnonzero(done):
+                if i % 8 == 0 and i // 8 not in got:  # a stopped game has no placement: 4.5
+                    got[i // 8] = int(info["placement"][i]) or 4.5
+            obs = env.observe()
+        places += [got.get(i, 4.5) for i in range(m)]
+    return places
+
+
+def summary(diffs):
+    d = np.asarray(diffs, float)
+    se = float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else float("inf")
+    return {"n": len(d), "mean": round(float(d.mean()), 4), "se": round(se, 4)}
+
+
+def verdict(s, rounds_done, min_rounds=2):
+    if rounds_done < min_rounds:
+        return "running"
+    if s["mean"] < 0 and -s["mean"] >= Z_PASS * s["se"]:
+        return "pass"
+    if -s["mean"] + 2 * s["se"] < MARGIN:
+        return "not better"
+    return "running"
+
+
+def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cuda", threads=8,
+        name=None, log=print, max_starts=None):
+    cand, cck = load(cand_path, device)
+    champ, hck = load(champ_path, device)
+    cand.eval(), champ.eval()
+    name = name or f"{Path(cand_path).parent.name}-{cck.get('iteration')}_vs_{Path(champ_path).stem}-{hck.get('iteration')}_{seed}"
+    OUT.mkdir(parents=True, exist_ok=True)
+    path = OUT / f"{name}.jsonl"
+    done = [json.loads(l) for l in open(path, encoding="utf-8")] if path.is_file() else []
+    starts = RealStarts(1.0, 0, log=lambda r: None)
+    states = starts.real[:max_starts]
+    if max_starts:
+        name += f"_starts{max_starts}"
+        path = OUT / f"{name}.jsonl"
+        done = [json.loads(l) for l in open(path, encoding="utf-8")] if path.is_file() else []
+    lib = library_config()
+    suites = {"real": (CONFIG, states, len(states)), "library": (lib, states, len(states)),
+              "fresh": (lib, None, fresh_games)}
+    diffs = {k: [x for r in done for x in r["diffs"][k]] for k in SUITES}
+    status = "running"
+    for r in range(len(done), rounds):
+        row = {"round": r, "time": datetime.now().isoformat(timespec="minutes"),
+               "cand": str(cand_path), "champ": str(champ_path), "seed": seed, "diffs": {}}
+        for k, (config, st, n) in suites.items():
+            s = seed + r * 1_000_003 + SUITES.index(k) * 100_003
+            a = play(cand, champ, n, s, config, st, device, threads=threads)
+            b = play(champ, champ, n, s, config, st, device, threads=threads)
+            row["diffs"][k] = [x - y for x, y in zip(a, b)]
+            row.setdefault("cand_place", {})[k] = round(float(np.mean(a)), 3)
+            row.setdefault("champ_place", {})[k] = round(float(np.mean(b)), 3)
+            diffs[k] += row["diffs"][k]
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+        done.append(row)
+        total = summary([x for k in SUITES for x in diffs[k]])
+        status = verdict(total, len(done))
+        log({"round": r, "total": total, **{k: summary(diffs[k]) for k in SUITES},
+             "cand_place": row["cand_place"], "champ_place": row["champ_place"], "status": status})
+        if status != "running":
+            break
+    total = summary([x for k in SUITES for x in diffs[k]])
+    if status == "running":
+        status = "inconclusive"
+    return {"name": name, "status": status, "rounds": len(done), "total": total,
+            **{k: summary(diffs[k]) for k in SUITES}}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cand")
+    ap.add_argument("champ")
+    ap.add_argument("--rounds", type=int, default=8)
+    ap.add_argument("--fresh-games", type=int, default=256)
+    ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--no-recheck", action="store_true", help="skip the fresh-seed re-run of a pass")
+    ap.add_argument("--starts", type=int, default=None, help="only the first N real starts (a smoke test)")
+    a = ap.parse_args()
+    torch.set_num_threads(a.threads)
+    log = lambda r: print(json.dumps(r), flush=True)
+    res = run(a.cand, a.champ, a.rounds, SEED, a.fresh_games, a.device, a.threads, log=log,
+              max_starts=a.starts)
+    if res["status"] == "pass" and not a.no_recheck:
+        re = run(a.cand, a.champ, a.rounds, RECHECK_SEED, a.fresh_games, a.device, a.threads,
+                 log=log, max_starts=a.starts)
+        res = {**res, "recheck": re, "status": "pass" if re["status"] == "pass" else "failed recheck"}
+    res["time"] = datetime.now().isoformat(timespec="minutes")
+    with (OUT / "verdicts.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps(res) + "\n")
+    print(json.dumps(res))
+
+
+if __name__ == "__main__":
+    main()
