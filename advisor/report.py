@@ -83,6 +83,10 @@ h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 18px; margin: 36px 0 6p
 .sub, .muted, .note { color: var(--text-2); } .sub { margin: 4px 0 12px; font-size: 13px; max-width: 80ch; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 8px 0; }
 .tile { background: var(--card); border: 1px solid var(--grid); border-radius: 8px; padding: 12px 14px; }
+.big { font-size: 1.9em; font-weight: 600; margin: 4px 0; }
+details { border-top: 1px solid var(--grid); padding: 6px 0; }
+details > summary { cursor: pointer; font-size: 1.1em; font-weight: 600; padding: 6px 0; }
+details[open] > summary { margin-bottom: 8px; }
 .bar { height: 8px; background: var(--grid); border-radius: 4px; overflow: hidden; margin: 8px 0 3px; }
 .bar .fill { height: 100%; background: var(--s1); }
 .job { font-weight: 600; margin: 2px 0; } .small { font-size: 12px; }
@@ -494,6 +498,74 @@ def _bar(frac, label):
             f'<div class="muted small">{_esc(label)}</div>')
 
 
+def _short(text, n=90):
+    text = " ".join(str(text).split())
+    return text if len(text) <= n else text[:n - 1].rstrip() + "…"
+
+
+def _glance():
+    """The top of the page: a few numbers that say where we are, the running jobs as bars, the
+    next three things. Everything else is folded below (the page had grown text-heavy)."""
+    tiles = []
+    rel = ROOT / "docs" / "RELEASES.md"
+    head = next((l for l in rel.read_text(encoding="utf-8").splitlines() if l.startswith("## R")), "") if rel.exists() else ""
+    net = _network()
+    tiles.append(("Advisor now", _esc(head[3:].split("·")[0].strip() or "-"),
+                  _esc(_short((net or {}).get("source") or "", 40))))
+    now = _current()
+    if "real" in now:
+        tiles.append(("From your positions", f"{now['real']:.2f}", "placement, lower is better"))
+    if "late_lib" in now or "late" in now:
+        tiles.append(("Late game", f"{now.get('late_lib', now.get('late')):.2f}x", "of your lobbies' warbands"))
+    ex = {}
+    for r in _jsonl(PROGRESS / "exams.jsonl"):
+        if "big3 iteration 510" in str(r.get("source")) or r.get("net", "").endswith("models/best.pt"):
+            ex[r["exam"]] = r
+    if ex.get("habits"):
+        tiles.append(("Habits vs yours", f"{ex['habits']['gap']:.2f}", "gap, 0 = plays like you"))
+    if ex.get("positioning"):
+        tiles.append(("Positioning", f"{ex['positioning']['gap']:.3f}", "gap to the best order, 0 = master"))
+    last = DATA / "replay" / "fidelity_last.json"
+    if last.exists():
+        reg = json.loads(last.read_text(encoding="utf-8")).get("regressions") or []
+        when = datetime.fromtimestamp(last.stat().st_mtime)
+        tiles.append(("Simulator check", "passed" if not reg else f"{len(reg)} drops", f"{when:%b %d %H:%M}"))
+    out = ['<h2>At a glance</h2><div class="tiles">' + "".join(
+        f'<div class="tile"><div class="muted small">{a}</div><div class="big">{b}</div>'
+        f'<div class="muted small">{c}</div></div>' for a, b, c in tiles) + "</div>"]
+    jobs_path = PROGRESS / "jobs.json"
+    jobs = json.loads(jobs_path.read_text(encoding="utf-8")).get("jobs", []) if jobs_path.exists() else []
+    rows = []
+    for j in jobs:
+        start = datetime.fromisoformat(j["started"])
+        end = datetime.fromisoformat(j["ends"]) if j.get("ends") else None
+        frac = (datetime.now() - start) / (end - start) if end else None
+        res = j.get("results") and ROOT / j["results"]
+        if res and res.exists() and j.get("total"):
+            frac = sum(1 for line in open(res, encoding="utf-8") if line.strip()) / j["total"]
+        label = f"{_short(j['name'], 60)} · {j.get('where', '')}"
+        rows.append(_bar(min(1.0, frac), label) if frac is not None else f'<div class="small">{_esc(label)}</div>')
+    if rows:
+        out.append("<h3>Running</h3>" + "".join(rows))
+    now_md = ROOT / "docs" / "NOW.md"
+    if now_md.exists():
+        nxt, section = [], None
+        for line in now_md.read_text(encoding="utf-8").splitlines():
+            if line.startswith("## "):
+                section = line[3:].strip()
+            elif section and section.lower().startswith("next") and line.lstrip().startswith("- [ ]"):
+                nxt.append(line.lstrip()[6:])
+        if nxt:
+            out.append('<h3>Next</h3><ul class="check">' + "".join(
+                f"<li>&#9744; {_esc(_short(t))}</li>" for t in nxt[:3]) + "</ul>")
+    return "".join(out)
+
+
+def _fold(title, html):
+    """A section folded under a one-line heading (closed until clicked)."""
+    return f"<details><summary>{_esc(title)}</summary>{html}</details>" if html else ""
+
+
 def _live():
     """Where we are: every job running now (data/progress/jobs.json, kept by whoever starts one)
     with a progress bar, where it runs, what it's for and its latest numbers; then the checklists
@@ -658,6 +730,38 @@ def _verdict():
     return "".join(out)
 
 
+def _exams_section():
+    """The skill exams (advisor.exams): the latest result per network, against master play (the
+    goal: 14k+ MMR) and your own (a 7k player's habits: a milestone, not the ceiling)."""
+    rows = _jsonl(PROGRESS / "exams.jsonl")
+    if not rows:
+        return ""
+    latest = {}
+    for r in rows:
+        latest[(r.get("source") or r["net"], r["exam"])] = r
+    nets = list(dict.fromkeys(k[0] for k in latest))
+    out = ["<h2>Skill exams: how far from master play</h2>",
+           '<p class="sub">Fixed positions from your games (advisor.exams). Positioning: the warband order '
+           'against the one you met, the gap to the best order a search finds (win minus loss; 0 = master). '
+           "Habits: your turns against the network's from the same start, the mean relative gap (0 = plays "
+           'like you; your habits are a milestone on the way to 14k, not the ceiling).</p>',
+           "<table><tr><th>Network</th><th>Positioning gap</th><th>yours</th><th>Habits gap</th>"
+           "<th>Freezes a turn (you | it)</th><th>Upgrades</th><th>On-type buys</th><th>Gold kept</th>"
+           "<th>Refreshes</th></tr>"]
+    for n in nets:
+        pos, hab = latest.get((n, "positioning")), latest.get((n, "habits"))
+        cells = [_esc(n), f"{pos['gap']:.3f}" if pos else "-", f"{pos['your_gap']:.3f}" if pos else "-",
+                 f"{hab['gap']:.2f}" if hab else "-"]
+        for k in ("freeze", "upgrade", "bought on-tribe", "gold left", "refresh"):
+            if not hab:
+                cells.append("-")
+                continue
+            vals = [(b, v[k]) for b, v in hab["bands"].items() if k in v]
+            cells.append("; ".join(f"{b.replace('rounds ', 'r')}: {u:g} | {x:g}" for b, (u, x) in vals))
+        out.append("<tr>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
+    return "".join(out) + "</table>"
+
+
 def _audit_section():
     """The audit's state in plain words: the simulator against your games, the advice reviewed,
     what was found and fixed, the last promotion's play audit (docs/ROBUSTNESS.md)."""
@@ -778,41 +882,20 @@ def render():
              f"<meta http-equiv='refresh' content='300'>"  # (the data is refreshed every 10 minutes)
              f"<title>Battlegrounds Advisor Progress</title><style>{CSS}</style></head><body><main>",
              "<h1>Battlegrounds advisor: progress</h1>",
-             f'<p class="lead">Made {datetime.now():%b %d, %H:%M}. Placements are out of 8: 1 is first, '
-             f'lower is better; seven plain bots average 4.5.</p>']
+             f'<p class="lead">{datetime.now():%b %d, %H:%M} · placements out of 8, lower is better · '
+             f'goal: 14k+ MMR</p>']
 
-    tiles = []
-    if net:
-        g = net["gate"]
-        tiles.append(("The network in the overlay", f"{g.get('mean_place', 0):.2f}<small> place</small>",
-                      f"against seven plain bots, {g.get('n', '?')} test games; "
-                      f"{_esc(net['source'] or '')}"))
-    tiles.append(("Plan search", "on", "tries 8 more plans each decision; 0.48 places better in 200 test games"))
-    if games["advice"]:
-        tiles.append(("Your games with it", f"{games['games']}<small> games</small>",
-                      f"{games['advice']} pieces of advice, {games['flagged']} flagged with Ctrl+Shift+B"))
-    tiles.append(("Training now", str(len([j for j in jobs if j[0] in ('train', 'pretrain')])),
-                  ", ".join(j[1] for j in jobs if j[1]) or "nothing running"))
-    parts.append(_live())
-    parts.append(_verdict())
-    parts.append(_targets())
-    parts.append(_tiles(tiles))
-    parts.append("<h2>Strength over time</h2>")
-    parts.append('<p class="sub">Placement out of 8, lower is better (1 at the top). Against plain bots '
-                 'the curve flattens near the top as networks get strong, so each promotion also shows '
-                 'how it did head to head against the network it replaced: under 4.5 means stronger.</p>')
-    parts.append(_overview(_jsonl(DATA / "models" / "promotions.jsonl")))
+    parts.append(_glance())
+    parts.append(_fold("Strength over time", _overview(_jsonl(DATA / "models" / "promotions.jsonl"))))
+    parts.append(_fold("Releases and their targets", _targets()))
+    parts.append(_fold("Skill exams", _exams_section()))
+    parts.append(_fold("Jobs and checklists, in full", _live()))
     curve_path = PROGRESS / "curve.json"
     if curve_path.exists():
         curve = json.loads(curve_path.read_text(encoding="utf-8"))
-        parts.append("<h3>Warband strength by round, against real lobbies</h3>")
-        parts.append(f'<p class="sub">Median Attack+Health of the warbands, by round (log scale): the network '
-                     f'in its own games ({_esc(curve.get("network") or "")}), the real lobbies in your logs, '
-                     f'and the public average over all players. Real lobbies scale explosively late; the '
-                     f'network has to learn to keep up (the real-warband training is aimed at this).</p>')
-        parts.append(_curve_chart(curve))
-
-    parts.append(_audit_section())
+        parts.append(_fold("Warband strength by round", _verdict() + _curve_chart(curve)))
+    parts.append(_fold("Simulator audit", _audit_section()))
+    parts.append("<details><summary>Training and decisions, in detail</summary>")
 
     if status.is_file():
         parts.append("<h2>In plain words</h2>" + _markdown(status.read_text(encoding="utf-8")))
@@ -939,6 +1022,7 @@ def render():
         parts.append('<p class="sub">Nothing running on the office.</p>')
     if synced:
         parts.append(f'<p class="sub">Office status copied {synced:%b %d, %H:%M}.</p>')
+    parts.append("</details>")
     parts.append("</main></body></html>")
     return "".join(parts)
 
