@@ -792,3 +792,18 @@ def test_the_early_library_is_your_lobbies_then_the_top():
     e = library.early_curve(6, 10, path=path, curve=top)
     assert e[10] == top[10] and e[14] == top[14]
     assert all(e[r] != top[r] or r >= 10 for r in (2, 4, 6))  # (the logged median, not the top)
+
+
+def test_random_hero_deals_are_forced_and_spread():
+    # --random-hero 1: every hero pick is a random offer, marked forced (the game is learned
+    # from, the pick isn't); the network alone never picked 48 of the 116 heroes
+    torch.manual_seed(0)
+    net = EntityNet()
+    env = train.BatchEnv(16, seed=5, controlled=[0], config=train.CONFIG, threads=1)
+    obs = env.observe()
+    seats = [train.Seat() for _ in range(env.n_slots)]
+    obs, _ = train.collect(env, net, obs, seats, 64, "cpu", random_hero=1.0)
+    picks = [it for s in seats for it in s.items[:1]]
+    assert picks and all(it[8] for it in picks)
+    assert all(train.A_CHOOSE <= it[3] < train.A_CHOOSE + train.N_CHOICE for it in picks)
+    assert len({it[3] for it in picks}) > 1

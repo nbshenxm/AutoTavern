@@ -94,6 +94,7 @@ def wasted_gold(obs, i, a):
 
 _L = dict(layout())
 A_CANCEL = _L["A_CANCEL"]
+A_HERO_POWER, A_CHOOSE, N_CHOICE = _L["A_HERO_POWER"], _L["A_CHOOSE"], _L["N_CHOICE"]
 
 
 def action_mix(actions):
@@ -108,7 +109,23 @@ def action_mix(actions):
     return {k: round(float(((a >= lo) & (a < hi)).sum()) / n, 4) for k, (lo, hi) in spans.items()}
 
 
-def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None):
+def hero_offers(env, obs, own):
+    """The rows of `own` (slots) that stand at the game's hero offer (only choices legal, the
+    pending choice is the hero select)."""
+    m = obs["action_mask"][own]
+    only = m[:, A_CHOOSE:A_CHOOSE + N_CHOICE].any(1) & (m.sum(1) == m[:, A_CHOOSE:A_CHOOSE + N_CHOICE].sum(1))
+    k = len(env.controlled)
+    out = []
+    for j in np.flatnonzero(only):
+        i = int(own[j])
+        v = json.loads(env.game(i // k).view(env.controlled[i % k]))
+        if v.get("phase") == "hero_select":
+            out.append(j)
+    return out
+
+
+def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None,
+            random_hero=0.0):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
     slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
@@ -148,9 +165,20 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
             forced = np.zeros(len(own), bool)
             if explore:
                 m_own = obs["action_mask"][own]
-                for which, p_x in ((A_REFRESH, explore[0]), (A_UPGRADE, explore[1])):
+                pairs = [(A_REFRESH, explore[0]), (A_UPGRADE, explore[1])]
+                if len(explore) > 2:  # (a third probability: the Hero Power, either slot)
+                    pairs += [(A_HERO_POWER, explore[2]), (A_HERO_POWER + 1, explore[2])]
+                for which, p_x in pairs:
                     pick = (np.random.random(len(own)) < p_x) & m_own[:, which] & ~forced
                     a[pick], forced[pick] = which, True
+            if random_hero > 0:
+                # A random hero instead of the network's pick: it never picked 48 of the 116
+                # (Captain Hooktusk among them), so their Hero Powers went unpractised. Forced:
+                # the game is learned from, the pick isn't
+                for j in hero_offers(env, obs, own):
+                    if np.random.random() < random_hero:
+                        legal = np.flatnonzero(obs["action_mask"][own[j], A_CHOOSE:A_CHOOSE + N_CHOICE])
+                        a[j], forced[j] = A_CHOOSE + int(np.random.choice(legal)), True
             actions[own] = a
             for j, i in enumerate(own):
                 seats[i].items.append([obs["features"][i], obs["cards"][i],
@@ -710,8 +738,11 @@ def main():
     ap.add_argument("--blind-v4", action="store_true",
                     help="a control: the network doesn't see observation version 4's numbers nor the "
                          "card table's text columns (policy.EntityNet blind_v4)")
-    ap.add_argument("--explore", type=float, nargs=2, default=None, metavar=("P_REFRESH", "P_UPGRADE"),
-                    help="take a legal Refresh / Upgrade with these probabilities (collect's explore)")
+    ap.add_argument("--explore", type=float, nargs="+", default=None, metavar="P",
+                    help="take a legal Refresh / Upgrade (/ Hero Power: a third value) with these "
+                         "probabilities (collect's explore)")
+    ap.add_argument("--random-hero", type=float, default=0.0, metavar="P",
+                    help="at the hero offer, a random hero with this probability (forced: not learned)")
     ap.add_argument("--explore-sil", type=float, default=0.0, metavar="COEF",
                     help="self-imitation of the forced steps that did better than expected (update's sil)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
@@ -862,7 +893,7 @@ def main():
         if starts is not None:
             starts.refresh()
         obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents, starts,
-                                  explore=a.explore)
+                                  explore=a.explore, random_hero=a.random_hero)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
         if a.library_adaptive:  # one look at each game's seat 0, wherever it is
