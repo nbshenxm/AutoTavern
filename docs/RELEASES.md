@@ -3,6 +3,41 @@
 One a day at 20:00 (the schedule and targets: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31)).
 Newest first.
 
+## R3 · Nov 2 (shipped 21:10) · tag `bg-r3`
+
+**Strength: a small step; the late game is unchanged.** The overlay runs **big3 iteration 510**
+(promoted automatically at 06:53: head to head with R2 4.28, play audit clean). Targets: from
+your positions 2.46 (target < 2.45: missed by 0.01), Gold left in rounds 13+ 0.36 (target <= 6:
+met), late game 0.20x your lobbies (target 0.30: missed). It refreshes 7.2 times a turn late (you
+3.8) and buys on-type 35% of the time late (you 62-69%).
+
+**What changed in the advice: the board it reads is your real one.** A day-long audit of the
+simulator (docs/AUDIT.md) found the rules faithful and the rebuild of your positions from the log
+wrong in ways that changed what the advice saw:
+- Magnetizations: a minion's Satellites, Volumizers and Beatboxer echoes are one enchantment in
+  the log and came out as one (Utility Drone engines grew 0.42x the real amount; Robot, Beatboxer,
+  Reveille now within 0-18%).
+- Counters never read: the Volumizer bonus, the Deity and its size, Easterly Winds, Blood Gems,
+  improve-this cards (Spark Snapper, Ultraviolet Ascendant, Wrathguard, Leviathan, Patient Scout,
+  Rogers), Wax Warband's size.
+- Temporary Attack (Vol'jin's swap) rebuilt as permanent; armed Hero Powers (Y'Shaarj, Rafaam),
+  Lock and Load's minion and an activated Living Prison now read from the turn's earlier
+  decisions.
+- One simulator rule: the Sacrifice Dark Gifts could buff their own host.
+
+**What changed in the checks:** `advisor.fidelity` runs every audit against a baseline after each
+game and fails on a drop: one action 93.8%, whole turns 86.3%, transitions 99.4%, combats
+calibrated within +2.8 SD (fixes took it from +3.1), over the turn change 0.70/1.06/0.88x by round,
+Bob's Buddy agreement on random warbands 0.047. Bob's Buddy is the second opinion; every strong
+disagreement checked against your logs so far favoured TavernGym.
+
+**Known faults:** the opening Freezes far more than you and never levels (rounds 2-6: 0.6-0.7
+Freezes a turn, you 0.1; Upgrades 0, you 0.55); late, it over-refreshes and buys off-type.
+
+**In training for R4:** big3open (office: the early lobby at your lobbies' strength; after 4.5 h
+its rounds 4-6 Freezes fell 0.71 -> 0.26 a turn, Refreshes 0.88 -> 0.55; still no early
+Upgrades) and big3ad (cluster: the adaptive late lobby).
+
 ## R2 · Nov 1 (shipped 17:40) · tag `bg-r2`
 
 **Strength: the first network to beat the 18:21 one.** The overlay now runs **big3 iteration

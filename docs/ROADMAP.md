@@ -94,6 +94,6 @@ the advice (advisor.usefulness).
 | --- | --- | --- | --- |
 | R1 | Oct 31 | next-step display, trinket offers and picks, audit fixed; the 18:21 network (late 0.19, real 2.56, Gold left 9.2, on-type 40%)  shipped: strength unchanged |
 | R2 | Nov 1 | late >= 0.25, real < 2.50 | shipped: big3 it 180; real 2.36 met, late 0.19 missed |
-| R3 | Nov 2 | late >= 0.30, real < 2.45, Gold left <= 6 | |
+| R3 | Nov 2 | late >= 0.30, real < 2.45, Gold left <= 6 | shipped: big3 it 510 + the audited rebuild; Gold left 0.36 met, real 2.46 and late 0.20 missed |
 | R4 | Nov 3 | late >= 0.40, on-type >= 50% | |
 | R5 | Nov 4 | late >= 0.50; your games: 5+ played with it, measured | |
