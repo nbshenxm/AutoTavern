@@ -109,11 +109,14 @@ def action_mix(actions):
     return {k: round(float(((a >= lo) & (a < hi)).sum()) / n, 4) for k, (lo, hi) in spans.items()}
 
 
-def hero_offers(env, obs, own):
+def hero_offers(env, obs, own, fresh):
     """The rows of `own` (slots) that stand at the game's hero offer (only choices legal, the
-    pending choice is the hero select)."""
+    pending choice is the hero select). `fresh`: the rows with no action yet this game (the
+    offer is the first decision; reading every offer's view each step ran collect at 98
+    decisions/s instead of ~1,500, Nov 3)."""
     m = obs["action_mask"][own]
     only = m[:, A_CHOOSE:A_CHOOSE + N_CHOICE].any(1) & (m.sum(1) == m[:, A_CHOOSE:A_CHOOSE + N_CHOICE].sum(1))
+    only &= fresh
     k = len(env.controlled)
     out = []
     for j in np.flatnonzero(only):
@@ -175,7 +178,7 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                 # A random hero instead of the network's pick: it never picked 48 of the 116
                 # (Captain Hooktusk among them), so their Hero Powers went unpractised. Forced:
                 # the game is learned from, the pick isn't
-                for j in hero_offers(env, obs, own):
+                for j in hero_offers(env, obs, own, last[own] < 0):
                     if np.random.random() < random_hero:
                         legal = np.flatnonzero(obs["action_mask"][own[j], A_CHOOSE:A_CHOOSE + N_CHOICE])
                         a[j], forced[j] = A_CHOOSE + int(np.random.choice(legal)), True
