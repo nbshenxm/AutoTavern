@@ -44,9 +44,13 @@ def library_config():
 
 
 @torch.no_grad()
-def play(net, other, n, seed, config, states=None, device="cuda", games=64, threads=8):
+def play(net, other, n, seed, config, states=None, device="cuda", games=64, threads=8, search_k=0):
     """Seat 0's place in `n` games (game i from states[i] when given, else round 1), `net` in
-    seat 0, `other` in the rest, all greedy; game i's seed depends on (seed, i) only."""
+    seat 0, `other` in the rest, all greedy; game i's seed depends on (seed, i, games) only.
+    `search_k` > 0: seat 0 plays the plan search's first step (advisor.search.best_plan over
+    the greedy plan and k sampled ones, within the env's mask; `net` must be on the CPU)."""
+    if search_k:
+        from advisor import search
     places = []
     for k in range(0, n, games):
         m = min(games, n - k)
@@ -66,6 +70,11 @@ def play(net, other, n, seed, config, states=None, device="cuda", games=64, thre
             ready = np.array([i for i in ready if i // 8 not in got], dtype=np.int64)
             actions = np.zeros(env.n_slots, dtype=np.int64)
             play_frozen(obs, ready, net_of, actions, device)
+            for i in (ready[ready % 8 == 0] if search_k else ()):
+                plan, _, _ = search.best_plan(env.game(i // 8), net, 0, obs["action_mask"][i].astype(bool),
+                                              search_k, seed=(seed + k + int(i)) * 100_003 + step)
+                if plan:
+                    actions[i] = plan[0]
             _, done, info = env.step(actions)
             for i in np.flatnonzero(done):
                 if i % 8 == 0 and i // 8 not in got:  # a stopped game has no placement: 4.5
@@ -75,10 +84,35 @@ def play(net, other, n, seed, config, states=None, device="cuda", games=64, thre
     return places
 
 
-def champion_places(champ, champ_path, n, seed, config, states, device, threads, key):
+_WORKER = {}
+
+
+def _init_worker(paths):
+    torch.set_num_threads(1)
+    _WORKER["nets"] = {p: load(p, "cpu")[0].eval() for p in paths}
+    _WORKER["configs"] = {"real": CONFIG, "library": library_config()}
+
+
+def _work(job):
+    net, other, m, seed, suite, states, search_k = job
+    nets, cfg = _WORKER["nets"], _WORKER["configs"]["real" if suite == "real" else "library"]
+    return play(nets[net], nets[other], m, seed, cfg, states, "cpu", games=m, threads=1,
+                search_k=search_k)
+
+
+def play_pool(pool, net_path, other_path, n, seed, suite, states, search_k, chunk):
+    """play() in chunks of `chunk` games on a worker pool (CPU): the same games as
+    play(..., games=chunk), so it pairs with a run at that chunk size."""
+    jobs = [(net_path, other_path, min(chunk, n - k), seed + k, suite,
+             None if states is None else states[k:k + chunk], search_k) for k in range(0, n, chunk)]
+    return [x for part in pool.map(_work, jobs, chunksize=1) for x in part]
+
+
+def champion_places(champ, champ_path, n, seed, config, states, device, threads, key, compute=None):
     """play(champ, champ, ...), cached: the champion's games depend only on its weights, the
     seeds, the starts and the simulator build, and every candidate is compared on the same ones
-    (half a gate's time)."""
+    (half a gate's time). `compute`: how to play them (a worker pool; `key` then names its chunk
+    size)."""
     import hashlib
     import taverngym
     h = hashlib.md5(Path(champ_path).read_bytes()).hexdigest()[:12]
@@ -88,7 +122,7 @@ def champion_places(champ, champ_path, n, seed, config, states, device, threads,
     cache = OUT / "cache" / f"{h}_{key}_{seed}_{n}_{build}.json"
     if cache.is_file():
         return json.loads(cache.read_text())
-    places = play(champ, champ, n, seed, config, states, device, threads=threads)
+    places = compute() if compute else play(champ, champ, n, seed, config, states, device, threads=threads)
     cache.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache.with_suffix(".tmp")
     tmp.write_text(json.dumps(places))
@@ -113,11 +147,26 @@ def verdict(s, rounds_done, min_rounds=2):
 
 
 def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cuda", threads=8,
-        name=None, log=print, max_starts=None):
+        name=None, log=print, max_starts=None, search_k=0, workers=0, chunk=4):
+    """`search_k` > 0: the candidate plays with the plan search (on `workers` CPU processes,
+    games in chunks of `chunk`; the champion's games then use the same chunks)."""
+    if search_k and not workers:
+        raise SystemExit("--search needs --workers (the plan search runs on the CPU)")
+    if workers:
+        device = "cpu"
     cand, cck = load(cand_path, device)
     champ, hck = load(champ_path, device)
     cand.eval(), champ.eval()
     name = name or f"{Path(cand_path).parent.name}-{cck.get('iteration')}_vs_{Path(champ_path).stem}-{hck.get('iteration')}_{seed}"
+    if search_k:
+        name += f"_search{search_k}"
+    elif workers:
+        name += f"_c{chunk}"
+    pool = None
+    if workers:
+        import multiprocessing as mp
+        pool = mp.get_context("spawn").Pool(workers, _init_worker, ([str(cand_path), str(champ_path)],))
+        cand_path, champ_path = str(cand_path), str(champ_path)
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / f"{name}.jsonl"
     done = [json.loads(l) for l in open(path, encoding="utf-8")] if path.is_file() else []
@@ -137,9 +186,15 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
                "cand": str(cand_path), "champ": str(champ_path), "seed": seed, "diffs": {}}
         for k, (config, st, n) in suites.items():
             s = seed + r * 1_000_003 + SUITES.index(k) * 100_003
-            a = play(cand, champ, n, s, config, st, device, threads=threads)
-            b = champion_places(champ, champ_path, n, s, config, st, device, threads,
-                                f"{k}{len(states)}")
+            if pool:
+                a = play_pool(pool, cand_path, champ_path, n, s, k, st, search_k, chunk)
+                b = champion_places(champ, champ_path, n, s, config, st, device, threads,
+                                    f"{k}{len(states)}_c{chunk}",
+                                    compute=lambda: play_pool(pool, champ_path, champ_path, n, s, k, st, 0, chunk))
+            else:
+                a = play(cand, champ, n, s, config, st, device, threads=threads)
+                b = champion_places(champ, champ_path, n, s, config, st, device, threads,
+                                    f"{k}{len(states)}")
             row["diffs"][k] = [x - y for x, y in zip(a, b)]
             row.setdefault("cand_place", {})[k] = round(float(np.mean(a)), 3)
             row.setdefault("champ_place", {})[k] = round(float(np.mean(b)), 3)
@@ -153,6 +208,8 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
              "cand_place": row["cand_place"], "champ_place": row["champ_place"], "status": status})
         if status != "running":
             break
+    if pool:
+        pool.close()
     total = summary([x for k in SUITES for x in diffs[k]])
     if status == "running":
         status = "inconclusive"
@@ -170,14 +227,17 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--no-recheck", action="store_true", help="skip the fresh-seed re-run of a pass")
     ap.add_argument("--starts", type=int, default=None, help="only the first N real starts (a smoke test)")
+    ap.add_argument("--search", type=int, default=0, metavar="K",
+                    help="the candidate plays with the plan search over K sampled plans (needs --workers)")
+    ap.add_argument("--workers", type=int, default=0, help="CPU worker processes (0: one process, GPU)")
+    ap.add_argument("--chunk", type=int, default=4, help="games per worker task (with --workers)")
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
     log = lambda r: print(json.dumps(r), flush=True)
-    res = run(a.cand, a.champ, a.rounds, SEED, a.fresh_games, a.device, a.threads, log=log,
-              max_starts=a.starts)
+    opts = dict(log=log, max_starts=a.starts, search_k=a.search, workers=a.workers, chunk=a.chunk)
+    res = run(a.cand, a.champ, a.rounds, SEED, a.fresh_games, a.device, a.threads, **opts)
     if res["status"] == "pass" and not a.no_recheck:
-        re = run(a.cand, a.champ, a.rounds, RECHECK_SEED, a.fresh_games, a.device, a.threads,
-                 log=log, max_starts=a.starts)
+        re = run(a.cand, a.champ, a.rounds, RECHECK_SEED, a.fresh_games, a.device, a.threads, **opts)
         res = {**res, "recheck": re, "status": "pass" if re["status"] == "pass" else "failed recheck"}
     res["time"] = datetime.now().isoformat(timespec="minutes")
     with (OUT / "verdicts.jsonl").open("a", encoding="utf-8") as f:
