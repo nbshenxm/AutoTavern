@@ -13,6 +13,21 @@ New-Item -ItemType Directory -Force $models, $logDir | Out-Null
 $log = Join-Path $logDir "sync.log"
 function Log($m) { Add-Content $log ("{0:s} {1}" -f (Get-Date), $m) -Encoding utf8 }
 
+# The office's simulator check (started after a game, below): collected once it has finished
+try {
+    $done = & ssh -o BatchMode=yes -o ConnectTimeout=20 office "cat autotavern/data/replay/fidelity.exit 2>/dev/null"
+    if ($LASTEXITCODE -eq 0 -and $done) {
+        foreach ($f in "fidelity_last.json", "fidelity_history.jsonl", "fidelity.out") {
+            & scp -q -o BatchMode=yes -o ConnectTimeout=20 "office:autotavern/data/replay/$f" (Join-Path $repo "data\replay\$f")
+        }
+        Get-Content (Join-Path $repo "data\replay\fidelity.out") -Tail 8 | ForEach-Object { Log "fidelity: $_" }
+        if ([int]"$done".Trim() -ne 0) { Log "fidelity FAILED (exit $done)" }
+        & ssh -o BatchMode=yes -o ConnectTimeout=20 office "rm -f autotavern/data/replay/fidelity.exit"
+    }
+} catch {
+    Log "fidelity collect failed: $($_.Exception.Message)"
+}
+
 $tmp = Join-Path $models "best.pt.download"
 try {
     & scp -q -o BatchMode=yes -o ConnectTimeout=20 "office:autotavern/data/models/best.pt" $tmp
@@ -98,9 +113,13 @@ try {
                 # (advisor.fidelity, data/replay/fidelity_last.json); both pause while you play
                 & $py -X utf8 -m advisor.review 2>&1 | Select-Object -Last 12 | ForEach-Object { Log "review: $_" }
                 if ($LASTEXITCODE -ne 0) { Log "review FAILED (exit $LASTEXITCODE)" }
-                & $py -X utf8 -m advisor.fidelity 2>&1 | Select-Object -Last 8 | ForEach-Object { Log "fidelity: $_" }
-                # (a check that fails says so: fidelity crashed unnoticed from Oct 30 to 31)
-                if ($LASTEXITCODE -ne 0) { Log "fidelity FAILED (exit $LASTEXITCODE)" }
+                # The simulator check takes ~45 min with all its parts: longer than this task may
+                # run (30 min: it was killed on Nov 2 and every later hour skipped). It runs on the
+                # office, detached, on the logs just parsed; a later hour collects it (top of this
+                # script; a failure is logged "fidelity FAILED", as a crash once went unnoticed)
+                & scp -q -o BatchMode=yes -o ConnectTimeout=20 (Join-Path $repo "data\replay\decisions.jsonl") (Join-Path $repo "data\replay\combats.jsonl") "office:autotavern/data/replay/"
+                & ssh -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern && rm -f data/replay/fidelity.exit && nohup bash scripts/office/fidelity.sh > /dev/null 2>&1 &"
+                Log "fidelity started on the office"
                 # (and how often you followed the advice, per game: advisor.usefulness)
                 & $py -X utf8 -m advisor.usefulness 2>&1 | Select-Object -Last 3 | ForEach-Object { Log "usefulness: $_" }
             } else { Log "library: office unreachable (exit $LASTEXITCODE)" }

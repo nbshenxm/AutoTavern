@@ -197,13 +197,13 @@ def check_bb():
     return {"rate": round(1 - mean, 4), "n": len(diffs), "mean_abs_diff": round(mean, 4)}
 
 
-def run(combat_trials=200):
+def run(combat_trials=200, bb=True):
     rows = [json.loads(l) for l in open(DATA / "decisions.jsonl", encoding="utf-8")]
     combats = [json.loads(l) for l in open(DATA / "combats.jsonl", encoding="utf-8")]
     out = {"legal": check_legal(rows, combats), "actions": check_actions(rows, combats),
            "turns": check_turns(rows, combats), "transitions": check_transitions(rows, combats),
            "combat": check_combat(combats, rows, combat_trials), "carry": check_carry(rows, combats)}
-    bb = check_bb()
+    bb = check_bb() if bb else None
     if bb is not None:
         out["bb"] = bb
     return out
@@ -240,10 +240,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--save", action="store_true", help="make these numbers the baseline")
     ap.add_argument("--combat-trials", type=int, default=200)
+    ap.add_argument("--no-bb", action="store_true", help="skip the Bob's Buddy sample (the office)")
     a = ap.parse_args()
     from advisor.train import wait_while_playing
     wait_while_playing(print)
-    now = run(a.combat_trials)
+    now = run(a.combat_trials, bb=not a.no_bb)
     for k, v in now.items():
         extra = {x: v[x] for x in ("calibration_sd", "ratios", "mean_abs_diff") if x in v}
         print(f"{k:12s} {v['rate']:.1%} of {v['n']}", extra or "")
