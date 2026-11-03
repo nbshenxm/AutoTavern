@@ -63,8 +63,8 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         (
             "BG27_016",
             Script {
-                battlecry: Some(|c, me, _| tavern_this_game(c, me.side, 8 * me.g(), 8 * me.g())),
-                deathrattle: Some(|c, me| tavern_this_game(c, me.side, 8 * me.g(), 8 * me.g())),
+                battlecry: Some(|c, me, _| tavern_this_game(c, me.side, 12 * me.g(), 12 * me.g())),
+                deathrattle: Some(|c, me| tavern_this_game(c, me.side, 12 * me.g(), 12 * me.g())),
                 ..E
             },
         ),
@@ -178,13 +178,17 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             "BG34_320",
             Script {
                 rally: Some(|c, me, _| {
-                    // One pick; the golden gives the same minions +30/+30.
-                    {
-                        for (t, _) in one_minion_per_type(c, me.side, |_| true) {
-                            c.buff_perm(me.side, t, 15 * me.g(), 15 * me.g());
-                        }
+                    // One pick; the golden gives the same minions twice the amount. 37.0.2:
+                    // +10/+10 and "improve this", read as +10/+10 more each Rally (a counter
+                    // on the card, kept in its permanent stats).
+                    let n = c.minion(me.eid).map_or(0, |m| m.counter);
+                    let k = 10 * me.g() * (1 + n);
+                    for (t, _) in one_minion_per_type(c, me.side, |_| true) {
+                        c.buff_perm(me.side, t, k, k);
                     }
+                    c.counter_perm(me.side, me.eid, 1);
                 }),
+                flags: flag::IMPROVES,
                 ..E
             },
         ),
@@ -197,7 +201,10 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     let Event::Summoned { side, eid } = e else {
                         return;
                     };
-                    if !c.combat || *side != me.side || *eid == me.eid {
+                    // 37.0.2: "a different minion" (not another Stalwart Kodo), and double
+                    // (triple) the stats.
+                    let kodo = c.minion(*eid).is_some_and(|m| db().get(m.card).name == db().get(me.card).name);
+                    if !c.combat || *side != me.side || *eid == me.eid || kodo {
                         return;
                     }
                     let Some((a, h, used)) = c.minion(me.eid).map(|m| (m.atk, m.max_hp, m.counter))
@@ -210,7 +217,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     if let Some(m) = c.minion_mut(me.eid) {
                         m.counter += 1;
                     }
-                    c.buff(*eid, a.saturating_mul(me.g()), h.saturating_mul(me.g()));
+                    c.buff(*eid, a.saturating_mul(me.g() + 1), h.saturating_mul(me.g() + 1));
                 }),
                 listens: ev::SUMMONED,
                 ..E

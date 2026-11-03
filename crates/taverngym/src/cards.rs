@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(d.iter().filter(|c| c.pools.minion).count(), 245);
         assert_eq!(d.iter().filter(|c| c.pools.hero).count(), 116);
         assert_eq!(d.iter().filter(|c| c.pools.spell).count(), 70);
-        assert_eq!(d.iter().filter(|c| c.pools.trinket).count(), 236);
+        assert_eq!(d.iter().filter(|c| c.pools.trinket).count(), 232);
     }
 
     #[test]

@@ -37,14 +37,14 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Cursed Crystal: after the Tavern is Refreshed, give its minions +3/+3 this turn.
+        // Cursed Crystal: after the Tavern is Refreshed, give its minions +2/+2 this turn.
         (
             "BG35_MagicItem_150",
             Script {
                 on_event: Some(|c, me, e| {
                     if matches!(e, Event::Refreshed { side, .. } if *side == me.side) {
                         for t in c.tavern_minions(me.side) {
-                            c.buff_temp(t, 3, 3);
+                            c.buff_temp(t, 2, 2);
                         }
                     }
                 }),
@@ -138,11 +138,11 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Bob-blehead: gain 2 Gold; the Tavern no longer offers Tier 1-2 cards (recruit.rs).
+        // Bob-blehead: gain 3 Gold; the Tavern no longer offers Tier 1-2 cards (recruit.rs).
         (
             "BG30_MagicItem_998",
             Script {
-                on_attach: Some(|c, me| c.gain_gold(me.side, 2)),
+                on_attach: Some(|c, me| c.gain_gold(me.side, 3)),
                 ..E
             },
         ),
@@ -190,7 +190,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Stuffed Coin Purse: when you reach Tier 6, gain 12 Gold.
+        // Stuffed Coin Purse: when you reach Tier 6, gain 14 Gold.
         (
             "BG35_MagicItem_814",
             Script {
@@ -198,7 +198,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     if let Event::Upgraded { side, tier: 6 } = e
                         && *side == me.side
                     {
-                        c.gain_gold(me.side, 12);
+                        c.gain_gold(me.side, 14);
                     }
                 }),
                 listens: ev::UPGRADED,

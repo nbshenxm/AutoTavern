@@ -4877,7 +4877,7 @@ fn bonus_ids() -> &'static BonusIds {
                 (d.id("BG36_MidGameEffect_000t29t"), 1, 1, 1),
                 (d.id("BG36_MidGameEffect_000t30"), 3, 3, 2),
                 (d.id("BG36_MidGameEffect_000t30t"), 2, 2, 2),
-                (d.id("BG36_MidGameEffect_000t88"), 3, 3, 3),
+                (d.id("BG36_MidGameEffect_000t88"), 3, 2, 3),
             ],
             hammer: d.id("BG36_MagicItem_403"),
             hammer_g: d.id("BG36_MagicItem_403t"),
@@ -5003,8 +5003,8 @@ fn bonus_of(
         atk += 4 * g * (st.eternal_knight_deaths as i64) + 4 * (st.knight_bonus as i64);
         hp += 2 * g * (st.eternal_knight_deaths as i64) + 2 * (st.knight_bonus as i64);
     } else if normal == ids.paradox_t6 {
-        atk += 3 * g * (st.battlecries_triggered as i64);
-        hp += 3 * g * (st.battlecries_triggered as i64);
+        atk += 4 * g * (st.battlecries_triggered as i64);
+        hp += 4 * g * (st.battlecries_triggered as i64);
     } else if normal == ids.boom_monster {
         // Dr. Boom's Monster: +2/+2 (+4/+4) for each time you've Magnetized this game.
         atk += 2 * g * (st.magnetized as i64);

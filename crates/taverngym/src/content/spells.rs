@@ -258,14 +258,14 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         (
             "BG34_990", // Wave of Gold
             Script {
-                // "Give your minions +3/+2. Give Golden ones another +3/+2."
-                shown: Some(|c, sh| shown_spell_pairs(c, sh, &[(3, 2), (3, 2)])),
+                // "Give your minions +3/+3. Give Golden ones another +3/+3."
+                shown: Some(|c, sh| shown_spell_pairs(c, sh, &[(3, 3), (3, 3)])),
                 ..sp(|c, me, _| {
                     for e in c.friendly(me.side) {
                         let golden = c.minion(e).is_some_and(|m| m.golden);
-                        spell_buff(c, me, e, 3, 2);
+                        spell_buff(c, me, e, 3, 3);
                         if golden {
-                            spell_buff(c, me, e, 3, 2);
+                            spell_buff(c, me, e, 3, 3);
                         }
                     }
                 })

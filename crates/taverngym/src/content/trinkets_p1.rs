@@ -201,14 +201,14 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         ("BG30_MagicItem_943", get_one!("BG30_121")),
         ("BG32_MagicItem_172", every_turn!("BG31_176")),
         // Maw Caster Portrait: get a Maw Caster; whenever you destroy a minion outside combat,
-        // gain 2 Gold.
+        // gain 1 Gold.
         (
             "BG32_MagicItem_205",
             Script {
                 on_attach: Some(|c, me| give_n(c, me.side, "BG32_340", 1)),
                 on_event: Some(|c, me, e| {
                     if !c.combat && died(me, e).is_some() {
-                        c.gain_gold(me.side, 2);
+                        c.gain_gold(me.side, 1);
                     }
                 }),
                 listens: ev::DIED,
@@ -278,7 +278,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             },
         ),
         // Sky Golem Portrait: get a Falling Sky Golem; SoC give your minions "Deathrattle:
-        // give your minions +2/+2 permanently" (the trinket is attached as that enchantment).
+        // give your minions +3/+3 permanently" (the trinket is attached as that enchantment).
         (
             "BG35_MagicItem_740",
             Script {
@@ -295,7 +295,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 }),
                 deathrattle: Some(|c, me| {
                     for e in c.friendly(me.side) {
-                        c.buff_perm(me.side, e, 2, 2);
+                        c.buff_perm(me.side, e, 3, 3);
                     }
                 }),
                 ..E

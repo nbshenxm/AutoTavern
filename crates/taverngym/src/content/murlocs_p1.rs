@@ -73,7 +73,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             },
         ),
         // Twilight Tidehunter: whenever you cast a spell on this, give the left-most minion in
-        // your hand +8/+8 (+16/+16).
+        // your hand +9/+9 (+18/+18).
         (
             "BG36_703",
             Script {
@@ -86,7 +86,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                         .and_then(|p| p.hand.iter().find(|h| h.item.as_minion().is_some()))
                         .map(|h| h.hid);
                     if let Some(h) = first {
-                        c.buff(h, 8 * me.g(), 8 * me.g());
+                        c.buff(h, 9 * me.g(), 9 * me.g());
                     }
                 }),
                 listens: ev::SPELL_CAST,
@@ -130,7 +130,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             },
         ),
         // Shamanic Tidecaller: whenever you cast a spell on a Murloc, give Murlocs in your hand
-        // and board +3/+3 (+6/+6).
+        // and board +3/+4 (+6/+8).
         (
             "BG36_704",
             Script {
@@ -139,9 +139,9 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     if !c.find_any(t).is_some_and(|m| m.is(Races::MURLOC)) {
                         return;
                     }
-                    let k = 3 * me.g();
+                    let (k, kh) = (3 * me.g(), 4 * me.g());
                     for m in c.friendly_where(me.side, |m| m.is(Races::MURLOC)) {
-                        c.buff(m, k, k);
+                        c.buff(m, k, kh);
                     }
                     let hand: Vec<EntityId> = c
                         .player_ref(me.side)
@@ -154,7 +154,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                         })
                         .unwrap_or_default();
                     for h in hand {
-                        c.buff(h, k, k);
+                        c.buff(h, k, kh);
                     }
                 }),
                 listens: ev::SPELL_CAST,

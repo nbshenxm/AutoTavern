@@ -278,6 +278,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     if matches!(e, Event::Bought { side, .. } if *side == me.side) {
                         let k = 2 * me.g();
                         c.add_turn_data(me.side, crate::cardid!("BG32_873"), k);
+                        c.add_turn_data(me.side, crate::cardid!("BG32_873_G"), k);
                         c.buff_tavern_temp(me.side, k, k);
                     }
                 }),

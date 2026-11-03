@@ -1,0 +1,16 @@
+{
+ "_source": "Patch 37.0.2 notes (2026-11-03), the server-side parts the client data doesn't carry",
+ "cards": {
+  "BG36_MidGameEffect_000t52": {"window": [4, 5]},
+  "BG36_MidGameEffect_000t28": {"window": [7, 9]},
+  "BG36_MidGameEffect_000t3": {"window": [7, 10]},
+  "BG36_MidGameEffect_000t61": {"window": [9, 12]},
+  "BG36_MidGameEffect_000t74": {"window": [3, 5]},
+  "BG36_MidGameEffect_000t75": {"window": [3, 5]},
+  "BG36_MidGameEffect_000t89": {"window": [11, null]}
+ },
+ "pools": {
+  "minion": {"add": ["BG27_023"], "remove": ["BG34_140"]},
+  "trinket": {"remove": ["BG32_MagicItem_170", "BG30_MagicItem_410t2", "BG30_MagicItem_545", "BG36_MagicItem_606"]}
+ }
+}

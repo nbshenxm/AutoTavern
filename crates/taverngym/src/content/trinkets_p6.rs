@@ -95,17 +95,17 @@ const CUBE_EXCLUDED: [&str; 25] = [
     "BG30_MagicItem_888", // Souvenir Stand: becomes a copy of the Greater Trinket you buy
     "BG32_MagicItem_271", // Ornate Clock: next turn's Greater Trinket
     "BG30_MagicItem_891", // Trip Vouchers: in 2 turns, a Greater Trinket
-    "BG36_MagicItem_407", // Dragonhead Staff: replaced after 13 attacks
-    "BG36_MagicItem_408", // Quartermaster's Hook: replaced after 50 Gold
+    "BG36_MagicItem_407", // Dragonhead Staff: replaced after 11 attacks
+    "BG36_MagicItem_408", // Quartermaster's Hook: replaced after 40 Gold
     "BG36_MagicItem_409", // Ruby Tusk: replaced after 10 Blood Gems
     "BG36_MagicItem_410", // Soul Battery: replaced after 25 summons
     "BG36_MagicItem_411", // Reinvigorating Light: Discover a second Hero Power
     // Counts toward something, or grows.
     "BG30_MagicItem_713", // Bleeding Heart: after 8 friendly minions die
-    "BG30_MagicItem_931", // Lucky Kitty: after 7 friendly minions die
-    "BG35_MagicItem_302", // Stormcoil Sticker: after 6 friendly minions die
+    "BG30_MagicItem_931", // Lucky Kitty: after 6 friendly minions die
+    "BG35_MagicItem_302", // Stormcoil Sticker: after 5 friendly minions die
     "BG32_MagicItem_808", // Bloodbound Earrings: after you cast 4 spells
-    "BG36_MagicItem_307", // Wand of Divination: after you cast 3 spells on minions
+    "BG36_MagicItem_307", // Wand of Divination: after you cast 2 spells on minions
     "BG35_MagicItem_152", // Demonic Tapestry: after you Refresh 4 times
     "BG36_MagicItem_302", // Gold Mallet: improved by Golden minions played
     "BG36_MagicItem_403", // Hammer of Twilight: improved by discards
@@ -305,14 +305,14 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Dragonhead Staff: after 13 friendly minions attack, becomes a random Greater Dragon
+        // Dragonhead Staff: after 11 friendly minions attack, becomes a random Greater Dragon
         // Trinket.
         (
             "BG36_MagicItem_407",
             Script {
                 on_event: Some(|c, me, e| {
                     if matches!(e, Event::Attacks { side, .. } if *side == me.side)
-                        && c.tick_counter(me.side, me.card, 13)
+                        && c.tick_counter(me.side, me.card, 11)
                     {
                         upgrade_to_greater(c, me, Races::DRAGON);
                     }
@@ -323,31 +323,31 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                         upgrade_to_greater(c, me, Races::DRAGON);
                     }
                 }),
-                // "After 13 friendly minions attack, replace this with a random Greater Dragon
-                // Trinket. (13 left!)"
+                // "After 11 friendly minions attack, replace this with a random Greater Dragon
+                // Trinket. (11 left!)"
                 shown: Some(|c, sh| {
                     if c.card_level(sh.side, sh.card) > 0 {
-                        vec![13, 0]
+                        vec![11, 0]
                     } else {
-                        shown_left(c, sh, 13)
+                        shown_left(c, sh, 11)
                     }
                 }),
                 ..E
             },
         ),
-        // Quartermaster's Hook: after you spend 50 Gold, a random Greater Pirate Trinket.
+        // Quartermaster's Hook: after you spend 40 Gold, a random Greater Pirate Trinket.
         (
             "BG36_MagicItem_408",
             Script {
                 on_event: Some(|c, me, e| {
-                    gold_counter(c, me, e, 50, |c, me| {
+                    gold_counter(c, me, e, 40, |c, me| {
                         upgrade_to_greater(c, me, Races::PIRATE)
                     })
                 }),
                 listens: ev::GOLD_SPENT,
-                // "After you spend 50 Gold, replace this with a random Greater Pirate Trinket.
-                // (50 Gold left!)"
-                shown: Some(|c, sh| shown_left(c, sh, 50)),
+                // "After you spend 40 Gold, replace this with a random Greater Pirate Trinket.
+                // (40 Gold left!)"
+                shown: Some(|c, sh| shown_left(c, sh, 40)),
                 ..E
             },
         ),

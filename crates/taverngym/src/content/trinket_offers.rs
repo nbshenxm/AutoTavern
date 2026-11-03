@@ -177,6 +177,8 @@ pub fn offer_rule(g: &Game, p: PlayerId, id: &str) -> bool {
         "BG35_MagicItem_817" => pl.board.iter().any(|m| m.tier == 3),
         // Bob-blehead: not in Demon lobbies.
         "BG30_MagicItem_998" => !g.lobby_races.intersects(Races::DEMON),
+        // Wand of Divination: not in Quilboar lobbies (37.0.2).
+        "BG36_MagicItem_307" => !g.lobby_races.intersects(Races::QUILBOAR),
         // Ur'zul Sticker, Flaming Portrait: you buffed the Tavern this game (a one-off buff
         // or a Tavern aura).
         "BG35_MagicItem_154" | "BG35_MagicItem_156" => {

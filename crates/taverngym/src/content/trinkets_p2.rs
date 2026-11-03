@@ -326,10 +326,10 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         (
             "BG30_MagicItem_931",
             Script {
-                on_event: Some(|c, me, e| deaths_then(c, me, e, 7, Races::BEAST)),
+                on_event: Some(|c, me, e| deaths_then(c, me, e, 6, Races::BEAST)),
                 listens: ev::DIED,
-                // "After 7 friendly minions die, get a random Beast. (7 left!)"
-                shown: Some(|c, sh| vec![7, shown_left(c, sh, 7)]),
+                // "After 6 friendly minions die, get a random Beast. (6 left!)"
+                shown: Some(|c, sh| vec![6, shown_left(c, sh, 6)]),
                 ..E
             },
         ),
@@ -432,7 +432,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             "BG32_MagicItem_361t",
             Script {
                 on_attach: Some(|c, me| {
-                    c.discover_minion(me.side, me.card, 3, |d| d.tier == 5 && !d.races.is_none())
+                    c.discover_minion(me.side, me.card, 3, |d| d.tier == 6 && !d.races.is_none())
                 }),
                 start_of_turn: Some(factory_copy),
                 ..E
@@ -472,10 +472,10 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         (
             "BG35_MagicItem_302",
             Script {
-                on_event: Some(|c, me, e| deaths_then(c, me, e, 6, Races::MECH)),
+                on_event: Some(|c, me, e| deaths_then(c, me, e, 5, Races::MECH)),
                 listens: ev::DIED,
-                // "After 6 friendly minions die, get a random Mech. (6 left!)"
-                shown: Some(|c, sh| vec![6, shown_left(c, sh, 6)]),
+                // "After 5 friendly minions die, get a random Mech. (5 left!)"
+                shown: Some(|c, sh| vec![5, shown_left(c, sh, 5)]),
                 ..E
             },
         ),
@@ -660,7 +660,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Secret Schematic: after you buy a Mech, get a random Tavern spell.
+        // Secret Schematic: after you buy a Mech, get a random Tavern spell that costs (2) or more.
         (
             "BG36_MagicItem_840",
             Script {
@@ -670,7 +670,10 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                         && db().get(*card).races.intersects(Races::MECH)
                         && db().get(*card).kind == crate::cards::CardKind::Minion
                     {
-                        get_random_spell(c, me.side);
+                        let tier = c.tier(me.side);
+                        if let Some(s) = c.random_spell(|d| d.tier <= tier && d.cost >= 2) {
+                            c.give_card(me.side, s);
+                        }
                     }
                 }),
                 listens: ev::BOUGHT,

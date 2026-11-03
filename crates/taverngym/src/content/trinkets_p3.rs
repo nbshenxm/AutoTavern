@@ -565,20 +565,21 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Wand of Divination: after you cast 3 spells on minions, gain 1 Gold.
+        // Wand of Divination: after you cast 2 spells on minions, gain 1 Gold (not in Quilboar
+        // lobbies since 37.0.2: `trinket_offers::fits`).
         (
             "BG36_MagicItem_307",
             Script {
                 on_event: Some(|c, me, e| {
                     if matches!(e, Event::SpellCast { side, target, .. } if *side == me.side && *target != 0)
-                        && c.tick_counter(me.side, me.card, 3)
+                        && c.tick_counter(me.side, me.card, 2)
                     {
                         c.gain_gold(me.side, 1);
                     }
                 }),
                 listens: ev::SPELL_CAST,
-                // "After you cast 3 spells on minions, gain 1 Gold. (3 left!)"
-                shown: Some(|c, sh| vec![3, 1, shown_left(c, sh, 3)]),
+                // "After you cast 2 spells on minions, gain 1 Gold. (2 left!)"
+                shown: Some(|c, sh| vec![2, 1, shown_left(c, sh, 2)]),
                 ..E
             },
         ),

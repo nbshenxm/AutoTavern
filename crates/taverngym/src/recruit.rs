@@ -181,12 +181,13 @@ impl Ctx<'_> {
                 m.record(None, crate::state::ModKind::Tavern, a, h);
             }
             // The "minions in the Tavern have +N/+N this turn" total so far (Ashen Corruptor,
-            // Living Nightmare; kept under Ashen's id): temporary stats, gone at the start of
-            // the next turn if still in the Tavern. Acquisition fixes the current bonus.
-            let ashen = crate::cardid!("BG32_873");
-            let k = p.turn_data.iter().find(|x| x.0 == ashen).map_or(0, |x| x.1);
-            if k > 0 {
-                m.add_temp_stats(k, k, true);
+            // Living Nightmare; the Attack kept under Ashen's id, the Health under its golden
+            // id's, since 37.0.2 gave Ashen +1/+2): temporary stats, gone at the start of the
+            // next turn if still in the Tavern. Acquisition fixes the current bonus.
+            let total = |id: CardId| p.turn_data.iter().find(|x| x.0 == id).map_or(0, |x| x.1);
+            let (a, h) = (total(crate::cardid!("BG32_873")), total(crate::cardid!("BG32_873_G")));
+            if a > 0 || h > 0 {
+                m.add_temp_stats(a, h, true);
             }
         }
     }
@@ -1059,7 +1060,7 @@ impl Ctx<'_> {
     /// The options of one press of the Dark Gift button this turn: by place, as
     /// `RulesConfig::dark_gift_slots` lists them - option k is a minion of its place's Tier, of
     /// your most common type on the board where the place says so (from turn 6 the first, from turn
-    /// 10 the first two; the hand does not count), each minion and each gift different, Gilding
+    /// 7 the first two since 37.0.2, turn 10 before; the hand does not count), each minion and each gift different, Gilding
     /// only at the offer's lowest Tier. The places are kept (turn 4 is Tier 2, Tier 2, Tier 3 in
     /// this order). Xavius's Hero Power is a free press of the button (the client's 2/2/3 and 4/5/5
     /// agree).

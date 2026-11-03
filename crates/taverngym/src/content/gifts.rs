@@ -88,21 +88,27 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         ("BG36_MidGameEffect_000t64", ON_PLAY), // Dexterity
         ("BG36_MidGameEffect_000t64t", ON_PLAY), // Dexterity (late)
         (
-            "BG36_MidGameEffect_000t71", // Hostility: SoC double Attack
-            soc(|c, me| {
+            "BG36_MidGameEffect_000t71", // Hostility: +15 Attack (37.0.2); SoC double Attack
+            Script {
+                on_attach: Some(|c, me| c.buff(me.eid, 15, 0)),
+                ..soc(|c, me| {
                 // The server sets the Attack to double and its player-level Attack bonus (the
                 // Undead aura) then counts on top, as `Ctx::set_stats` does (2853 with a 273 Undead
                 // bonus became 2 x 2853 + 273 = 5979).
                 let (a, aura) = c.minion(me.eid).map_or((0, 0), |m| (m.atk, m.pbonus_atk));
                 c.buff(me.eid, a.saturating_add(aura), 0);
-            }),
+                })
+            },
         ),
         (
-            "BG36_MidGameEffect_000t7", // Resistance: SoC double Health
-            soc(|c, me| {
-                let h = c.minion(me.eid).map(|m| m.hp).unwrap_or(0);
-                c.buff(me.eid, 0, h);
-            }),
+            "BG36_MidGameEffect_000t7", // Resistance: +15 Health (37.0.2); SoC double Health
+            Script {
+                on_attach: Some(|c, me| c.buff(me.eid, 0, 15)),
+                ..soc(|c, me| {
+                    let h = c.minion(me.eid).map(|m| m.hp).unwrap_or(0);
+                    c.buff(me.eid, 0, h);
+                })
+            },
         ),
         (
             "BG36_MidGameEffect_000t81", // Transcendence: SoC triple stats
@@ -353,10 +359,10 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             },
         ),
         (
-            "BG36_MidGameEffect_000t4", // Incubation: +4/+4; in 2 turns double stats
+            "BG36_MidGameEffect_000t4", // Incubation: +6/+6; in 2 turns double stats
             Script {
                 on_attach: Some(|c, me| {
-                    c.buff(me.eid, 4, 4);
+                    c.buff(me.eid, 6, 6);
                     schedule(
                         c,
                         me.side,
@@ -519,10 +525,10 @@ const BATTLECRY_GIFTS: [&str; 7] = [
 const SEEN_TURNS: [(&str, u8, u8); 39] = [
     ("BG36_MidGameEffect_000t13", 3, 16),
     ("BG36_MidGameEffect_000t51", 3, 5),
-    ("BG36_MidGameEffect_000t52", 3, 5),
+    ("BG36_MidGameEffect_000t52", 4, 5),
     ("BG36_MidGameEffect_000t73", 3, 3),
-    ("BG36_MidGameEffect_000t74", 3, 6),
-    ("BG36_MidGameEffect_000t75", 3, 6),
+    ("BG36_MidGameEffect_000t74", 3, 5),
+    ("BG36_MidGameEffect_000t75", 3, 5),
     ("BG36_MidGameEffect_000t80", 3, 5),
     ("BG36_MidGameEffect_000t82", 3, 4),
     ("BG36_MidGameEffect_000t14", 4, 7),
@@ -970,7 +976,7 @@ fn on_play_fx(c: &mut Ctx, me: Me, e: &Event) {
     }
     let (a, h) = match db().get(me.card).id.as_str() {
         "BG36_MidGameEffect_000t74" => (3, 0),
-        "BG36_MidGameEffect_000t75" => (0, 3),
+        "BG36_MidGameEffect_000t75" => (0, 2),
         "BG36_MidGameEffect_000t64" => (2, 2),
         "BG36_MidGameEffect_000t64t" => (4, 4),
         _ => (0, 0),

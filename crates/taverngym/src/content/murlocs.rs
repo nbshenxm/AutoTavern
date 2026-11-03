@@ -4,6 +4,26 @@ use super::*;
 
 pub fn scripts() -> Vec<(&'static str, Script)> {
     vec![
+        // Murcules (back in 37.0.2): whenever this kills a minion, give a random minion in your
+        // hand +3/+3 (+6/+6).
+        (
+            "BG27_023",
+            Script {
+                on_event: Some(|c, me, e| {
+                    if let Event::Killed { side, killer, .. } = e
+                        && *side == me.side
+                        && *killer == me.eid
+                    {
+                        let hand = c.hand_minions(me.side);
+                        if let Some(&(hid, _, _)) = c.g.rng.pick(&hand) {
+                            c.buff(hid, 3 * me.g(), 3 * me.g());
+                        }
+                    }
+                }),
+                listens: ev::KILLED,
+                ..E
+            },
+        ),
         // Flighty Scout: SoC if in hand, summon a copy (golden: with double stats).
         (
             "BG32_330",

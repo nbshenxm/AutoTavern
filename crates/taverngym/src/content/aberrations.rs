@@ -232,17 +232,17 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Misplaced Tea Set: give a friendly minion of each type +4/+4 (picked per type).
+        // Misplaced Tea Set: give a friendly minion of each type +3/+3 (picked per type).
         (
             TEA_SET,
             Script {
                 spell: Some(|c, me, _| {
                     for (t, _) in one_minion_per_type(c, me.side, |_| true) {
-                        spell_buff(c, me, t, 4, 4);
+                        spell_buff(c, me, t, 3, 3);
                     }
                 }),
-                // "Give a friendly minion of each type +4/+4."
-                shown: Some(|c, sh| shown_spell_stats(c, sh, 4, 4)),
+                // "Give a friendly minion of each type +3/+3."
+                shown: Some(|c, sh| shown_spell_stats(c, sh, 3, 3)),
                 ..E
             },
         ),

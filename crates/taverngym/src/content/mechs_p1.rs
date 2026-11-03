@@ -102,7 +102,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Glambot: whenever you cast a spell on a Mech, Magnetize a 4/4 Satellite to it (twice).
+        // Glambot: whenever you cast a spell on a Mech, Magnetize a 5/5 Satellite to it (twice).
         (
             "BG36_853",
             Script {
@@ -117,7 +117,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                         m.is(Races::MECH) && c.locate(m.eid).map(|l| l.0) == Some(me.side)
                     }) {
                         for _ in 0..me.g() {
-                            satellite(c, me.side, *target, 4, 4);
+                            satellite(c, me.side, *target, 5, 5);
                         }
                     }
                 }),
@@ -165,18 +165,18 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                         // of the host. The client puts the Satellite's stats into that
                         // Magnetization, no Satellite of its own (the host's attached cards and
                         // Utility Drone's count show it).
-                        fold_into_magnet(c, t, 2 * k, 3 * k);
+                        fold_into_magnet(c, t, 2 * k, 2 * k);
                     } else {
-                        satellite(c, me.side, t, 2 * k, 3 * k);
+                        satellite(c, me.side, t, 2 * k, 2 * k);
                     }
                     c.counter_perm(me.side, me.eid, me.g());
                 }),
                 listens: ev::PLAYED,
                 flags: flag::IMPROVES,
-                // "Whenever you play a Mech, Magnetize a 2/3 Satellite to it and improve this."
+                // "Whenever you play a Mech, Magnetize a 2/2 Satellite to it and improve this."
                 shown: Some(|_, sh| {
                     let k = sh.g().saturating_add(sh.counter());
-                    vec![2 * k, 3 * k]
+                    vec![2 * k, 2 * k]
                 }),
                 ..E
             },
