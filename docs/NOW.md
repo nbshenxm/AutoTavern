@@ -11,7 +11,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Next up
 
-- [ ] Skill exams for every network: habits by phase and positioning (running on the office)
+- [ ] Skill exams per network (habits gap, 0 = like you): best 0.74, big3ad 0.74, big3open 0.68; positioning even with you
 - [ ] big3open's opening: Freezes 0.71 -> 0.26 a turn so far; early Upgrades still 0 (you 0.55)
 - [ ] Commit to a type and hold cards: on-type buys 35% (you 62-69%), plays 11 a turn (you 7-8)
 
