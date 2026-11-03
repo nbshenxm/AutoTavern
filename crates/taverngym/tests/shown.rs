@@ -227,6 +227,8 @@ fn dark_gifts_on_a_minion_show_their_counters() {
                 index: 0,
                 atk: None,
                 hp: None,
+                temp_atk: None,
+                temp_hp: None,
                 keywords: None,
                 golden: None,
                 attach: Some(gift.into()),
