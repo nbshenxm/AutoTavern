@@ -118,7 +118,8 @@ try {
                 # office, detached, on the logs just parsed; a later hour collects it (top of this
                 # script; a failure is logged "fidelity FAILED", as a crash once went unnoticed)
                 & scp -q -o BatchMode=yes -o ConnectTimeout=20 (Join-Path $repo "data\replay\decisions.jsonl") (Join-Path $repo "data\replay\combats.jsonl") "office:autotavern/data/replay/"
-                & ssh -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern && rm -f data/replay/fidelity.exit && nohup bash scripts/office/fidelity.sh > /dev/null 2>&1 &"
+                # (setsid -f: detached for good; a plain "nohup ... &" kept the ssh call waiting)
+                & ssh -n -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern && rm -f data/replay/fidelity.exit && setsid -f bash scripts/office/fidelity.sh > /dev/null 2>&1 < /dev/null"
                 Log "fidelity started on the office"
                 # (and how often you followed the advice, per game: advisor.usefulness)
                 & $py -X utf8 -m advisor.usefulness 2>&1 | Select-Object -Last 3 | ForEach-Object { Log "usefulness: $_" }
