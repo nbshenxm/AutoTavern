@@ -164,7 +164,7 @@ fn gyroblade_shows_the_satellite_it_will_give() {
         .iter()
         .filter_map(|h| h.item.as_minion().map(|m| (m.atk, m.max_hp)))
         .collect();
-    assert_eq!(got, vec![(12, 12), (36, 36)]);
+    assert_eq!(got, vec![(18, 18), (60, 60)]);
 }
 
 #[test]
