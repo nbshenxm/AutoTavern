@@ -48,7 +48,7 @@ pub use env::SoloEnv;
 /// Simulator library version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Hearthstone client build the simulator replicates.
-pub const GAME_VERSION: &str = "36.6.3.253932";
+pub const GAME_VERSION: &str = "37.0.2.256589";
 /// Server-side rule overlay applied on top of the client data.
 pub const SERVER_RULES_VERSION: &str = "36.6.3";
 
@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn versions() {
-        assert_eq!(GAME_VERSION, "36.6.3.253932");
+        assert_eq!(GAME_VERSION, "37.0.2.256589");
         assert_eq!(SERVER_RULES_VERSION, "36.6.3");
         assert!(!VERSION.is_empty());
     }

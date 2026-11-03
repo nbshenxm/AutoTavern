@@ -86,8 +86,8 @@ fn trinket_upgrades_count_down() {
     assert_eq!(
         shown(&mut g, staff).as_deref(),
         Some(
-            "After 13 friendly minions attack, replace this with a random Greater Dragon \
-             Trinket. (8 left!)"
+            "After 11 friendly minions attack, replace this with a random Greater Dragon \
+             Trinket. (6 left!)"
         )
     );
     assert_eq!(
@@ -144,7 +144,7 @@ fn gyroblade_shows_the_satellite_it_will_give() {
     assert_eq!(
         shown(&mut g, blade).as_deref(),
         Some(
-            "At the end of your turn, get a 12/12 Magnetic Satellite. (Improved by each Tavern \
+            "At the end of your turn, get a 18/18 Magnetic Satellite. (Improved by each Tavern \
              spell you've cast this turn!)"
         )
     );
@@ -203,7 +203,7 @@ fn per_turn_and_per_combat_counters() {
     g.with_recruit(0, |c| {
         assert_eq!(shown_in(c, jar), None);
         assert_eq!(shown_in(c, tentacles), None);
-        // Jar o' Gems counts attacks in combat (per-combat data of the context).
+        // Jar o' Gems has no counter since 37.0.2 (every Quilboar attack): as printed.
         c.combat = true;
         c.emit(Event::Attacks {
             side: 0,
@@ -211,13 +211,7 @@ fn per_turn_and_per_combat_counters() {
             defender: 0,
         });
         c.combat = false;
-        assert_eq!(
-            shown_in(c, jar).as_deref(),
-            Some(
-                "After 2 friendly minions attack each combat, this plays a Blood Gem on all \
-                 your Quilboar. (1 left!)"
-            )
-        );
+        assert_eq!(shown_in(c, jar), None);
         // Writhing Tentacles: the first minion discarded this turn.
         let m = c.new_minion(0, cid(PRISONGUARD));
         taverngym::content::writhing_tentacles(c, 0, &m);

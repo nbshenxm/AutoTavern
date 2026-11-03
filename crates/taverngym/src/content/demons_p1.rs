@@ -151,11 +151,11 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     }
                 })),
                 flags: flag::IMPROVES,
-                // "Deathrattle: Give minions in the Tavern +2/+2 this game. Activate (1):
+                // "Deathrattle: Give minions in the Tavern +2/+1 this game. Activate (1):
                 // Improve this."
                 shown: Some(|_, sh| {
-                    let k = 2 * (sh.g().saturating_add(sh.counter()));
-                    vec![k, k, 1]
+                    let k = sh.g().saturating_add(sh.counter());
+                    vec![2 * k, k, 1]
                 }),
                 ..E
             },

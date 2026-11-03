@@ -748,7 +748,8 @@ fn broken_horn_no_morph_enchantment_survives_a_triple() {
 
 #[test]
 fn upgrade_purchase_is_not_a_tavern_spell_for_hero_buddy_and_reward_listeners() {
-    for (id, expected) in [("BG31_HERO_801ptf", 0), ("BG28_888", 2)] {
+    // Misplaced Tea Set costs 2 since 37.0.2: Splitting Scroll (3 or more) no longer copies it.
+    for (id, expected) in [("BG31_HERO_801ptf", 0), ("BG28_888", 1)] {
         let mut g = game(13900);
         g.set_hero_power(0, 0, cid("BG28_HERO_800p"));
         board(&mut g, 0, &["BG31_HERO_006_Buddy"]);

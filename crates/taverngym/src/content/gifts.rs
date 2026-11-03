@@ -468,7 +468,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
         (
             "BG36_MidGameEffect_000t88",
             Script {
-                shown: Some(|c, sh| vec![3, 3, stats_of(c, sh).map_or(0, |s| s.cards_discarded)]),
+                shown: Some(|c, sh| vec![3, 2, stats_of(c, sh).map_or(0, |s| s.cards_discarded)]),
                 ..E
             },
         ),

@@ -2095,7 +2095,7 @@ fn spark_snapper_and_utility_drone() {
     let mut g = game(141);
     g.cfg.triple_copies = 99;
     set_board(&mut g, 0, &["BG36_851", "BG26_152"]); // Spark Snapper, Utility Drone
-    for expect in [(2 + 2, 1 + 3), (2 + 4, 1 + 6)] {
+    for expect in [(2 + 2, 1 + 2), (2 + 4, 1 + 4)] {
         give(&mut g, 0, "BG36_854"); // Rescue Bot 2/1 Mech
         play_last(&mut g, 0);
         let m = g.players[0].board.last().unwrap();
@@ -2141,9 +2141,9 @@ fn shamanic_tidecaller_buffs_hand_and_board_murlocs() {
     give(&mut g, 0, "BG32_860"); // Mystic in hand
     give(&mut g, 0, "BG28_897"); // Banana on the board Mystic
     cast_on(&mut g, 0, 1);
-    assert_eq!(stats(&g, 0)[1], (4 + 2 + 3, 4 + 2 + 3));
+    assert_eq!(stats(&g, 0)[1], (4 + 2 + 3, 4 + 2 + 4));
     let h = g.players[0].hand[0].item.as_minion().unwrap();
-    assert_eq!((h.atk, h.hp), (7, 7));
+    assert_eq!((h.atk, h.hp), (7, 8));
 }
 
 #[test]
@@ -2481,8 +2481,8 @@ fn stalwart_kodo_three_times_per_combat() {
     assert_eq!(buffed, 3);
     assert_eq!(
         ctx.boards[0].last().unwrap().atk,
-        1 + 16,
-        "first summon buffed"
+        1 + 2 * 15,
+        "first summon buffed (double the stats, 37.0.2)"
     );
 }
 
@@ -2498,7 +2498,7 @@ fn each_type_picks_the_assignment_covering_most_types() {
         play_last(&mut g, 0);
         let after = stats(&g, 0);
         assert!(
-            before.iter().zip(&after).all(|(b, a)| a.0 == b.0 + 4),
+            before.iter().zip(&after).all(|(b, a)| a.0 == b.0 + 3),
             "seed {seed}"
         );
     }
@@ -3476,7 +3476,7 @@ fn sky_golem_portrait_grants_a_permanent_deathrattle() {
     c.destroy(first);
     c.resolve_deaths();
     drop(c);
-    assert_eq!(g.players[0].board[1].hp, hp0 + 2, "kept after combat");
+    assert_eq!(g.players[0].board[1].hp, hp0 + 3, "kept after combat");
 }
 
 /// A combat context over the two players' boards (for trinket combat hooks).
@@ -3770,16 +3770,16 @@ fn stat_and_aura_trinkets() {
     set_board(&mut g, 0, &["BG34_690", "BG26_174"]); // Undead, Demon
     buy_trinket(&mut g, 0, "BG36_MagicItem_373");
     assert_eq!(g.with_recruit(0, |c| c.spell_extra(0)), (3, 6));
-    // Weighted Gauntlet: +1/+1 at the end of this turn, +2/+2 at the end of the next.
+    // Weighted Gauntlet: +7/+7 at the end of this turn, +14/+14 at the end of the next.
     let mut g = game(433);
     set_board(&mut g, 0, &["BG35_602"]);
     buy_trinket(&mut g, 0, "BG36_MagicItem_414");
     end_turn_all(&mut g);
     let a = g.players[0].board[0].atk;
-    assert_eq!(a, 3 + 1);
+    assert_eq!(a, 3 + 7);
     g.players[0].hand.clear();
     g.apply(0, Action::EndTurn).unwrap();
-    assert_eq!(g.players[0].board[0].atk, a + 2);
+    assert_eq!(g.players[0].board[0].atk, a + 14);
     // Training Certificate: SoC doubles the two lowest-Attack minions.
     let mut g = game(434);
     buy_trinket(&mut g, 0, "BG30_MagicItem_962");
@@ -5678,9 +5678,9 @@ fn demon_card_rules() {
         c.destroy(e);
         c.resolve_deaths();
     });
-    // +2/+2 improved twice = +6/+6 on every Tavern minion (base 1-tier stats + 6).
+    // +2/+1 improved twice = +6/+3 on every Tavern minion (37.0.2).
     let s = &g.players[0].stats;
-    assert_eq!((s.tavern_atk, s.tavern_hp), (6, 6));
+    assert_eq!((s.tavern_atk, s.tavern_hp), (6, 3));
 
     // Mind Muck with no other Demon consumes nothing.
     let mut g = game(9102);
@@ -6363,10 +6363,10 @@ fn patch_36_6_3_data_and_defaults() {
     for id in ["BG34_683", "BG26_537"] {
         assert!(!d.get(cid(id)).pools.minion, "{id} out of the pool");
     }
-    assert!(d.get(cid("BG36_MagicItem_606")).pools.trinket);
+    assert!(!d.get(cid("BG36_MagicItem_606")).pools.trinket, "out in 37.0.2");
     assert!(!d.get(cid("BG32_MagicItem_894")).pools.trinket);
     let eudora = d.get(cid("BG33_828"));
-    assert_eq!((eudora.tier, eudora.atk, eudora.hp), (5, 8, 3));
+    assert_eq!((eudora.tier, eudora.atk, eudora.hp), (5, 10, 3));
     assert_eq!(d.get(cid("BG28_604")).cost, 3, "Butchering");
     assert_eq!(d.get(cid("BG34_689")).tier, 4, "Blood Gem Barrage");
     // Aberrations are in about half of the lobbies now.
@@ -6480,13 +6480,13 @@ fn flapper_battlecry_and_eudora_and_tycoon() {
     c.destroy(e);
     c.resolve_deaths();
     let now: Vec<(i32, i32)> = c.boards[0].iter().map(|m| (m.atk, m.hp)).collect();
-    assert_eq!(now[0], (before[1].0 + 6, before[1].1 + 6));
+    assert_eq!(now[0], (before[1].0 + 8, before[1].1 + 8));
     drop(c);
     let after = stats(&g, 0);
     assert_eq!(after[1], before[1], "combat-only on a plain minion");
     assert_eq!(
         after[2],
-        (before[2].0 + 6, before[2].1 + 6),
+        (before[2].0 + 8, before[2].1 + 8),
         "kept by the Golden one"
     );
     // Eternal Tycoon: Avenge (5) summons an Eternal Knight that attacks at once.
@@ -6795,7 +6795,7 @@ fn lobby_without_aberrations_has_no_deity_system() {
 
 #[test]
 fn golden_forms_of_the_36_6_3_minions() {
-    // Golden Ship Master Eudora: +6/+6 twice; Golden minions keep it.
+    // Golden Ship Master Eudora: +8/+8 twice; Golden minions keep it.
     let mut g = game(920);
     set_board(&mut g, 0, &["BG33_828_G", "BG36_345", "BG36_345_G"]);
     let before = stats(&g, 0);
@@ -6804,16 +6804,16 @@ fn golden_forms_of_the_36_6_3_minions() {
     c.destroy(e);
     c.resolve_deaths();
     let now: Vec<(i32, i32)> = c.boards[0].iter().map(|m| (m.atk, m.hp)).collect();
-    assert_eq!(now[0], (before[1].0 + 12, before[1].1 + 12));
+    assert_eq!(now[0], (before[1].0 + 16, before[1].1 + 16));
     assert_eq!(
         now[1],
-        (before[2].0 + 12, before[2].1 + 12),
+        (before[2].0 + 16, before[2].1 + 16),
         "applied once per trigger"
     );
     drop(c);
     let after = stats(&g, 0);
     assert_eq!(after[1], before[1]);
-    assert_eq!(after[2], (before[2].0 + 12, before[2].1 + 12));
+    assert_eq!(after[2], (before[2].0 + 16, before[2].1 + 16));
     // Golden Eternal Tycoon summons a Golden Eternal Knight.
     let mut g = game(921);
     let ids = [
@@ -10218,7 +10218,7 @@ fn ashen_corruptor_bonus_stays_in_the_tavern_for_the_turn() {
             g.apply(0, Action::Refresh).unwrap();
             let t = temps(&g);
             assert!(!t.is_empty());
-            assert!(t.iter().all(|x| *x == (n * k, n * k)), "{corruptor} {t:?}");
+            assert!(t.iter().all(|x| *x == (n * k / 2, n * k)), "{corruptor} {t:?}");
             assert_eq!((g.players[0].health, g.players[0].armor), life);
         }
         // A Refresh paid with Gold deals no damage; the new minions still have the bonus.
@@ -10228,7 +10228,7 @@ fn ashen_corruptor_bonus_stays_in_the_tavern_for_the_turn() {
         assert_eq!(g.players[0].gold, 0);
         let t = temps(&g);
         assert!(
-            !t.is_empty() && t.iter().all(|x| *x == (2 * k, 2 * k)),
+            !t.is_empty() && t.iter().all(|x| *x == (k, 2 * k)),
             "{t:?}"
         );
         // "This turn": gone from the frozen minions and from new ones next turn.
@@ -10264,7 +10264,7 @@ fn sacrificial_wrathguard_bonus_from_combat_reaches_the_tavern() {
     end_turn_all(&mut g);
     assert_eq!(g.turn, 2);
     let s = &g.players[0].stats;
-    assert_eq!((s.tavern_atk, s.tavern_hp), (2, 2));
+    assert_eq!((s.tavern_atk, s.tavern_hp), (2, 1));
     for (sid, a, h) in kept {
         let slot = g.players[0].shop.iter().find(|s| s.sid == sid).unwrap();
         let m = slot.item.as_minion().unwrap();
@@ -10669,7 +10669,7 @@ fn golden_minions_played_count_for_the_whole_game() {
     .unwrap();
     g.apply(0, Action::Choose(0)).unwrap();
     assert_eq!(stats(&g, 0)[1], (before.0 + 3, before.1 + 3));
-    assert_eq!(stats(&g, 0)[0], (4, 4), "not Hooktusk itself");
+    assert_eq!(stats(&g, 0)[0], (5 + 3, 5 + 3), "Hooktusk too (37.0.2: \"your Pirates\")");
 }
 
 #[test]
@@ -10735,7 +10735,7 @@ fn a_triple_keeps_improve_this_growth() {
         g.apply(0, Action::Choose(0)).unwrap();
     }
     g.players[0].hand.clear();
-    for want in [(20, 30), (24, 36)] {
+    for want in [(20, 20), (24, 24)] {
         give(&mut g, 0, "BG36_345"); // not a Mech: nothing
         let i = g.players[0].hand.len() - 1;
         g.apply(0, Action::Play { hand: i, pos: 1 }).unwrap();

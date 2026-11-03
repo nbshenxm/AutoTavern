@@ -267,7 +267,7 @@ fn escapist_and_revenant_show_what_is_left() {
     });
     assert_eq!(
         board_text(&mut g, 0),
-        txt("After your hero takes 4 damage, get a copy of Corrupted Cupcakes. (1 left!)")
+        txt("After your hero takes 5 damage, get a copy of Corrupted Cupcakes. (2 left!)")
     );
     assert_eq!(
         board_text(&mut g, 1),
@@ -326,7 +326,7 @@ fn elementals_show_their_improvements() {
     assert_eq!(
         board_text(&mut g, 0),
         txt(
-            "Start of Combat: Give your other Elementals +6/+6. (Improves after you play an \
+            "Start of Combat: Give your other Elementals +8/+8. (Improves after you play an \
              Elemental!)"
         )
     );
@@ -379,7 +379,7 @@ fn tavern_spells_show_the_spell_bonus() {
     );
     assert_eq!(
         card_text(&mut g, "BG28_888"),
-        txt("Give a friendly minion of each type +7/+6.")
+        txt("Give a friendly minion of each type +6/+5.")
     );
 }
 
@@ -392,7 +392,7 @@ fn mechs_show_their_progress() {
     play_last(&mut g);
     assert_eq!(
         board_text(&mut g, 0),
-        txt("Whenever you play a Mech, Magnetize a 4/6 Satellite to it and improve this.")
+        txt("Whenever you play a Mech, Magnetize a 4/4 Satellite to it and improve this.")
     );
     assert_eq!(
         board_text(&mut g, 1),
