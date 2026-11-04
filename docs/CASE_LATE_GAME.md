@@ -150,3 +150,35 @@ Polarizing Beatboxer echoes only Magnetizations onto a *different* minion, Utili
 every Magnetization *each* minion has, Glambot fires for a spell on *any* Mech. Your edge there is
 volume (6.1 Mechs and Magnetic cards played a turn), not concentration. Funnelling stays out of
 the training levers; the Beast lever (Activates) is in act1.
+
+## The mid-game (Nov 4): where the late gap is made
+
+**Your games** (12 that reach round 11): the engine card arrives late, at round 9 (median, 5-12);
+its type comes first, 4+ minions of it from rounds 6-8; a pivot is one turn (Pirates 3/7 at round 9
+→ Demons 5/6 at 10; Mechs 5/7 → Elementals 6/7; Aberrations → Beasts); Tier 4 by rounds 7-8, 5 by
+8-9, 6 by 10-11; a full warband from rounds 6-7.
+
+**R3 from your round 6-9 positions** (`advisor.mid_exam`: 47 starts x 2 seeds, every seat R3,
+greedy, three rounds on; your side at each round's combat):
+
+| Rounds ahead | Warband vs yours | Your main type on board (you / R3) | Holds your game's engine (you / R3) | Tier (you / R3) |
+| --- | --- | --- | --- | --- |
+| 0 (same turn) | 1.05x | 5.1 / **2.8** | 49% / 41% | 4.6 / 4.0 |
+| +1 | 0.71x | 5.4 / 2.5 | 64% / 33% | 5.0 / 4.0 |
+| +2 | 0.45x | 5.4 / 2.3 | 81% / 29% | 5.3 / 4.1 |
+| +3 | **0.28x** | 5.3 / 2.2 | **93% / 29%** | **5.5 / 4.2** |
+
+The late game's 0.2x is made here: R3 breaks your type up in its first turn (same stats, half the
+type), stops levelling, and never gets the engine.
+
+**Probes** (paired against R3 on the same starts and seeds, three rounds on):
+
+| Probe | Warband vs R3 | Type | Engine | Tier |
+| --- | --- | --- | --- | --- |
+| Upgrade to your Tier of each round | 0.88x (log -0.13 ± 0.04) | 2.1 | 30% | 5.5 |
+| Type lock (no selling your type, no buying others) | 0.87x (-0.14 ± 0.05) | 3.9 | 28% | 4.2 |
+| Both | 0.79x (-0.24 ± 0.05) | 3.8 | 32% | 5.5 |
+
+Forcing your habits one by one makes R3 *worse*: its other choices aren't made for them (the Nov 1
+level test said the same of levelling alone). Your mid-game is a package aimed at an engine; what
+no probe moves is the engine itself (R3 holds it 30% of the time, you 93%).
