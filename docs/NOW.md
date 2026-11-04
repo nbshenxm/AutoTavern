@@ -12,6 +12,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Next up
 
+- [ ] From Nov 5: the training plan ([TRAINING_PLAN.md](TRAINING_PLAN.md)): one mainline on the office, one experiment at a time on the cluster, bars set first
 - [ ] Late-game case study ([CASE_LATE_GAME.md](CASE_LATE_GAME.md)): you scale one engine 2-3x a round from round 10; R3's turn from your positions ends at 0.76x yours (engine exam), Beasts 0.55x (Lionfish activations 0.6 a turn vs your 3.1)
 - [ ] R3's value head prefers your late End Turns in 71% of 62 (value probe), but search scored by it finds nothing (plan search 1.00x, full-turn lookahead 0.98x); forcing Lionfish's Activate: Beasts 1.18x. The network has to learn what engines are worth: choose the training lever (morning)
 - [ ] Patch 37.0.2 is in the simulator ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)); home advisor rebuilt Nov 4 02:36 with the night's fixes (Brood of Nozdormu, next-combat spells, Battlecruiser Upgrades, summon trigger order; fights now +2.55 SD, was +2.9); check the readings against your first games on the patch
