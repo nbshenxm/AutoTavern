@@ -119,9 +119,19 @@ def seats(d):
 
 
 def game_combats(combats, d):
-    """The player's combats of decision `d`'s game before it (advisor.logs records)."""
-    return [c for c in combats if c["log"] == d["log"] and c["player_id"] == d["player_id"]
-            and c["turn"] < d["turn"]]
+    """The player's combats of decision `d`'s game before it (advisor.logs records). A game is
+    the log's run of segments whose turns keep rising: after a reconnect the player's id changes
+    (Nov 4: 6, then 0 from segment 9), so matching on it lost every earlier combat (the last
+    result, the streak: a Tortollan Blue Shell sold for 1 after a loss). A new game restarts the
+    turns."""
+    out, seg = [], d.get("segment", 0)
+    for c in sorted((c for c in combats if c["log"] == d["log"]), key=lambda c: (c.get("segment", 0), c["turn"])):
+        if c.get("segment", 0) > seg or (c.get("segment", 0) == seg and c["turn"] >= d["turn"]):
+            break
+        if out and c["turn"] <= out[-1]["turn"]:
+            out = []  # the turns restarted: a new game
+        out.append(c)
+    return out if out and out[-1]["turn"] < d["turn"] else []
 
 
 def lobby_types(d, combats=()):
