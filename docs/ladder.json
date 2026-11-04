@@ -1,16 +1,82 @@
 {
-  "_note": "advisor.gate verdicts, paired (mean place difference, negative = better). Champions in order; each 'vs' the one before. 'tried': candidates against the champion of the day. Add a row the moment a verdict is in.",
-  "champions": [
-    {"name": "R1", "net": "big2 it 70", "date": "2026-10-31"},
-    {"name": "R2", "net": "big3 it 180", "date": "2026-11-01", "gain": -0.135, "se": 0.049},
-    {"name": "R3", "net": "big3 it 510", "date": "2026-11-02", "gain": -0.121, "se": 0.035}
-  ],
-  "tried": [
-    {"name": "big3 it 786", "date": "2026-11-03", "vs": "R3", "gain": -0.013, "se": 0.034, "verdict": "even"},
-    {"name": "big3hero it 908", "date": "2026-11-03", "vs": "R3", "gain": -0.041, "se": 0.038, "verdict": "even"},
-    {"name": "lr3 4 h", "date": "2026-11-03", "vs": "R3", "gain": 0.053, "se": 0.040, "verdict": "not better"},
-    {"name": "lr3 end", "date": "2026-11-03", "vs": "R3", "gain": 0.017, "se": 0.035, "verdict": "even"},
-    {"name": "p37 4 h", "date": "2026-11-04", "vs": "R3", "gain": 0.059, "se": 0.040, "verdict": "not better"},
-    {"name": "p37 10 h", "date": "2026-11-04", "vs": "R3", "gain": -0.046, "se": 0.036, "verdict": "even"}
-  ]
+ "_note": "advisor.gate verdicts, paired (mean place difference, negative = better). Champions in order; each 'vs' the one before. 'tried': candidates against the champion of the day. Add a row the moment a verdict is in.",
+ "champions": [
+  {
+   "name": "R1",
+   "net": "big2 it 70",
+   "date": "2026-10-31"
+  },
+  {
+   "name": "R2",
+   "net": "big3 it 180",
+   "date": "2026-11-01",
+   "gain": -0.135,
+   "se": 0.049
+  },
+  {
+   "name": "R3",
+   "net": "big3 it 510",
+   "date": "2026-11-02",
+   "gain": -0.121,
+   "se": 0.035
+  }
+ ],
+ "tried": [
+  {
+   "name": "big3 it 786",
+   "date": "2026-11-03",
+   "vs": "R3",
+   "gain": -0.013,
+   "se": 0.034,
+   "verdict": "even"
+  },
+  {
+   "name": "big3hero it 908",
+   "date": "2026-11-03",
+   "vs": "R3",
+   "gain": -0.041,
+   "se": 0.038,
+   "verdict": "even"
+  },
+  {
+   "name": "lr3 4 h",
+   "date": "2026-11-03",
+   "vs": "R3",
+   "gain": 0.053,
+   "se": 0.04,
+   "verdict": "not better"
+  },
+  {
+   "name": "lr3 end",
+   "date": "2026-11-03",
+   "vs": "R3",
+   "gain": 0.017,
+   "se": 0.035,
+   "verdict": "even"
+  },
+  {
+   "name": "p37 4 h",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": 0.059,
+   "se": 0.04,
+   "verdict": "not better"
+  },
+  {
+   "name": "p37 10 h",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": -0.046,
+   "se": 0.036,
+   "verdict": "even"
+  },
+  {
+   "name": "act1 4 h",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": -0.053,
+   "se": 0.035,
+   "verdict": "even"
+  }
+ ]
 }
