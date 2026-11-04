@@ -6,19 +6,16 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Running
 
-- [ ] Office: act1, R3 + forced Activates (option A); cluster: late1, R3 + your better late turns (option B). Bar for both: engine exam >= 1.05x R3, gate not worse; checks at +4 h and at the end
-- [ ] p37 stopped at 07:49: gate inconclusive (-0.046 ± 0.036), engine exam 0.99x
+- [ ] Office: act1, R3 + forced Activates (option A), to 19:40; its 4 h gate running. Cluster: late1, R3 + your better late turns (option B), to 20:00; its 4 h gate queued on the cluster CPUs. Bar for both: engine exam >= 1.05x R3, gate not worse
+- [ ] late1 agrees with your held-out late turns 32-34% (R3 7.6%; your refreshes 24-32%, R3 0%): it learns your late play, not only the 933 training decisions (95% on those), though held-out slips a little as training goes on
 - [ ] Queued: mid1 (office, after act1 at 19:40): R3 + your round 5-8 turns, the root-cause lever ([CASE_LATE_GAME.md](CASE_LATE_GAME.md#the-root-cause-r3s-own-training-games-nov-4))
+- [ ] Effect audit on the cluster (cards in action, 2,400 full games): now saves per chunk and resumes
 
 ## Next up
 
-- [ ] From Nov 5: the training plan ([TRAINING_PLAN.md](TRAINING_PLAN.md)): one mainline on the office, one experiment at a time on the cluster, bars set first
-- [ ] Late-game case study ([CASE_LATE_GAME.md](CASE_LATE_GAME.md)): you scale one engine 2-3x a round from round 10; R3's turn from your positions ends at 0.76x yours (engine exam), Beasts 0.55x (Lionfish activations 0.6 a turn vs your 3.1)
-- [ ] R3's value head prefers your late End Turns in 71% of 62 (value probe), but search scored by it finds nothing (plan search 1.00x, full-turn lookahead 0.98x); forcing Lionfish's Activate: Beasts 1.18x. The network has to learn what engines are worth: choose the training lever (morning)
-- [ ] Patch 37.0.2 is in the simulator ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)); home advisor rebuilt Nov 4 02:36 with the night's fixes (Brood of Nozdormu, next-combat spells, Battlecruiser Upgrades, summon trigger order; fights now +2.55 SD, was +2.9); check the readings against your first games on the patch
-- [ ] Review ([REVIEW_20261103.md](REVIEW_20261103.md)): our check couldn't see a gain (±0.1 places); the gate (advisor.gate, paired) decides from now on
-- [ ] By the gate: R2 beat R1 by 0.14, R3 beat R2 by 0.12; since R3 nothing (big3 786, big3hero, lr3 at 3x the learning rate: all within ±0.05). The plateau is R3's, and not the learning rate
-- [ ] The search on the gate works but costs ~16 CPU-minutes a pair at k=2: a precise verdict needs a cheaper search or late positions only
+- [ ] From Nov 5: the training plan ([TRAINING_PLAN.md](TRAINING_PLAN.md)): the mainline from tonight's best verdict, the next experiment library seats with players; the champion ladder on the progress page
+- [ ] R5 tonight at 20:00: R3 unless a candidate passes the gate and the recheck; the simulator fixes and the exams ship either way
+- [ ] Late-game case study ([CASE_LATE_GAME.md](CASE_LATE_GAME.md)): the late gap is made in rounds 5-9, where R3's value head can't tell your turns from its own (55%); search on top of it finds nothing, so the network has to learn engines' worth
 - [ ] Commit to a type and hold cards: on-type buys 35% (you 62-69%), plays 11 a turn (you 7-8)
 
 ## Later

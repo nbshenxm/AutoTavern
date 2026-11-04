@@ -531,6 +531,12 @@ def _glance():
         reg = json.loads(last.read_text(encoding="utf-8")).get("regressions") or []
         when = datetime.fromtimestamp(last.stat().st_mtime)
         tiles.append(("Simulator check", "passed" if not reg else f"{len(reg)} drops", f"{when:%b %d %H:%M}"))
+    lad = _ladder_data()
+    if lad:
+        champs = lad["champions"]
+        total = sum(c.get("gain", 0) for c in champs)
+        tiles.append(("Champion ladder", f"{total:+.2f}",
+                      f"places since {champs[0]['name']}, {len(champs) - 1} gated step(s)"))
     out = ['<h2>At a glance</h2><div class="tiles">' + "".join(
         f'<div class="tile"><div class="muted small">{a}</div><div class="big">{b}</div>'
         f'<div class="muted small">{c}</div></div>' for a, b, c in tiles) + "</div>"]
@@ -559,6 +565,37 @@ def _glance():
         if nxt:
             out.append('<h3>Next</h3><ul class="check">' + "".join(
                 f"<li>&#9744; {_esc(_short(t))}</li>" for t in nxt[:3]) + "</ul>")
+    return "".join(out)
+
+
+def _ladder_data():
+    path = ROOT / "docs" / "ladder.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def _ladder():
+    """Each gated champion's gain over the one before and the running total; under it, what was
+    tried against the champion since and its verdict. Only paired gate verdicts count here."""
+    lad = _ladder_data()
+    if not lad:
+        return ""
+    out = ["<table><tr><th>Champion</th><th>Network</th><th>Date</th><th>Gain on the one before</th>"
+           "<th>Total since the first</th></tr>"]
+    total = 0.0
+    for c in lad["champions"]:
+        total += c.get("gain", 0)
+        gain = f"{c['gain']:+.3f} ± {c['se']:.3f}" if "gain" in c else "-"
+        out.append(f"<tr><td>{_esc(c['name'])}</td><td>{_esc(c.get('net', ''))}</td><td>{_esc(c['date'])}</td>"
+                   f"<td>{gain}</td><td>{total:+.3f}</td></tr>")
+    out.append("</table>")
+    if lad.get("tried"):
+        out.append("<h3>Tried against the champion</h3><table><tr><th>Candidate</th><th>Date</th><th>Against</th>"
+                   "<th>Gain</th><th>Verdict</th></tr>" + "".join(
+                       f"<tr><td>{_esc(t['name'])}</td><td>{_esc(t['date'])}</td><td>{_esc(t['vs'])}</td>"
+                       f"<td>{t['gain']:+.3f} ± {t['se']:.3f}</td><td>{_esc(t['verdict'])}</td></tr>"
+                       for t in reversed(lad["tried"])) + "</table>")
+    out.append('<p class="muted small">Places, paired, negative = better (advisor.gate). A step needs a pass: '
+               "mean &lt; 0 and 2.5 standard errors, then the fresh-seed recheck.</p>")
     return "".join(out)
 
 
@@ -887,6 +924,7 @@ def render():
              f'goal: 14k+ MMR</p>']
 
     parts.append(_glance())
+    parts.append(_fold("Champion ladder (gate verdicts)", _ladder()))
     parts.append(_fold("Strength over time", _overview(_jsonl(DATA / "models" / "promotions.jsonl"))))
     parts.append(_fold("Releases and their targets", _targets()))
     parts.append(_fold("Skill exams", _exams_section()))
