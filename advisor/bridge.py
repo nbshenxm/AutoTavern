@@ -20,7 +20,7 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, player_stats,
+from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, adopt_bonuses, arm_powers, debug, normal_form, owe, player_stats,
                            power_state, recruit_game,
                            set_deities, TURN_COUNTERS,
                            turn_so_far,
@@ -292,7 +292,7 @@ def build(d, combats=(), seed=7, earlier=()):
     vol = {k: v for k, v in player_stats(me).items() if k.startswith("volumizer")}
     if vol:
         debug(g, cmd="set_stats", p=0, stats=vol)
-    debug(g, cmd="adopt_bonuses", p=0)
+    adopt_bonuses(g, 0)
     costs = me.get("costs", {})
     # Free Refreshes: the Refresh button's count when the log has it (older exports: a Refresh
     # that costs nothing is one); gold next turn from the player (a Southsea Busker...)

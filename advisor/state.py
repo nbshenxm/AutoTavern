@@ -215,6 +215,17 @@ def debug(g, **cmd):
     return json.loads(g.debug(json.dumps(cmd)))
 
 
+def adopt_bonuses(g, p):
+    """Record seat `p`'s "this game" bonuses as already in its minions' stats. A module built
+    before the command (Nov 4) lacks it: the rebuild then goes on as it did (the live advisor
+    keeps working until the module is rebuilt)."""
+    try:
+        debug(g, cmd="adopt_bonuses", p=p)
+    except ValueError as e:
+        if "adopt_bonuses" not in str(e):
+            raise
+
+
 def normal_form(cid):
     """(normal card id, golden) of a logged card id."""
     c = CAT.get(cid)
@@ -450,4 +461,4 @@ def set_side(g, p, s, gaps, label):
     # ...and those stats hold the logged bonuses: recorded as applied (each minion kept the
     # inflated bonus of its making, so the next re-sync - a card added to hand - took 3 Attack
     # off every rebuilt Volumizer: advisor.carry_test, Nov 4)
-    debug(g, cmd="adopt_bonuses", p=p)
+    adopt_bonuses(g, p)
