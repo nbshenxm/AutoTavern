@@ -222,6 +222,35 @@ def attachment(ench):
     return None
 
 
+# Jim Raynor's Battlecruiser Upgrades: the client keeps each family as one enchantment on the
+# Battlecruiser, its data the family's total (Yamato Cannon 6, 27, 87 damage in your logs);
+# TavernGym attaches the upgrade cards. A family with a value is rebuilt as the upgrades summing
+# to it (largest first); one without, as its card. Unread, a rebuilt Battlecruiser had no cannon
+# (a round-3 Lionfish fought at 8/9 where the log had 8/3)
+BC_VALUES = {"c": [3, 6, 9, 18, 24, 30, 40], "d": [2, 3, 4, 5, 6, 8, 10], "e": [1, 2, 4, 7, 10, 15, 25]}
+BC_FLAGS = ("f", "h", "i", "j")
+
+
+def bc_upgrades(ench):
+    """The Battlecruiser Upgrade cards a logged upgrade enchantment stands for ([] if none)."""
+    m = re.match(r"^BG31_HERO_801pt([a-j])e$", ench.get("card") or "")
+    if not m:
+        return []
+    fam = m.group(1)
+    if fam in BC_FLAGS:
+        return [f"BG31_HERO_801pt{fam}"]
+    values = BC_VALUES.get(fam)
+    left = (ench.get("data") or [0])[0]
+    out = []
+    while values and left > 0:
+        k = max((i for i, v in enumerate(values) if v <= left), default=None)
+        if k is None:
+            break
+        out.append(f"BG31_HERO_801pt{fam}" + (str(k + 1) if k else ""))
+        left -= values[k]
+    return out
+
+
 # The client's Satellite (Glambot's, Reusable Batteries', Inductive Gyroblade's): one
 # enchantment holds all of a minion's Satellites, its data their summed stats
 SATELLITE = "BG31_171t"
@@ -319,6 +348,9 @@ def add_minion(g, p, where, m, gaps, label):
             for _ in range(volumizers(e, ECHO_AS, g, p)):
                 debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=ECHO_AS)
             continue
+        for up in bc_upgrades(e):  # (stat families a, b: in the logged stats)
+            if up in CAT:
+                debug(g, cmd="edit_minion", p=p, zone=where, index=idx, attach=up)
         a = attachment(e["card"])
         if a and not (a in gifts and CAT[a]["kind"] == "dark_gift"):  # a gift once, its e2/e3 too
             gifts.add(a)

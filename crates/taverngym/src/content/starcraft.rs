@@ -93,6 +93,20 @@ fn upgrade_script(family: Option<char>) -> Script {
                 if !id.starts_with("BG31_HERO_801ptc") {
                     return;
                 }
+                // One cannon, its damage the Yamato upgrades' sum (the client keeps them as one
+                // enchantment holding the total: 6, 27, 87 in your logs): it fires once a combat,
+                // from whichever attached Yamato comes first.
+                if c.add_combat_data(me.side, cid("BG31_HERO_801ptce"), 1) != 1 {
+                    return;
+                }
+                let yamato: Vec<CardId> = c.minion(me.eid).map_or(vec![], |m| {
+                    m.attached
+                        .iter()
+                        .copied()
+                        .filter(|a| db().get(*a).id.starts_with("BG31_HERO_801ptc"))
+                        .collect()
+                });
+                let total: i32 = yamato.iter().map(|a| upgrade_value(&db().get(*a).id)).sum();
                 let twice = c.minion(me.eid).is_some_and(|m| {
                     m.attached
                         .iter()
@@ -106,7 +120,7 @@ fn upgrade_script(family: Option<char>) -> Script {
                         .collect();
                     let t = c.pick_max(keyed);
                     if let Some(t) = t {
-                        c.damage(me.eid, t, upgrade_value(&id));
+                        c.damage(me.eid, t, total);
                         c.resolve_deaths();
                     }
                 }

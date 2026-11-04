@@ -2,6 +2,7 @@
 use taverngym::actions::Action;
 use taverngym::cards::{cid, db};
 use taverngym::content;
+use taverngym::engine::Ctx;
 use taverngym::script::Me;
 use taverngym::state::{Item, Minion, Pending, ShopSlot};
 use taverngym::types::Kw;
@@ -247,6 +248,28 @@ fn time_turning_uses_each_magnets_own_golden_form() {
             assert_eq!(c.minion(eid).unwrap().max_hp - after_eot, expected);
         });
     }
+}
+
+#[test]
+fn yamato_upgrades_fire_as_one_shot_of_their_sum() {
+    // The client keeps a Battlecruiser's Yamato upgrades as one enchantment with the total: one
+    // shot at the highest-Health enemy, not one per upgrade (which re-picks the target).
+    let mut g = game(61011);
+    let bc = add(&mut g, "BG31_HERO_801pt");
+    g.with_recruit(0, |c| {
+        let m = c.minion_mut(bc).unwrap();
+        m.attach(cid("BG31_HERO_801ptc"), 0); // 3
+        m.attach(cid("BG31_HERO_801ptc2"), 0); // 6
+    });
+    let a = g.players[0].board.clone();
+    let mut big = g.with_recruit(1, |c| c.new_minion(1, cid("BG35_602"))); // 3/9
+    big.set_base_stats(3, 11); // one shot of 9: 2 left; a 3 then a 6 re-aimed: 8 and the 3/9 at 3
+    let small = g.with_recruit(1, |c| c.new_minion(1, cid("BG35_602")));
+    let (big_eid, small_eid) = (big.eid, small.eid);
+    let mut c = Ctx::new(&mut g, [a, vec![big, small]], [Some(0), Some(1)], true);
+    c.run_minion_hook(0, bc, |s| s.start_of_combat, 1, "test SoC");
+    let hp = |c: &Ctx, e| c.minion(e).map_or(0, |m| m.hp);
+    assert_eq!((hp(&c, big_eid), hp(&c, small_eid)), (11 - 9, 9));
 }
 
 #[test]
