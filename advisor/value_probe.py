@@ -136,6 +136,7 @@ def main():
     ap.add_argument("--combats", default=str(ROOT / "data" / "replay" / "combats.jsonl"))
     ap.add_argument("--out")
     ap.add_argument("--replay", action="store_true", help="replay your turn instead of rebuilding its end")
+    ap.add_argument("--rounds", type=int, nargs=2, default=[9, 13], metavar=("FROM", "TO"))
     a = ap.parse_args()
     torch.set_num_threads(4)
     net, _ = load(a.checkpoint, "cpu")
@@ -152,7 +153,7 @@ def main():
         ds = [x for x in ds if x["kind"] == "options" or x is not ds[0]]
         if len(ds) > len(by_turn.get((log, t), [])):
             by_turn[(log, t)] = ds
-    for d0, _ in engine_exam.positions(decisions, combats):
+    for d0, _ in engine_exam.positions(decisions, combats, range(a.rounds[0], a.rounds[1] + 1)):
         turn = by_turn.get((d0["log"], d0["turn"]), [])
         while turn and turn[0]["kind"] != "options":
             turn = turn[1:]

@@ -60,14 +60,14 @@ def measure(start, end, races_of):
     return funnel, on, kept
 
 
-def positions(decisions, combats):
-    """[(first decision of the turn, your board at that round's combat)] for rounds 9-13."""
+def positions(decisions, combats, rounds=ROUNDS):
+    """[(first decision of the turn, your board at that round's combat)] for `rounds` (9-13)."""
     at_combat = {(c["log"], c["turn"]): c["start"]["friendly"]["board"] for c in combats}
     seen, out = set(), []
     for d in decisions:
         r = (d["turn"] + 1) // 2
         key = (d["log"], d["turn"])
-        if d["kind"] != "options" or d["turn"] % 2 == 0 or r not in ROUNDS or key in seen:
+        if d["kind"] != "options" or d["turn"] % 2 == 0 or r not in rounds or key in seen:
             continue
         seen.add(key)
         end = at_combat.get((d["log"], d["turn"] + 1))
