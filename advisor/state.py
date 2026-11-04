@@ -106,13 +106,21 @@ def owe(g, st, p, power_card, minions, scratch=7):
     st["players"][scratch]["hand"] = []
 
 
+# TavernGym's per-turn player counters that the turn's earlier plays rebuild (turn_so_far)
+TURN_COUNTERS = ("cards_played_turn", "minions_played_turn", "elementals_played_turn", "spells_cast_turn",
+                 "tavern_spells_cast_turn")
+
+
 def turn_so_far(earlier, L):
     """From the turn's earlier Options decisions (in order, with their chosen options): (Living
     Prisons' armed count by eid: activations since the last buy, the minions owed to the next
     combat by power: [(power, [Tavern minions])], the next-combat spells cast from hand:
-    {card: times}). The log shows none of them once it happened."""
+    {card: times}, the turn's play counters TavernGym keeps: {stat: n}). The log shows none of
+    them once it happened (the counters: Conflagration's "each Elemental you played this turn",
+    Replica Cathedral's "first spell each turn", ...; spells cast by effects aren't counted)."""
     from advisor import turn_replay
     armed, owed, cast = {}, {}, {}
+    played = dict.fromkeys(TURN_COUNTERS, 0)
     for x in earlier:
         ch = x.get("chosen") or {}
         opts = x.get("options") or []
@@ -120,6 +128,16 @@ def turn_so_far(earlier, L):
             continue
         e = opts[ch["option"]].get("entity") or {}
         card = normal_form(e.get("card") or "")[0]
+        if e.get("zone") == "HAND" and e.get("owner") == "friendly" and card in CAT:
+            kind = CAT[card].get("kind")
+            played["cards_played_turn"] += 1
+            if kind == "minion":
+                played["minions_played_turn"] += 1
+                races = CAT[card].get("races") or []
+                played["elementals_played_turn"] += "ELEMENTAL" in races or "ALL" in races
+            elif kind in ("spell", "tavern_spell"):
+                played["spells_cast_turn"] += 1
+                played["tavern_spells_cast_turn"] += kind == "tavern_spell"
         if card in NEXT_COMBAT_SPELLS and e.get("zone") == "HAND":
             cast[card] = cast.get(card, 0) + 1
             continue
@@ -134,7 +152,7 @@ def turn_so_far(earlier, L):
         act = turn_replay.action_of(x, L)
         if act and act[0] and L["A_BUY"] <= act[0][0] < L["A_BUY"] + L["N_SHOP"]:
             armed = {}  # a buy: every armed Prison takes it
-    return armed, list(owed.items()), cast
+    return armed, list(owed.items()), cast, played
 
 
 # Hero Powers whose improvements the log shows (TAG_SCRIPT_DATA_NUM_3: what they give now):

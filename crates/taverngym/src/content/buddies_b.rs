@@ -410,7 +410,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                             a.temp_kw.set(Kw::IMMUNE_ATTACKING);
                         }
                     }
-                    Event::AttackDone { side, attacker } if *side == me.side => {
+                    Event::AttackDone { side, attacker, .. } if *side == me.side => {
                         if let Some(a) = c.minion_mut(*attacker)
                             && a.temp_kw.has(Kw::IMMUNE_ATTACKING)
                         {

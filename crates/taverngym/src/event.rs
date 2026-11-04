@@ -153,6 +153,8 @@ pub enum Event {
     AttackDone {
         side: Side,
         attacker: EntityId,
+        /// The attacker had Rally when it attacked (it may have died since).
+        rally: bool,
     },
     /// A Discover choice resolved (the card went to hand, or waits for hand space). `hid` is
     /// the hand id it has or was promised (0: none).

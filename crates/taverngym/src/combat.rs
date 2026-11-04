@@ -619,6 +619,9 @@ pub fn do_attack(ctx: &mut Ctx, side: Side, attacker: EntityId, defender: Entity
     }
     let atk_a = a.atk;
     let atk_d = d.atk;
+    // Whether it is a Rally minion, as it attacked (it may be gone by the time "after it
+    // attacks" triggers run: each Deathstrider must still see it)
+    let rally = crate::script::minion_has(a, crate::script::Hook::Rally);
     // Wildfire Elemental: excess damage when it kills the defender (golden: both neighbours).
     static WILDFIRE: std::sync::OnceLock<crate::cards::CardId> = std::sync::OnceLock::new();
     let wf = *WILDFIRE.get_or_init(|| crate::cards::db().id("BGS_126"));
@@ -659,7 +662,11 @@ pub fn do_attack(ctx: &mut Ctx, side: Side, attacker: EntityId, defender: Entity
     }
     ctx.defer_hits = false;
     ctx.flush_deferred();
-    ctx.emit(Event::AttackDone { side, attacker });
+    ctx.emit(Event::AttackDone {
+        side,
+        attacker,
+        rally,
+    });
     if let Some(m) = ctx.minion(attacker)
         && let Some(fx) = script(m.card).and_then(|s| s.after_attack)
     {

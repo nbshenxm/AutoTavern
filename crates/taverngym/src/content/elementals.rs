@@ -83,13 +83,14 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             },
         ),
         // Arcane Absorption: give a friendly Elemental half the stats of the highest-Health
-        // minion in the Tavern (rounded down).
+        // minion in the Tavern, rounded up (your logs: a 466/465 gave +233/+233, a 667/667
+        // +334/+334).
         (
             "BG35_911",
             Script {
                 spell: Some(|c, me, t| {
                     if let Some((a, h)) = highest_tavern_stats(c, me.side) {
-                        spell_buff(c, me, t, a / 2, h / 2);
+                        spell_buff(c, me, t, (a + 1) / 2, (h + 1) / 2);
                     }
                 }),
                 spell_target: TargetSpec::FriendlyRace(Races::ELEMENTAL),

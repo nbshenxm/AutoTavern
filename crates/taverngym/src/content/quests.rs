@@ -1082,7 +1082,7 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     }
                 }),
                 on_event: Some(|c, me, e| {
-                    if let Event::AttackDone { side, attacker } = e
+                    if let Event::AttackDone { side, attacker, .. } = e
                         && *side == me.side
                     {
                         c.destroy(*attacker);

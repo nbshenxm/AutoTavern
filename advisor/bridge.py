@@ -271,7 +271,9 @@ def build(d, combats=(), seed=7, earlier=()):
         set_deities(st, d["deity"], [(0, me)])
     refresh_effects(p0, me)
     if earlier:  # what the turn's earlier decisions did that the log no longer shows
-        armed, owed, cast = turn_so_far(earlier, dict(taverngym.layout()))
+        armed, owed, cast, played = turn_so_far(earlier, dict(taverngym.layout()))
+        for k, n in played.items():
+            p0["stats"][k] = n
         if len(p0["board"]) == len(me["board"]):
             for m, logged in zip(p0["board"], me["board"]):
                 if armed.get(logged.get("eid")):

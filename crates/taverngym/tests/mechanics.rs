@@ -4848,6 +4848,7 @@ fn after_attack_triggers_wait_for_the_attack() {
     c.emit(taverngym::event::Event::AttackDone {
         side: 0,
         attacker: a,
+        rally: false,
     });
     assert_eq!(c.player_ref(0).unwrap().stats.beetle_atk, 4);
 }
@@ -12164,6 +12165,35 @@ fn skyborn_drake_can_give_recruit_venom_through_bile_spitter_without_firing_deat
     )));
 }
 
+/// Deathstrider: "After a friendly Rally minion attacks, trigger your left-most Deathrattle."
+/// A Rally minion that dies attacking still triggers every Deathstrider (the first one's
+/// Deathrattle cleared the dead attacker, and the second one used to miss it).
+#[test]
+fn every_deathstrider_triggers_when_the_rally_attacker_dies() {
+    for (gryphon_hp, lobster_gain) in [(50, 6), (1, 6)] {
+        let mut g = game(9506);
+        set_board(&mut g, 0, &["BG36_204", "BG36_202", "BG36_208", "BG36_208"]);
+        for m in g.players[0].board.iter_mut() {
+            m.atk = 1;
+            (m.hp, m.max_hp) = (100, 100);
+        }
+        (g.players[0].board[0].hp, g.players[0].board[0].max_hp) = (gryphon_hp, gryphon_hp);
+        set_board(&mut g, 1, &["BG22_001t2"]);
+        (g.players[1].board[0].atk, g.players[1].board[0].hp) = (5, 1000);
+        g.players[1].board[0].max_hp = 1000;
+        let mut c = combat_ctx(&mut g);
+        let gryphon = c.boards[0][0].eid;
+        taverngym::combat::attack_now(&mut c, 0, gryphon);
+        c.resolve_deaths();
+        let gained: i32 = c.boards[0]
+            .iter()
+            .filter(|m| m.alive() && m.eid != gryphon)
+            .map(|m| m.atk - 1)
+            .sum();
+        assert_eq!(gained, lobster_gain, "Gryphon {gryphon_hp} Health");
+    }
+}
+
 #[test]
 fn two_normal_deathstriders_and_golden_titus_make_six_golden_lobster_triggers_per_attack() {
     use taverngym::event::Event;
@@ -12190,6 +12220,7 @@ fn two_normal_deathstriders_and_golden_titus_make_six_golden_lobster_triggers_pe
             c.emit(Event::AttackDone {
                 side: 0,
                 attacker: gryphon,
+                rally: true,
             });
         }
     });
@@ -12207,6 +12238,7 @@ fn two_normal_deathstriders_and_golden_titus_make_six_golden_lobster_triggers_pe
             c.emit(Event::AttackDone {
                 side: 0,
                 attacker: gryphon,
+                rally: true,
             });
         }
         let combat: (i32, i32) = c.boards[0]
@@ -12261,6 +12293,7 @@ fn golden_lobster_growth_depends_on_the_real_accumulated_history() {
                 c.emit(Event::AttackDone {
                     side: 0,
                     attacker: gryphon,
+                    rally: true,
                 });
             }
         });

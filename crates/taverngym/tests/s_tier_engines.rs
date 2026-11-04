@@ -230,6 +230,12 @@ fn arcane_absorption_gives_half_the_stats_of_the_healthiest_tavern_minion() {
     assert_eq!(stats(&g, 0), vec![(2 + 4, 1 + 4), (3, 3)]);
     // Nothing is taken from the Tavern.
     assert_eq!(shop_stats(&g), vec![(8, 8), (3, 3)]);
+    // Odd stats round up (your logs: a 466/465 gave +233/+233).
+    let mut g = game(36_123);
+    set_board(&mut g, 0, &[CYCLONE]);
+    shop(&mut g, &[GUARD]);
+    cast_at(&mut g, ABSORPTION, 0);
+    assert_eq!(stats(&g, 0), vec![(2 + 2, 1 + 2)]);
 }
 
 // ---------------------------------------------------------------------------- 2-3, 7. Demons

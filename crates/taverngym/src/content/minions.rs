@@ -1201,14 +1201,12 @@ fn deathly_striker_avenge(c: &mut Ctx, me: Me) {
 }
 
 fn deathstrider(c: &mut Ctx, me: Me, e: &Event) {
-    let Event::AttackDone { side, attacker } = e else {
+    // "After a friendly Rally minion attacks": also when it died attacking (every Deathstrider:
+    // the first one's Deathrattle trigger clears the dead before the second one looked)
+    let Event::AttackDone { side, rally, .. } = e else {
         return;
     };
-    if *side != me.side
-        || !c
-            .minion(*attacker)
-            .is_some_and(|m| crate::script::minion_has(m, crate::script::Hook::Rally))
-    {
+    if *side != me.side || !*rally {
         return;
     }
     for _ in 0..me.g() {
