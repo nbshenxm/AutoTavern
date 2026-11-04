@@ -991,6 +991,58 @@ fn drekthar_copies_highest_attack_from_turn_seven() {
     );
 }
 
+#[test]
+fn drekthar_summons_the_copy_right_of_the_original() {
+    // Your Nov 4 log: the copy took the place just right of the copied minion (it attacked
+    // next), not the end of the warband
+    let mut g = game(52);
+    g.cfg.record_log = true;
+    g.cfg.triple_copies = 99;
+    g.turn = 7;
+    g.players[0].set_hero_power(0, cid("BG22_HERO_002p"));
+    let mut b = vec![
+        minion(&mut g, 0, "BG36_345"),
+        minion(&mut g, 0, "BG36_345"),
+        minion(&mut g, 0, "BG36_345"),
+    ];
+    b[1].set_stats(9, 2);
+    g.players[0].board = b;
+    set_board(&mut g, 1, &["BG36_345"]);
+    g.simulate_combat(0, Some(1), None);
+    let b = &g.last_frames[1].boards[0];
+    assert_eq!(b.len(), 4);
+    assert!(
+        b[2].combat_only && b[2].atk == 9 && !b[3].combat_only,
+        "{:?}",
+        b.iter().map(|m| (m.name(), m.atk)).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn a_continued_combat_keeps_drekthars_waiting_copy() {
+    // A replay from the first attack: the full warband's copy was still waiting (it is not on
+    // the snapshot), so the continuation queues it again and it comes once a minion dies
+    let mut g = game(53);
+    g.cfg.record_log = true;
+    g.cfg.triple_copies = 99;
+    g.turn = 7;
+    g.players[0].set_hero_power(0, cid("BG22_HERO_002p"));
+    let mut b: Vec<_> = (0..7).map(|_| minion(&mut g, 0, "BG36_345")).collect();
+    b[0].set_stats(1, 1);
+    b[3].set_stats(9, 20);
+    g.players[0].board = b;
+    set_board(&mut g, 1, &["BG36_345"]);
+    g.players[1].board[0].set_stats(5, 50);
+    g.waiting_space = vec![(0, cid("BG22_HERO_002p"))];
+    g.simulate_combat_after_start(0, Some(1), None, 0);
+    let copy = g
+        .last_frames
+        .iter()
+        .flat_map(|f| f.boards[0].iter())
+        .any(|m| m.combat_only && m.atk == 9);
+    assert!(copy, "the waiting copy comes once there is space");
+}
+
 fn tavern_stat_sum(g: &Game, p: PlayerId) -> i32 {
     g.players[p]
         .shop

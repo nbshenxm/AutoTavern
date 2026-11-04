@@ -314,6 +314,7 @@ impl Game {
             log: vec![],
             last_frames: vec![],
             forced_targets: Default::default(),
+            waiting_space: Default::default(),
             forced_left_at: None,
             forced_done: 0,
             attack_trace: None,

@@ -1166,6 +1166,10 @@ pub enum DebugCmd {
         /// trial follows them while they are legal targets (`Game::forced_targets`).
         #[serde(default)]
         forced: Vec<(String, i32, i32)>,
+        /// With `after_start`: [side, card id] whose "when you have space" summon was still
+        /// waiting at the snapshot (`Game::waiting_space`).
+        #[serde(default)]
+        waiting: Vec<(Side, String)>,
     },
 }
 
@@ -1696,6 +1700,7 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
             after_start,
             first_attacker,
             forced,
+            waiting,
         } => {
             check(a)?;
             check(b)?;
@@ -1726,6 +1731,7 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                 c.forced_targets = forced.clone();
                 (c.forced_left_at, c.forced_done) = (None, 0);
                 c.attack_trace = (!forced.is_empty()).then(Vec::new);
+                c.waiting_space = waiting.iter().map(|(s, id)| (*s, db().id(id))).collect();
                 let target = if ghost_b { None } else { Some(b) };
                 let ghost = if ghost_b {
                     c.ghost_player = Some(b);

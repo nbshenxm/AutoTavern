@@ -149,6 +149,11 @@ pub struct Game {
     /// Health) as it is declared (the log's view of an attack; a replay compares them).
     #[serde(skip)]
     pub attack_trace: Option<Vec<(Side, CardId, i32, i32, CardId, i32, i32)>>,
+    /// A combat continued after Start of Combat: (side, card) whose Start of Combat only queued
+    /// a "when you have space" summon on a full warband (Frostwolf Fervor, Tentacular...). The
+    /// snapshot can't show a waiting request: the continuation queues it again.
+    #[serde(skip)]
+    pub waiting_space: Vec<(Side, CardId)>,
 }
 
 impl Game {
@@ -2988,13 +2993,16 @@ impl<'g> Ctx<'g> {
                             .filter(|(_, m)| m.alive())
                             .map(|(i, m)| (i, if by_health { m.hp } else { m.atk } as i64))
                             .collect();
-                        let best = self.pick_max(keyed).map(|i| self.boards[s][i].clone());
-                        if let Some(mut copy) = best {
+                        // The copy comes in just right of the minion it copies, not at the end
+                        // (your Nov 4 log: a golden Air Revenant at 4 copied to 5, the two
+                        // minions right of it moved up; the copy then attacked next)
+                        if let Some(i) = self.pick_max(keyed) {
+                            let mut copy = self.boards[s][i].clone();
                             copy.eid = self.g.alloc_eid();
                             copy.combat_only = true;
                             copy.pool_copies = 0;
                             copy.attacked = false;
-                            self.summon(s, pos, copy);
+                            self.summon(s, i + 1, copy);
                         }
                     }
                     SpaceReq::AttackNow(m) => {

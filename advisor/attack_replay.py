@@ -36,7 +36,8 @@ def follow(c, seed=1):
     forced = [[a["defender"], a["datk"], a["dhp"]] for a in c["attacks"]]
     r = json.loads(g.debug(json.dumps({
         "cmd": "combat_preview", "a": 0, "b": 1, "n": 1, "details": True, "after_start": True,
-        "first_attacker": 0 if c["first_attacker"] == "friendly" else 1, "forced": forced})))
+        "first_attacker": 0 if c["first_attacker"] == "friendly" else 1, "forced": forced,
+        "waiting": replay.waiting_space(c)})))
     # (side, attacker, atk, hp, defender, datk, dhp) as each attack was declared
     sim = [tuple(x) for x in r["trials"][0].get("attack_trace") or []]
     for i, (la, sa) in enumerate(zip(c["attacks"], sim)):

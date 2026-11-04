@@ -83,6 +83,24 @@ def used_powers(decisions):
             for k, d in last.items()}
 
 
+# Hero Powers whose Start of Combat waits for space: on a warband full from Start of Combat to
+# the first attack, the request is still waiting there, which the snapshot can't show
+SPACE_POWERS = ("BG22_HERO_002p", "BG22_HERO_003p", "BG23_HERO_201p")  # Drek'Thar, Vanndar, Ozumat
+
+
+def waiting_space(c):
+    """[[side, power]] whose "when you have space" summon waits at the first attack: the warband
+    full at both snapshots and nothing made in between (otherwise it was summoned or is unknown;
+    a replay from the first attack never summoned Drek'Thar's copy: Nov 4)."""
+    out = []
+    for i, side in enumerate(("friendly", "opponent")):
+        start, first = c["start"][side]["board"], (c.get("first_attack") or {}).get(side, {}).get("board", [])
+        if len(first) < 7 or len(start) < 7 or {m["eid"] for m in first} - {m["eid"] for m in start}:
+            continue
+        out += [[i, h["card"]] for h in c["start"][side].get("hero_powers", []) if h["card"] in SPACE_POWERS]
+    return out
+
+
 def replay(c, n, mode, seed, used=(), owed=()):
     snap = c["start"] if mode == "start" else c["first_attack"]
     if snap is None:
@@ -91,7 +109,8 @@ def replay(c, n, mode, seed, used=(), owed=()):
     cmd = {"cmd": "combat_preview", "a": 0, "b": 1, "n": n, "details": True,
            "ghost_b": snap["opponent"].get("health", 1) <= 0}
     if mode == "attack":
-        cmd.update(after_start=True, first_attacker=0 if c["first_attacker"] == "friendly" else 1)
+        cmd.update(after_start=True, first_attacker=0 if c["first_attacker"] == "friendly" else 1,
+                   waiting=waiting_space(c))
     r = json.loads(g.debug(json.dumps(cmd)))
     want = {"friendly": 0, "opponent": 1, "tie": 2}[c["winner"]]
     # The logged damage is after the cap, which depends on how many players are left; the

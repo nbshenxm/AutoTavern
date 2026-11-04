@@ -300,6 +300,15 @@ fn run(ctx: &mut Ctx, initialize: bool) -> CombatOutcome {
 /// Only memory implied directly by the still-visible board can be restored.
 /// Do not rerun buffs or invent minions that died during the opening effects.
 fn restore_visible_combat_memory(ctx: &mut Ctx) {
+    // "When you have space" summons still waiting (the caller knows from the log): their Start
+    // of Combat part again, which only queues on a full warband
+    for (s, card) in std::mem::take(&mut ctx.g.waiting_space) {
+        if let Some(fx) = script(card).and_then(|sc| sc.start_of_combat) {
+            let prev_src = ctx.src.replace(card);
+            fx(ctx, me0(s, card));
+            ctx.src = prev_src;
+        }
+    }
     let bird = crate::cardid!("BG26_805");
     for side in 0..2 {
         ctx.cs[side].beast_atk_aura = ctx.boards[side]
