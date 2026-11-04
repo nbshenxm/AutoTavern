@@ -62,6 +62,8 @@ def status(c):
         return "suspect: " + ", ".join(bad)
     if (rec and rec["replays"] >= 3) or (car and car["n"] >= 3) or (bb and bb["n"] >= 20)             or (games and games["n"] >= 5):
         return "checked"
+    if c.get("tested"):
+        return "tested"  # a unit test pins it to its text; no log or Bob's Buddy check yet
     return "unchecked"
 
 
@@ -73,6 +75,10 @@ def main():
     trinket_games = _load("trinket_audit.json").get("trinkets", {})
     patch = ROOT / "tools" / "overlays" / "37.0.2.json"
     patched = set(json.loads(patch.read_text(encoding="utf-8"))["cards"]) if patch.exists() else set()
+    import re
+    tests = "".join(f.read_text(encoding="utf-8") for f in (ROOT / "crates" / "taverngym" / "tests").glob("*.rs"))
+    tests += "".join(f.read_text(encoding="utf-8") for f in (ROOT / "tests").glob("*.py"))
+    in_tests = set(re.findall(r'"([A-Za-z0-9_]+)"', tests))
     out = {}
     # The current pool: minions, Tavern spells and trinkets the game deals, the pool heroes' powers
     powers = {c.get("hero_power_id") for c in CAT.values() if c.get("kind") == "hero" and c.get("in_pool")}
@@ -96,16 +102,18 @@ def main():
             row["games"] = {"n": n, "rate": round(hit / n, 3) if n else None}
         if k in patched:
             row["patched"] = True
+        if k in in_tests or c.get("golden_id") in in_tests:
+            row["tested"] = True
         row["status"] = status(row)
         out[k] = row
     (PROGRESS / "coverage.json").write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     by = collections.defaultdict(collections.Counter)
     for r in out.values():
         by[r["kind"]][r["status"].split(":")[0]] += 1
-    print("kind: checked / suspect / changed in 37.0.2 / unchecked")
+    print("kind: checked / tested only / suspect / changed in 37.0.2 / unchecked")
     for kind in KINDS:
         b = by[kind]
-        print(f"  {kind:16s} {b['checked']:4d} {b['suspect']:4d} {b['changed in 37.0.2']:4d} {b['unchecked']:4d}")
+        print(f"  {kind:16s} {b['checked']:4d} {b['tested']:4d} {b['suspect']:4d} {b['changed in 37.0.2']:4d} {b['unchecked']:4d}")
     for k, r in sorted(out.items(), key=lambda kv: kv[1]["status"]):
         if r["status"].startswith(("suspect", "changed")):
             print(f"  suspect {r['name']:28s} {k:18s} {r['status']}")
