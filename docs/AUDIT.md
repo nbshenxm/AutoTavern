@@ -75,6 +75,18 @@ worth too much) whatever the network decides.
 - No seat bias: your combats with you in seat 0 and seat 1 give 98.8 and 99.3 predicted wins.
 - The remaining +2.9 SD is spread (Beasts +1.2, Mechs +1.3, the rest +2.4 SD); ties are calibrated.
 
+## Suspects in the coverage report, checked (Nov 4)
+
+| Card | Flag | What it is |
+| --- | --- | --- |
+| Air Revenant | recruit 1,246 vs 521 | the patch: playing it (an Elemental) triggers Unbound Tempest, 3 Elementals in 37.0.2 (4 when logged) |
+| Flighty Scout, Red Volumizer | recruit | the Volumizers next to them: the player's Volumizer bonus is an estimate in a rebuild (known) |
+| Relentless Deflector | carry 0 vs 26 | a rebuild gap: Incubation's turns left (fixed: `bridge.set_schedules`, now exact) |
+| Titus Rivendare | carry 212 vs 184 | Death's Embrace on it grows with the combat's deaths: random (+84/+60/+48 vs +60/+64/+60) |
+| Snarky Shark | recruit 3% | random targets (Lobster Deathrattles, Gryphon's Beasts) |
+| Misplaced Tea Set, Natural Blessing... | recruit | changed in 37.0.2; your logs predate it |
+| 8 combat Hero Powers, Faerie Dragon Scale, Boom-in-a-Box | Bob's Buddy z 3-11 | open: none appears in your logs to settle which simulator is right (Wax Warband's earlier lean was the harness's input) |
+
 ## Open
 
 - The +3.1 SD combat bias: 8 fights you won from < 45% (Pocket Cyclone, the Deathstrider-Lobster
