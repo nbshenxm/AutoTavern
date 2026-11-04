@@ -72,8 +72,25 @@ def probe_mask(v, mask, lock):
     return m if m.any() else None
 
 
+def engine_action(v, engine):
+    """`--take-engine` (a probe): buy the card that carried your game when it's offered and there's
+    Gold and room; play it from hand; never sell it. The action, or None."""
+    me = v["me"]
+    if me["pending"]:
+        return None
+    for j, x in enumerate(me["shop"]):
+        if normal_form(x.get("id") or "")[0] == engine and v["mask"][8 + j]:
+            return 8 + j
+    for h, x in enumerate(me["hand"]):
+        if normal_form(x.get("id") or "")[0] == engine and len(me["board"]) < 7:
+            a = 46 + h * 8 + len(me["board"])
+            if a < 126 and v["mask"][a]:
+                return a
+    return None
+
+
 @torch.no_grad()
-def rollout(net, d, combats, seed, ahead, tiers=None, lock=None):
+def rollout(net, d, combats, seed, ahead, tiers=None, lock=None, engine=None):
     """{round: (seat 0's board at its End Turn, its Tier)} for rounds r .. r+ahead. Probes for seat
     0: `tiers` {round: Tier}: it Upgrades whenever below it; `lock`: probe_mask's type."""
     g, gaps = bridge.build(d, bridge.game_combats(combats, d), seed=seed)
@@ -94,8 +111,16 @@ def rollout(net, d, combats, seed, ahead, tiers=None, lock=None):
             mask = None
             if seat == 0 and lock and v["phase"].lower() == "recruit" and not v["me"]["pending"]:
                 mask = probe_mask(v, v["mask"], lock)
+            if seat == 0 and engine and v["phase"].lower() == "recruit" and not v["me"]["pending"]:
+                m = np.array(mask if mask is not None else v["mask"], bool)
+                for i, x in enumerate(v["me"]["board"]):
+                    if normal_form(x.get("id") or "")[0] == engine:
+                        m[16 + i] = False  # never sell it
+                mask = m if m.any() else mask
             probs, _ = search._policy(net, g, seat, mask)
             a = int(probs.argmax())
+            if seat == 0 and engine and v["phase"].lower() == "recruit":
+                a = engine_action(v, engine) or a
             if seat == 0 and tiers and v["phase"].lower() == "recruit" and not v["me"]["pending"]:
                 want = max((t for r, t in tiers.items() if r <= v["turn"] and t), default=None)
                 if want and v["me"]["tier"] < want and v["mask"][3]:
@@ -109,14 +134,14 @@ def rollout(net, d, combats, seed, ahead, tiers=None, lock=None):
     return out
 
 
-def exam(net, pos, combats, seeds, ahead, follow_tier=False, type_lock=False):
+def exam(net, pos, combats, seeds, ahead, follow_tier=False, type_lock=False, take_engine=False):
     rows = []
     for d, yours, engine in pos:
         r0 = (d["turn"] + 1) // 2
         tiers = {r: t for r, (_, t) in yours.items()} if follow_tier else None
         lock = main_type([m["card"] for m in d["state"]["friendly"]["board"]]) if type_lock else None
         for s in seeds:
-            sim = rollout(net, d, combats, s, ahead, tiers, lock)
+            sim = rollout(net, d, combats, s, ahead, tiers, lock, engine if take_engine else None)
             if not sim:
                 continue
             for k in range(ahead + 1):
@@ -163,6 +188,8 @@ def main():
     ap.add_argument("--seeds", type=int, default=2)
     ap.add_argument("--out")
     ap.add_argument("--follow-tier", action="store_true", help="a probe: the candidate Upgrades to your Tier of each round")
+    ap.add_argument("--take-engine", action="store_true",
+                    help="a probe: the candidate buys, plays and keeps the card that carried your game")
     ap.add_argument("--type-lock", action="store_true",
                     help="a probe: the candidate keeps your main type (no selling it, no buying other types)")
     a = ap.parse_args()
@@ -175,7 +202,8 @@ def main():
     for name, path in [("cand", a.checkpoint)] + ([("champ", a.against)] if a.against else []):
         net, _ = load(path, "cpu")
         cand = name == "cand"
-        rows = exam(net.eval(), pos, combats, seeds, a.ahead, a.follow_tier and cand, a.type_lock and cand)
+        rows = exam(net.eval(), pos, combats, seeds, a.ahead, a.follow_tier and cand, a.type_lock and cand,
+                    a.take_engine and cand)
         res[name] = rows
         print(json.dumps({"net": path, "positions": len(pos), **summary(rows)}), flush=True)
     if a.against:
