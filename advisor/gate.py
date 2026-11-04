@@ -157,7 +157,12 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
     cand, cck = load(cand_path, device)
     champ, hck = load(champ_path, device)
     cand.eval(), champ.eval()
-    name = name or f"{Path(cand_path).parent.name}-{cck.get('iteration')}_vs_{Path(champ_path).stem}-{hck.get('iteration')}_{seed}"
+    # The weights' hash in the name: two checkpoints of the same folder and iteration (lr3's and
+    # p37's archive-619) resumed each other's rounds
+    import hashlib
+    md5 = lambda f: hashlib.md5(Path(f).read_bytes()).hexdigest()[:8]
+    name = name or (f"{Path(cand_path).parent.name}-{cck.get('iteration')}-{md5(cand_path)}_vs_"
+                    f"{Path(champ_path).stem}-{hck.get('iteration')}-{md5(champ_path)}_{seed}")
     if search_k:
         name += f"_search{search_k}"
     elif workers:
