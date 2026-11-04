@@ -203,7 +203,9 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     };
                     // 37.0.2: "a different minion" (not another Stalwart Kodo), and double
                     // (triple) the stats.
-                    let kodo = c.minion(*eid).is_some_and(|m| db().get(m.card).name == db().get(me.card).name);
+                    let kodo = c
+                        .minion(*eid)
+                        .is_some_and(|m| db().get(m.card).name == db().get(me.card).name);
                     if !c.combat || *side != me.side || *eid == me.eid || kodo {
                         return;
                     }
@@ -217,7 +219,11 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                     if let Some(m) = c.minion_mut(me.eid) {
                         m.counter += 1;
                     }
-                    c.buff(*eid, a.saturating_mul(me.g() + 1), h.saturating_mul(me.g() + 1));
+                    c.buff(
+                        *eid,
+                        a.saturating_mul(me.g() + 1),
+                        h.saturating_mul(me.g() + 1),
+                    );
                 }),
                 listens: ev::SUMMONED,
                 ..E

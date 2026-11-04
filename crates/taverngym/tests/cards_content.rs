@@ -251,6 +251,23 @@ fn time_turning_uses_each_magnets_own_golden_form() {
 }
 
 #[test]
+fn whenever_you_summon_resolves_before_after_you_summon() {
+    // Banana Slamma left of Lurking Leviathan: the summoned Beast gets Leviathan's +3 first,
+    // then Slamma doubles it (whenever before after), not doubled and then +3.
+    let mut g = game(61012);
+    let slamma = add(&mut g, "BG26_802");
+    let _ = add(&mut g, "BG35_602");
+    let _ = slamma;
+    let a = g.players[0].board.clone();
+    let mut c = Ctx::new(&mut g, [a, vec![]], [Some(0), None], true);
+    let m = c.new_minion(0, cid("BG31_801")); // Forest Rover 1/1
+    let eid = m.eid;
+    let base = m.atk;
+    c.summon(0, 2, m);
+    assert_eq!(c.minion(eid).unwrap().atk, (base + 3) * 2);
+}
+
+#[test]
 fn yamato_upgrades_fire_as_one_shot_of_their_sum() {
     // The client keeps a Battlecruiser's Yamato upgrades as one enchantment with the total: one
     // shot at the highest-Health enemy, not one per upgrade (which re-picks the target).

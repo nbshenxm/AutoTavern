@@ -92,11 +92,11 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             Script {
                 on_attach: Some(|c, me| c.buff(me.eid, 15, 0)),
                 ..soc(|c, me| {
-                // The server sets the Attack to double and its player-level Attack bonus (the
-                // Undead aura) then counts on top, as `Ctx::set_stats` does (2853 with a 273 Undead
-                // bonus became 2 x 2853 + 273 = 5979).
-                let (a, aura) = c.minion(me.eid).map_or((0, 0), |m| (m.atk, m.pbonus_atk));
-                c.buff(me.eid, a.saturating_add(aura), 0);
+                    // The server sets the Attack to double and its player-level Attack bonus (the
+                    // Undead aura) then counts on top, as `Ctx::set_stats` does (2853 with a 273 Undead
+                    // bonus became 2 x 2853 + 273 = 5979).
+                    let (a, aura) = c.minion(me.eid).map_or((0, 0), |m| (m.atk, m.pbonus_atk));
+                    c.buff(me.eid, a.saturating_add(aura), 0);
                 })
             },
         ),

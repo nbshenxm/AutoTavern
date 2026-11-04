@@ -454,13 +454,16 @@ pub fn acts_whenever(bit: u32, card: CardId) -> bool {
                 let cast =
                     text.contains("Whenever you cast") || text.contains("Whenever a spell is cast");
                 let play = text.contains("Whenever you play") || text.contains("Whenever you use");
-                u8::from(cast) | (u8::from(play) << 1)
+                let summon = text.contains("Whenever you summon");
+                u8::from(cast) | (u8::from(play) << 1) | (u8::from(summon) << 2)
             })
             .collect()
     });
     let flags = t.get(card.idx()).copied().unwrap_or(0);
     if bit == crate::event::ev::SPELL_CAST {
         flags & 1 != 0
+    } else if bit == crate::event::ev::SUMMONED {
+        flags & 4 != 0
     } else {
         flags & 2 != 0
     }

@@ -96,7 +96,10 @@ fn gold_tarecgosa_doubles_gains_but_not_a_set_attack() {
     c.buff(eid, 32_898, 16_899); // Training Certificate: double the stats
     let a = c.boards[0][0].atk;
     c.raise_as_set(eid, a, 0); // Brood: Attack set to double
-    assert_eq!((c.boards[0][0].atk, c.boards[0][0].max_hp), (197_388, 50_697));
+    assert_eq!(
+        (c.boards[0][0].atk, c.boards[0][0].max_hp),
+        (197_388, 50_697)
+    );
     let kept = &c.g.players[0].board[0];
     assert_eq!((kept.atk, kept.max_hp), (197_388, 50_697));
 }

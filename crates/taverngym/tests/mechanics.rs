@@ -428,11 +428,17 @@ fn moves_have_their_own_budget() {
     assert!(!g.legal_mask(0)[mv.encode()]);
     g.apply(0, Action::Freeze).unwrap();
     g.apply(0, Action::Freeze).unwrap();
-    assert!(g.apply(0, Action::Freeze).is_err(), "the moves didn't use the 2 actions");
+    assert!(
+        g.apply(0, Action::Freeze).is_err(),
+        "the moves didn't use the 2 actions"
+    );
     end_turn_all(&mut g);
     g.apply(0, Action::Freeze).unwrap();
     g.apply(0, Action::Freeze).unwrap();
-    assert!(g.legal_mask(0)[mv.encode()], "moves stay legal past the action cap");
+    assert!(
+        g.legal_mask(0)[mv.encode()],
+        "moves stay legal past the action cap"
+    );
     g.apply(0, mv).unwrap();
     // Choices can take a seat past the cap (they always answer): moves stay as the mask says.
     g.players[0].actions_this_turn = 9;
@@ -4631,7 +4637,13 @@ fn n1_equal_boards_attack_first_at_random_whatever_the_tiers() {
     g.players[1].tier = 6;
     g.log.clear();
     g.simulate_combat(0, Some(1), None);
-    assert!(g.log.iter().find(|l| l.contains(" attacks ")).unwrap().contains("p0"));
+    assert!(
+        g.log
+            .iter()
+            .find(|l| l.contains(" attacks "))
+            .unwrap()
+            .contains("p0")
+    );
 }
 
 #[test]
@@ -6363,7 +6375,10 @@ fn patch_36_6_3_data_and_defaults() {
     for id in ["BG34_683", "BG26_537"] {
         assert!(!d.get(cid(id)).pools.minion, "{id} out of the pool");
     }
-    assert!(!d.get(cid("BG36_MagicItem_606")).pools.trinket, "out in 37.0.2");
+    assert!(
+        !d.get(cid("BG36_MagicItem_606")).pools.trinket,
+        "out in 37.0.2"
+    );
     assert!(!d.get(cid("BG32_MagicItem_894")).pools.trinket);
     let eudora = d.get(cid("BG33_828"));
     assert_eq!((eudora.tier, eudora.atk, eudora.hp), (5, 10, 3));
@@ -10218,7 +10233,10 @@ fn ashen_corruptor_bonus_stays_in_the_tavern_for_the_turn() {
             g.apply(0, Action::Refresh).unwrap();
             let t = temps(&g);
             assert!(!t.is_empty());
-            assert!(t.iter().all(|x| *x == (n * k / 2, n * k)), "{corruptor} {t:?}");
+            assert!(
+                t.iter().all(|x| *x == (n * k / 2, n * k)),
+                "{corruptor} {t:?}"
+            );
             assert_eq!((g.players[0].health, g.players[0].armor), life);
         }
         // A Refresh paid with Gold deals no damage; the new minions still have the bonus.
@@ -10227,10 +10245,7 @@ fn ashen_corruptor_bonus_stays_in_the_tavern_for_the_turn() {
         g.apply(0, Action::Refresh).unwrap();
         assert_eq!(g.players[0].gold, 0);
         let t = temps(&g);
-        assert!(
-            !t.is_empty() && t.iter().all(|x| *x == (k, 2 * k)),
-            "{t:?}"
-        );
+        assert!(!t.is_empty() && t.iter().all(|x| *x == (k, 2 * k)), "{t:?}");
         // "This turn": gone from the frozen minions and from new ones next turn.
         g.apply(0, Action::Freeze).unwrap();
         end_turn_all(&mut g);
@@ -10669,7 +10684,11 @@ fn golden_minions_played_count_for_the_whole_game() {
     .unwrap();
     g.apply(0, Action::Choose(0)).unwrap();
     assert_eq!(stats(&g, 0)[1], (before.0 + 3, before.1 + 3));
-    assert_eq!(stats(&g, 0)[0], (5 + 3, 5 + 3), "Hooktusk too (37.0.2: \"your Pirates\")");
+    assert_eq!(
+        stats(&g, 0)[0],
+        (5 + 3, 5 + 3),
+        "Hooktusk too (37.0.2: \"your Pirates\")"
+    );
 }
 
 #[test]
@@ -14096,7 +14115,8 @@ fn a_sacrifice_triggered_while_its_host_lives_buffs_another_minion() {
         host.atk = 50;
         let other = minion(&mut g, 0, "BG_ICC_026t");
         let (h, o) = (host.eid, other.eid);
-        let mut ctx = taverngym::engine::Ctx::new(&mut g, [vec![host, other], vec![]], [Some(0), None], true);
+        let mut ctx =
+            taverngym::engine::Ctx::new(&mut g, [vec![host, other], vec![]], [Some(0), None], true);
         ctx.trigger_deathrattles(0, h);
         let atk = |e| ctx.boards[0].iter().find(|m| m.eid == e).unwrap().atk;
         assert_eq!(atk(h), 50, "seed {seed}: the host gave itself its Attack");

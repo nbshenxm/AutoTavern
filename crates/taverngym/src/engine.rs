@@ -4540,58 +4540,73 @@ impl<'g> Ctx<'g> {
         let bit = e.kind();
         let first = e.side();
         let mut listeners = Listeners::new();
+        // A summon: every "Whenever you summon" listener before the "After you summon" ones,
+        // whatever their places (a Lurking Leviathan right of a Banana Slamma: +3, then doubled)
+        let passes: &[Option<bool>] = if bit == crate::event::ev::SUMMONED {
+            &[Some(true), Some(false)]
+        } else {
+            &[None]
+        };
         for s in [first, 1 - first] {
             listeners.clear();
             self.collect_listeners(reg, s, bit, &mut listeners);
-            for &(eid, card, golden, where_) in listeners.iter() {
-                if self.timewarp_suspended(s)
-                    && (where_ == 1 || where_ == 2 || db().get(card).kind == CardKind::HeroPower)
-                {
-                    continue;
-                }
-                // Board listeners must still be on board.
-                if where_ == 1 && !self.on_board(eid) {
-                    continue;
-                }
-                let Some(sc) = script(card) else { continue };
-                // A cast and a minion play are announced twice: "whenever" listeners hear
-                // the first announcement, all others the second.
-                let phase = if bit == crate::event::ev::SPELL_CAST {
-                    self.spell_phase
-                } else if bit & (crate::event::ev::PLAYED | crate::event::ev::CARD_PLAYED) != 0 {
-                    self.play_phase
-                } else {
-                    0
-                };
-                if phase != 0 && crate::content::acts_whenever(bit, card) != (phase == 1) {
-                    continue;
-                }
-                // where 3 = persistent player effect: fires once per stack.
-                let (fx, times) = if where_ == 3 {
-                    let stacks = self
-                        .player_ref(s)
-                        .and_then(|p| p.effects.iter().find(|x| x.card == card))
-                        .map(|x| x.stacks)
-                        .unwrap_or(0);
-                    (sc.persistent_event, stacks.max(0) as u32)
-                } else {
-                    (sc.on_event, 1)
-                };
-                let Some(fx) = fx else { continue };
-                let me = Me {
-                    side: s,
-                    eid,
-                    card,
-                    golden,
-                    opt: 0,
-                    pos: 0,
-                    data: 0,
-                };
-                for _ in 0..times {
-                    let prev_src = self.src.replace(me.card);
-                    self.emit_seq = seq;
-                    fx(self, me, &e);
-                    self.src = prev_src;
+            for &pass in passes {
+                for &(eid, card, golden, where_) in listeners.iter() {
+                    if pass.is_some_and(|w| crate::content::acts_whenever(bit, card) != w) {
+                        continue;
+                    }
+                    if self.timewarp_suspended(s)
+                        && (where_ == 1
+                            || where_ == 2
+                            || db().get(card).kind == CardKind::HeroPower)
+                    {
+                        continue;
+                    }
+                    // Board listeners must still be on board.
+                    if where_ == 1 && !self.on_board(eid) {
+                        continue;
+                    }
+                    let Some(sc) = script(card) else { continue };
+                    // A cast and a minion play are announced twice: "whenever" listeners hear
+                    // the first announcement, all others the second.
+                    let phase = if bit == crate::event::ev::SPELL_CAST {
+                        self.spell_phase
+                    } else if bit & (crate::event::ev::PLAYED | crate::event::ev::CARD_PLAYED) != 0
+                    {
+                        self.play_phase
+                    } else {
+                        0
+                    };
+                    if phase != 0 && crate::content::acts_whenever(bit, card) != (phase == 1) {
+                        continue;
+                    }
+                    // where 3 = persistent player effect: fires once per stack.
+                    let (fx, times) = if where_ == 3 {
+                        let stacks = self
+                            .player_ref(s)
+                            .and_then(|p| p.effects.iter().find(|x| x.card == card))
+                            .map(|x| x.stacks)
+                            .unwrap_or(0);
+                        (sc.persistent_event, stacks.max(0) as u32)
+                    } else {
+                        (sc.on_event, 1)
+                    };
+                    let Some(fx) = fx else { continue };
+                    let me = Me {
+                        side: s,
+                        eid,
+                        card,
+                        golden,
+                        opt: 0,
+                        pos: 0,
+                        data: 0,
+                    };
+                    for _ in 0..times {
+                        let prev_src = self.src.replace(me.card);
+                        self.emit_seq = seq;
+                        fx(self, me, &e);
+                        self.src = prev_src;
+                    }
                 }
             }
         }

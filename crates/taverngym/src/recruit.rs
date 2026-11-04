@@ -185,7 +185,10 @@ impl Ctx<'_> {
             // id's, since 37.0.2 gave Ashen +1/+2): temporary stats, gone at the start of the
             // next turn if still in the Tavern. Acquisition fixes the current bonus.
             let total = |id: CardId| p.turn_data.iter().find(|x| x.0 == id).map_or(0, |x| x.1);
-            let (a, h) = (total(crate::cardid!("BG32_873")), total(crate::cardid!("BG32_873_G")));
+            let (a, h) = (
+                total(crate::cardid!("BG32_873")),
+                total(crate::cardid!("BG32_873_G")),
+            );
             if a > 0 || h > 0 {
                 m.add_temp_stats(a, h, true);
             }
