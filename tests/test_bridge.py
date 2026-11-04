@@ -269,6 +269,16 @@ def test_rebuilt_volumizers_survive_a_later_resync():
     assert [(m["atk"], m["hp"]) for m in board] == [(16, 2), (16, 2)]
 
 
+def test_tavern_spells_cast_from_faceless_converter():
+    # Faceless Converter shows (2, 1) x (1 + Tavern spells cast this game), doubled when golden
+    from advisor.state import player_stats
+
+    conv = {"card": "BG36_318", "atk": 3, "hp": 3, "golden": False, "data": [484, 242, 0]}
+    assert player_stats({"board": [conv]})["tavern_spells_cast"] == 241
+    gold = {"card": "BG36_318_G", "atk": 6, "hp": 6, "golden": True, "data": [20, 10, 0]}
+    assert player_stats({"board": [gold]})["tavern_spells_cast"] == 4
+
+
 def test_waiting_spells_are_scheduled_from_their_enchantments():
     # Winner's Bread's "+4/+6 if you win" (BG36_883e on the minion) and Overconfidence's Gold
     # (BG28_884e on the player, once per cast) wait in TavernGym schedules

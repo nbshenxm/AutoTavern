@@ -52,6 +52,7 @@ PLAYER_ENCHANTMENTS = {
     "BG31_816pe": ("baller_bonus", None),  # Ballers improved (each sale: +1 to the next ones)
 }
 TASTY_LOBSTER = "BG36_202"
+FACELESS_CONVERTER = "BG36_318"
 VOLUMIZERS = ("BG34_170t", "BG34_170t2", "BG34_170t3")  # Red, Blue, Green
 # Polarizing Beatboxer keeps the Magnetizations it echoes in one enchantment of its own (their
 # summed stats): rebuilt as that many Magnetizations (Utility Drone counts them), estimated as
@@ -325,6 +326,16 @@ def player_stats(s):
         if cid == TASTY_LOBSTER and m["data"][0] > 0:
             g = 2 if golden or m["golden"] else 1
             out["lobster_bonus"] = max(out.get("lobster_bonus", 0), m["data"][0] // (2 * g) - 1)
+    # Faceless Converter shows its Deity buff, (2, 1) x (1 + Tavern spells cast this game), doubled
+    # when golden: the only count of the game's Tavern spells the log keeps (rebuilt at 0, an
+    # opponent's Converters gave their C'Thun +4/+2 where the log had +484/+242: Nov 4)
+    for m in s["board"] + s.get("hand", []):
+        cid, golden = normal_form(m["card"])
+        if cid == FACELESS_CONVERTER and len(m.get("data") or []) >= 2 and m["data"][1] > 0:
+            g = 2 if golden or m.get("golden") else 1
+            n = m["data"][1] // g - 1
+            out["tavern_spells_cast"] = max(out.get("tavern_spells_cast", 0), n)
+            out["spells_cast"] = max(out.get("spells_cast", 0), n)
     # "Your Volumizers have +X this game": a Volumizer in hand shows it over its printed stats
     # (the log's Volumizer player enchantment, BG34_170pe, keeps no number). Missing, a rebuilt
     # Resourceful Robot or Auto Reveille Magnetized printed-size Volumizers: half the real growth
