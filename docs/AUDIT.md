@@ -36,6 +36,7 @@ worth too much) whatever the network decides.
 | rebuild | Blood Gem stats rebuilt as plain stats | Gem Confiscation stole nothing | kept apart: 7 of 7 exact |
 | rebuild | next-combat Tavern spells cast earlier in the turn (Brood of Nozdormu, Upper Hand, Sharing is Caring) are in no log field once cast | a round-13 golden Tarecgosa lost Brood: kept 149k where the log had 248k (the whole rounds 10+ gap: 0.87x) | read from the turn's earlier decisions (5 casts in your logs) |
 | TavernGym | Brood of Nozdormu doubled the Attack as a gain, which golden Tarecgosa doubles again (the client: "Attack set to") | that Tarecgosa kept 296k (real 197k Attack) once Brood was carried | a raise that isn't doubled (`Ctx::raise_as_set`): exact; rounds 10+ 1.00x |
+| rebuild + TavernGym | Jim Raynor's Battlecruiser Upgrades: the client keeps each family as one enchantment with its total (Yamato Cannon 6 ... 87); the rebuild read none of them, and TavernGym fired each Yamato upgrade as its own shot (each re-picking the highest-Health enemy) | a round-3 tie at p 0.00 (a 6-damage Yamato missing: Lionfish 8/9 instead of 8/3) | upgrades rebuilt from the totals; Yamato one shot of the sum: p 0.77 |
 | log parse + rebuild | the lobby's Deity and its size (player tags BACON_OLD_GOD_ATTACK/HEALTH) never read: rebuilt lobbies drew a random Deity at printed size | a Y'Shaarj where your lobby had a 7/4 C'Thun: a won fight at p 0.14 (Bob's Buddy 1.00) | the logged Deity and size |
 
 ## Results so far
