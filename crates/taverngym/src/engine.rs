@@ -1050,6 +1050,18 @@ impl<'g> Ctx<'g> {
 
     fn buff_inner(&mut self, eid: EntityId, atk: i32, hp: i32, keep: bool) {
         let (atk, hp) = self.combat_gain(eid, atk, hp);
+        self.add_kept(eid, atk, hp, keep);
+    }
+
+    /// A "set to" that raises the stats by `atk`/`hp` (Brood of Nozdormu's "double the Attack",
+    /// an "Attack set to" enchantment in the client): a combat gain, but not one that "double
+    /// stats gained in combat" doubles. A logged golden Tarecgosa at 32,898 Attack with Training
+    /// Certificate (a gain: tripled to 98,694) and Brood kept 197,388, not 296,082.
+    pub fn raise_as_set(&mut self, eid: EntityId, atk: i32, hp: i32) {
+        self.add_kept(eid, atk, hp, true);
+    }
+
+    fn add_kept(&mut self, eid: EntityId, atk: i32, hp: i32, keep: bool) {
         let combat = self.combat;
         let record = self.g.cfg.record_log && (atk != 0 || hp != 0);
         let logging = record && !combat;

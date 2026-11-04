@@ -362,14 +362,15 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
                 ..E
             },
         ),
-        // Brood of Nozdormu: Start of Combat: double your left-most minion's Attack.
+        // Brood of Nozdormu: Start of Combat: double your left-most minion's Attack (set, not
+        // a gain: `Ctx::raise_as_set`).
         (
             "BG34_889",
             next_combat(|c, me| {
                 if let Some(t) = c.leftmost(me.side)
                     && let Some(a) = c.minion(t).map(|m| m.atk)
                 {
-                    c.buff(t, a, 0);
+                    c.raise_as_set(t, a, 0);
                 }
             }),
         ),

@@ -83,6 +83,25 @@ fn gold_tarecgosa_keeps_temp_and_explicit_permanent_stats_exactly_twice() {
 }
 
 #[test]
+fn gold_tarecgosa_doubles_gains_but_not_a_set_attack() {
+    // A logged round-13 combat: golden Tarecgosa 32,898/16,899, Training Certificate (a gain,
+    // doubled: x3) and Brood of Nozdormu (Attack set to double): kept 197,388/50,697.
+    let mut g = game(4105);
+    let card = db().golden_of(cid("BG21_015"));
+    let mut m = g.with_recruit(0, |c| c.new_minion(0, card));
+    m.set_base_stats(32_898, 16_899);
+    let eid = m.eid;
+    g.players[0].board = vec![m.clone()];
+    let mut c = Ctx::new(&mut g, [vec![m], vec![]], [Some(0), None], true);
+    c.buff(eid, 32_898, 16_899); // Training Certificate: double the stats
+    let a = c.boards[0][0].atk;
+    c.raise_as_set(eid, a, 0); // Brood: Attack set to double
+    assert_eq!((c.boards[0][0].atk, c.boards[0][0].max_hp), (197_388, 50_697));
+    let kept = &c.g.players[0].board[0];
+    assert_eq!((kept.atk, kept.max_hp), (197_388, 50_697));
+}
+
+#[test]
 fn moira_takes_maximum_while_titus_adds_extra_triggers() {
     let mut g = game(4103);
     set_board(&mut g, 0, &["BG27_518", "BG27_518"]);
