@@ -20,6 +20,8 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Later
 
+- [ ] Training speed: the batched observe writes every slot's 3,379 floats (27 MB a call) where a fifth of the slots act; 10-12 ms a call, threads don't help (memory-bound): about 4 s of a 72 s iteration. Observing only ready slots: after main1 is running (its setup is fixed at its start)
+
 - [ ] Coverage: every pool card checked or tested (978 tests); left: 8 combat Hero Powers and 2 trinkets Bob's Buddy disagrees with (none in your logs), Bob's Buddy runs when you're not playing; the library-with-players boards for the next run
 
 - [ ] The fidelity baseline for 37.0.2: your pre-patch logs replay at 88.8% exact on the new rules (93.6% before: Glambot 5/5, Tea Set +3/+3...); reset it on the first post-patch games
