@@ -54,6 +54,10 @@ def main():
     ap.add_argument("--combats", default=str(ROOT / "data" / "replay" / "combats.jsonl"))
     ap.add_argument("--out", default=str(ROOT / "data" / "search" / "human"))
     ap.add_argument("--held-out", type=int, default=2, help="the last N games: evaluation only")
+    ap.add_argument("--rounds", type=int, nargs=2, metavar=("FROM", "TO"),
+                    help="only these rounds' decisions, Activates and moves mapped too (mid1: 5 8)")
+    ap.add_argument("--min-last-round", type=int, default=0,
+                    help="only games that lasted at least to this round (the ones whose plan worked)")
     ap.add_argument("--better-than", metavar="PROBE_JSON",
                     help="only the turns advisor.value_probe's rows (--out) rate above the network's "
                          "own (value_you > value_net), with Activates and moves mapped too")
@@ -66,10 +70,19 @@ def main():
                       if r["value_you"] > r["value_net"]}
         decisions = [d for d in decisions if (d["log"], d["turn"]) in keep_turns]
         print(f"{len(keep_turns)} turns rated above the network's own, {len(decisions)} decisions")
+    if a.min_last_round:  # (before the round filter: a game's length is its last round)
+        last = {}
+        for d in decisions:
+            last[d["log"]] = max(last.get(d["log"], 0), (d["turn"] + 1) // 2)
+        decisions = [d for d in decisions if last[d["log"]] >= a.min_last_round]
+    if a.rounds:
+        decisions = [d for d in decisions if a.rounds[0] <= (d["turn"] + 1) // 2 <= a.rounds[1]]
+    if a.rounds or a.min_last_round:
+        print(f"{len({d['log'] for d in decisions})} games, {len(decisions)} decisions after the filters")
     logs = sorted({d["log"] for d in decisions})
     held = set(logs[-a.held_out:]) if a.held_out else set()
     for name, keep in ((a.out, lambda d: d["log"] not in held), (a.out + "_eval", lambda d: d["log"] in held)):
-        r = rows([d for d in decisions if keep(d)], combats, L, full=bool(a.better_than))
+        r = rows([d for d in decisions if keep(d)], combats, L, full=bool(a.better_than or a.rounds))
         out = Path(name)
         out.mkdir(parents=True, exist_ok=True)
         for old in out.glob("shard_*.npz"):
