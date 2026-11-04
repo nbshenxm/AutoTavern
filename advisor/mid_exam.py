@@ -60,9 +60,22 @@ def positions(decisions, combats, rounds):
     return out
 
 
+def probe_mask(v, mask, lock):
+    """`--type-lock` (a probe): no selling a minion of type `lock`, no buying a minion without it."""
+    m = np.array(mask, bool)
+    for i, x in enumerate(v["me"]["board"]):
+        if lock in (x.get("races") or []):
+            m[23 - 7 + i] = False  # A_SELL + i (16..22)
+    for j, x in enumerate(v["me"]["shop"]):
+        if x.get("type") == "minion" and lock not in (x.get("races") or []) and "ALL" not in (x.get("races") or []):
+            m[8 + j] = False  # A_BUY + j
+    return m if m.any() else None
+
+
 @torch.no_grad()
-def rollout(net, d, combats, seed, ahead):
-    """{round: (seat 0's board at its End Turn, its Tier)} for rounds r .. r+ahead."""
+def rollout(net, d, combats, seed, ahead, tiers=None, lock=None):
+    """{round: (seat 0's board at its End Turn, its Tier)} for rounds r .. r+ahead. Probes for seat
+    0: `tiers` {round: Tier}: it Upgrades whenever below it; `lock`: probe_mask's type."""
     g, gaps = bridge.build(d, bridge.game_combats(combats, d), seed=seed)
     if gaps:
         return None
@@ -78,8 +91,15 @@ def rollout(net, d, combats, seed, ahead):
             v = json.loads(g.view(seat))
             if v["turn"] > r0 + ahead:
                 return out
-            probs, _ = search._policy(net, g, seat)
+            mask = None
+            if seat == 0 and lock and v["phase"].lower() == "recruit" and not v["me"]["pending"]:
+                mask = probe_mask(v, v["mask"], lock)
+            probs, _ = search._policy(net, g, seat, mask)
             a = int(probs.argmax())
+            if seat == 0 and tiers and v["phase"].lower() == "recruit" and not v["me"]["pending"]:
+                want = max((t for r, t in tiers.items() if r <= v["turn"] and t), default=None)
+                if want and v["me"]["tier"] < want and v["mask"][3]:
+                    a = 3  # A_UPGRADE
             if seat == 0 and v["phase"].lower() == "recruit" and not v["me"]["pending"] and a == v["actions"]["END"]:
                 out[v["turn"]] = (v["me"]["board"], v["me"]["tier"])
             g.step(seat, a)
@@ -89,12 +109,14 @@ def rollout(net, d, combats, seed, ahead):
     return out
 
 
-def exam(net, pos, combats, seeds, ahead):
+def exam(net, pos, combats, seeds, ahead, follow_tier=False, type_lock=False):
     rows = []
     for d, yours, engine in pos:
         r0 = (d["turn"] + 1) // 2
+        tiers = {r: t for r, (_, t) in yours.items()} if follow_tier else None
+        lock = main_type([m["card"] for m in d["state"]["friendly"]["board"]]) if type_lock else None
         for s in seeds:
-            sim = rollout(net, d, combats, s, ahead)
+            sim = rollout(net, d, combats, s, ahead, tiers, lock)
             if not sim:
                 continue
             for k in range(ahead + 1):
@@ -140,6 +162,9 @@ def main():
     ap.add_argument("--ahead", type=int, default=3)
     ap.add_argument("--seeds", type=int, default=2)
     ap.add_argument("--out")
+    ap.add_argument("--follow-tier", action="store_true", help="a probe: the candidate Upgrades to your Tier of each round")
+    ap.add_argument("--type-lock", action="store_true",
+                    help="a probe: the candidate keeps your main type (no selling it, no buying other types)")
     a = ap.parse_args()
     torch.set_num_threads(4)
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
@@ -149,7 +174,8 @@ def main():
     res = {}
     for name, path in [("cand", a.checkpoint)] + ([("champ", a.against)] if a.against else []):
         net, _ = load(path, "cpu")
-        rows = exam(net.eval(), pos, combats, seeds, a.ahead)
+        cand = name == "cand"
+        rows = exam(net.eval(), pos, combats, seeds, a.ahead, a.follow_tier and cand, a.type_lock and cand)
         res[name] = rows
         print(json.dumps({"net": path, "positions": len(pos), **summary(rows)}), flush=True)
     if a.against:
