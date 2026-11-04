@@ -10,7 +10,7 @@ ROOT=/fs1/projects/benchmarking_PIDS/HearthstoneAdvisor_BG
 OUT="${TMPDIR:-/tmp}/bg_code"
 mkdir -p "$OUT"
 git archive --format=tar HEAD > "$OUT/code.tar"
-tar --force-local -cf "$OUT/data.tar" data/meta data/library data/models data/search/human_eval
+tar --force-local -cf "$OUT/data.tar" data/meta data/library data/models data/search/human_eval $(ls -d data/search/human_late 2>/dev/null)
 ssh star "mkdir -p $ROOT/repo $ROOT/wheels $ROOT/logs"
 scp -q "$OUT/code.tar" "$OUT/data.tar" star:$ROOT/
 if [ "$1" = "--wheel" ]; then scp -q "$2" star:$ROOT/wheels/; fi
