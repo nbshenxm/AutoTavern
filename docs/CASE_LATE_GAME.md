@@ -125,3 +125,19 @@ The value head recognises your late turns as better; the policy doesn't propose 
 case a search helps: more candidate turns, picked by the value head, and their choices then
 taught back to the policy. The plan search as built stops a plan at the first Refresh or offer,
 so the first test is the advisor's way (re-plan at every decision): `advisor.engine_exam --search K`.
+
+## Search and a causal probe (Nov 4, night)
+
+All paired against R3 greedy on the engine exam:
+
+| Candidate | Positions | Warband vs R3 greedy |
+| --- | --- | --- |
+| R3 + the plan search (k=8, re-planned at every decision: the live advisor's) | all 62 x 2 | 0.996x ± 0.018: nothing |
+| R3 + a full-turn lookahead (its top 4 actions and every Activate, each played to the turn's end twice on fair copies, best by the value there) | Beasts and Mechs, 32 | 0.983x ± 0.042: nothing |
+| R3 that Activates Lurking Lionfish whenever it can (a probe, not a player) | Beasts, 32 | **1.18x ± 0.06** (0.63x → 0.74x of yours) |
+
+The mechanism is confirmed: Lionfish activations alone close about a third of the Beast gap. But a
+search scored by R3's value head doesn't take them: the one-step lookahead had the Activates as
+candidates and rarely chose them, so the value head credits that growth too little (or two
+rollouts are too noisy to see it). Search on top of this value head doesn't fix the late game;
+the network has to learn what the engines are worth.
