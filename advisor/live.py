@@ -590,6 +590,15 @@ def advise(d, combats, locale="enUS", net=None, policy_name="scripted bot (v0)",
     # (the genre is no longer a note: the genre panel below, advisor.genre_hint)
     notes = [x for x in (display.odds_note("now", odds_now, locale, turn),
                          display.odds_note("after", odds_after, locale, turn)) if x]
+    # The lineup shows the warband as the plan leaves it: say so where a planned step changes a
+    # minion's stats (a Prisonguard Activate on a Roaring Recruiter showed it 5/11 while it was
+    # 2/8 on your board: Nov 4)
+    now = {m["eid"]: m for m in json.loads(g.view(0))["me"]["board"]}
+    changed = [f"{name_of(m['id'], locale)} {now[m['eid']]['atk']}/{now[m['eid']]['hp']} → {m['atk']}/{m['hp']}"
+               for m in json.loads(after.view(0))["me"]["board"]
+               if m["eid"] in now and (now[m["eid"]]["atk"], now[m["eid"]]["hp"]) != (m["atk"], m["hp"])]
+    if changed and d["kind"] == "options":
+        notes.append(display.t(locale, "planned_stats", items=", ".join(changed[:4])))
     if arranged is not None:
         notes.append(display.t(locale, "arrange") + ": " + display.t(locale, "arrange_gain", before=arranged[1],
                                                                     after=arranged[2]))
