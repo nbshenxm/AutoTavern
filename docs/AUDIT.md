@@ -100,7 +100,7 @@ what the text says, a log shows what the game does. Your games on 37.0.2 move ca
 | Snarky Shark | recruit 3% | random targets (Lobster Deathrattles, Gryphon's Beasts) |
 | Misplaced Tea Set, Natural Blessing... | recruit | changed in 37.0.2; your logs predate it |
 | Combat Hero Powers | Bob's Buddy z 3-11 (old build) | rerun on the current build (3,000 fights): all within z 2.3 but three, each the harness's input, checked by giving Bob's Buddy other data on the same fights: Wax Warband (+0.105, z +8): Bob's Buddy ignores it at any data (equal to no power; your logs agree with TavernGym); Tentacular and Broodmother (z +3): at data 0 Bob's Buddy summons no Tentacle and a 0/0 Whelp, at data 1 it matches TavernGym (+0.171 vs +0.179, +0.315 vs +0.315), the harness now passes 1. Left: their improvements aren't read from logs yet (none in yours) |
-| Faerie Dragon Scale, Boom-in-a-Box | Bob's Buddy z 3-4 | open: not in your logs |
+| Combat trinkets | Bob's Buddy z 3-4 (old build) | rerun on the current build (3,000 fights): mean difference 0.025 (was 0.043); Faerie Dragon Scale z +2.0, Boom-in-a-Box within chance. One new lean, Sky Golem Portrait (+0.175, z +5.8): both apply it (TavernGym +0.58 equity, Bob's Buddy +0.41); in two 1/1s against a 3/3 the text wins every time (the first dies, the other is 4/4 and kills the 3/3), TavernGym wins 100%, Bob's Buddy ties 100%: it gives the +3 Attack without the Health. TavernGym's is the text |
 
 ## Open
 
