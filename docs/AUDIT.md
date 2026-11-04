@@ -56,6 +56,7 @@ worth too much) whatever the network decides.
   late fights are calibrated; what's left of the bias is mid-game.
 - Combat outcome: predicted 100.6 wins of 212, actual 109 (+2.9 SD; +3.1 before the Deity fix):
   TavernGym still underrates your side in close fights.
+- The standing check's baseline reset (Nov 4, the day's build, the 37.0.2 rules on all your logs, 10 of them before the patch): legal 97.6%, one action 90.0%, whole turns 84.0%, transitions 99.5%, combats 87.3% (calibration +2.95 SD: your pre-patch boards fight on the new numbers), carry rounds 10+ 1.00x, 7-9 1.07x, 1-6 0.69x, Bob's Buddy sample 0.038. Your Nov 4 games (37.0.2): one action 97.0%.
 - Attack by attack (Nov 4, advisor.attack_replay: each logged combat from its first attack with the logged defenders forced): every attack as logged in 139 of 253 combats (54.9%). Where the rest first part: Tasty Lobster's random Beast (the counts and amounts match: 6 triggers a Rally attack with two Deathstriders and two Titus, +1 improvement each), Volumizer estimates, cards changed in 37.0.2 (your logs before it), the opponent's hand (a Diremuck Forager summoning a Flighty Scout the log never showed). The combat bias: +1.8 SD from Start of Combat, +1.1 SD from the first attack (258 combats).
 - Card text: ~700 scripts, no number or scaling contradiction; edge cases listed below.
 - Bob's Buddy, random warbands (6,000 fights, every in-pool minion, after fixing the harness: golden flags,
