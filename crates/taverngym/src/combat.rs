@@ -302,10 +302,31 @@ fn run(ctx: &mut Ctx, initialize: bool) -> CombatOutcome {
 fn restore_visible_combat_memory(ctx: &mut Ctx) {
     // "When you have space" summons still waiting (the caller knows from the log): their Start
     // of Combat part again, which only queues on a full warband
+    // (a minion's: once for each copy of it on the warband, as itself)
     for (s, card) in std::mem::take(&mut ctx.g.waiting_space) {
-        if let Some(fx) = script(card).and_then(|sc| sc.start_of_combat) {
+        let Some(fx) = script(card).and_then(|sc| sc.start_of_combat) else {
+            continue;
+        };
+        let mut mes: Vec<Me> = ctx.boards[s]
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.alive() && m.card == card)
+            .map(|(pos, m)| Me {
+                side: s,
+                eid: m.eid,
+                card,
+                golden: m.golden,
+                opt: 0,
+                pos,
+                data: 0,
+            })
+            .collect();
+        if mes.is_empty() {
+            mes.push(me0(s, card));
+        }
+        for me in mes {
             let prev_src = ctx.src.replace(card);
-            fx(ctx, me0(s, card));
+            fx(ctx, me);
             ctx.src = prev_src;
         }
     }

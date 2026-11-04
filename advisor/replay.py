@@ -18,8 +18,8 @@ import json
 import sys
 from pathlib import Path
 
-from advisor.state import (OWED_POWERS, arm_powers, damage_cap, debug, owe, power_state, recruit_game, set_deities,
-                           set_side)
+from advisor.state import (CAT, OWED_POWERS, arm_powers, damage_cap, debug, owe, power_state, recruit_game, set_deities,
+                           normal_form, set_side)
 
 SURPRISE = 0.02
 SIDES = ("friendly", "opponent")
@@ -86,6 +86,8 @@ def used_powers(decisions):
 # Hero Powers whose Start of Combat waits for space: on a warband full from Start of Combat to
 # the first attack, the request is still waiting there, which the snapshot can't show
 SPACE_POWERS = ("BG22_HERO_002p", "BG22_HERO_003p", "BG23_HERO_201p")  # Drek'Thar, Vanndar, Ozumat
+FORAGER = "BG27_556"  # Diremuck Forager: "Start of Combat: when you have space, summon the
+# highest-Attack Murloc from your hand": still waiting on a full warband with a Murloc in hand
 
 
 def waiting_space(c):
@@ -98,6 +100,14 @@ def waiting_space(c):
         if len(first) < 7 or len(start) < 7 or {m["eid"] for m in first} - {m["eid"] for m in start}:
             continue
         out += [[i, h["card"]] for h in c["start"][side].get("hero_powers", []) if h["card"] in SPACE_POWERS]
+    for i, side in enumerate(("friendly", "opponent")):
+        first = (c.get("first_attack") or {}).get(side, {})
+        murloc = any("MURLOC" in (CAT.get(normal_form(h["card"])[0], {}).get("races") or [])
+                     or "ALL" in (CAT.get(normal_form(h["card"])[0], {}).get("races") or [])
+                     for h in first.get("hand", []))
+        if len(first.get("board", [])) >= 7 and murloc:
+            out += [[i, card] for card in sorted({m["card"] for m in first["board"]
+                                                  if normal_form(m["card"])[0] == FORAGER})]
     return out
 
 

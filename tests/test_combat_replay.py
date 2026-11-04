@@ -57,3 +57,23 @@ def test_replays_agree_with_logged_winners(rows, mode):
 def test_every_logged_card_is_known(rows):
     gaps = sorted({g for r in rows for g in r["gaps"]})
     assert not gaps, gaps
+
+
+def test_waiting_summons_on_a_full_warband():
+    # A replay from the first attack queues what Start of Combat left waiting for space: a Hero
+    # Power's on a warband full at both snapshots, a Diremuck Forager's with a Murloc in hand
+    sys.path.insert(0, str(ROOT))
+    from advisor.replay import waiting_space
+
+    full = [{"card": "BG36_345", "eid": i} for i in range(6)]
+    forager = {"card": "BG27_556", "eid": 9}
+    side = lambda board, hand=(), powers=(): {"board": board, "hand": list(hand),
+                                              "hero_powers": [{"card": p} for p in powers]}
+    c = {"start": {"friendly": side(full + [{"card": "BG36_345", "eid": 7}], powers=["BG22_HERO_002p"]),
+                   "opponent": side(full[:6] + [forager])},
+         "first_attack": {"friendly": side(full + [{"card": "BG36_345", "eid": 7}]),
+                          "opponent": side(full[:6] + [forager], hand=[{"card": "BG32_330"}])}}
+    assert waiting_space(c) == [[0, "BG22_HERO_002p"], [1, "BG27_556"]]
+    c["first_attack"]["friendly"]["board"][-1] = {"card": "BG36_345", "eid": 8}  # made at Start of Combat
+    c["first_attack"]["opponent"]["hand"] = [{"card": "BG36_345"}]  # no Murloc left
+    assert waiting_space(c) == []
