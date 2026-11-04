@@ -56,6 +56,10 @@ on your round 5-8 turns, keeps its place at the head of the queue but runs as th
 on the cluster after late1, with its bar unchanged; if it fails the gate like late1, imitation at
 this scale leaves the queue.
 
+*Nov 4, 18:30 (no change to a running run):* the cluster's staged update (applied after late1, before
+mid1) re-staged at 7163c1d with this evening's simulator fixes, so mid1 and main1 start on the same rules
+(Drek'Thar's copy position, the rebuild fixes; docs/AUDIT.md).
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
