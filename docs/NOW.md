@@ -8,6 +8,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 - [ ] Office: act1, R3 + forced Activates (option A); cluster: late1, R3 + your better late turns (option B). Bar for both: engine exam >= 1.05x R3, gate not worse; checks at +4 h and at the end
 - [ ] p37 stopped at 07:49: gate inconclusive (-0.046 ± 0.036), engine exam 0.99x
+- [ ] Queued: mid1 (office, after act1 at 19:40): R3 + your round 5-8 turns, the root-cause lever ([CASE_LATE_GAME.md](CASE_LATE_GAME.md#the-root-cause-r3s-own-training-games-nov-4))
 
 ## Next up
 
