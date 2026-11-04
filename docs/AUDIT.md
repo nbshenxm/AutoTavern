@@ -99,7 +99,8 @@ what the text says, a log shows what the game does. Your games on 37.0.2 move ca
 | Titus Rivendare | carry 212 vs 184 | Death's Embrace on it grows with the combat's deaths: random (+84/+60/+48 vs +60/+64/+60) |
 | Snarky Shark | recruit 3% | random targets (Lobster Deathrattles, Gryphon's Beasts) |
 | Misplaced Tea Set, Natural Blessing... | recruit | changed in 37.0.2; your logs predate it |
-| 8 combat Hero Powers, Faerie Dragon Scale, Boom-in-a-Box | Bob's Buddy z 3-11 | open: none appears in your logs to settle which simulator is right (Wax Warband's earlier lean was the harness's input) |
+| Combat Hero Powers | Bob's Buddy z 3-11 (old build) | rerun on the current build (3,000 fights): all within z 2.3 but three, each the harness's input, checked by giving Bob's Buddy other data on the same fights: Wax Warband (+0.105, z +8): Bob's Buddy ignores it at any data (equal to no power; your logs agree with TavernGym); Tentacular and Broodmother (z +3): at data 0 Bob's Buddy summons no Tentacle and a 0/0 Whelp, at data 1 it matches TavernGym (+0.171 vs +0.179, +0.315 vs +0.315), the harness now passes 1. Left: their improvements aren't read from logs yet (none in yours) |
+| Faerie Dragon Scale, Boom-in-a-Box | Bob's Buddy z 3-4 | open: not in your logs |
 
 ## Open
 

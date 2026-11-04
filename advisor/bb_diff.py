@@ -64,9 +64,13 @@ COMBAT_POWERS = ("BG20_HERO_282p", "BG22_HERO_002p", "BG22_HERO_003p", "BG22_HER
 
 # A Hero Power's script data in the client (your logs): Wax Warband's buff size (1 fresh: its
 # improvements are not modelled here), Drek'Thar's and Vanndar's "unlocked" (Turn 7). Without
-# it Bob's Buddy gave a fresh Wax Warband nothing (TavernGym +0.079, z +9)
+# it Bob's Buddy gave a fresh Wax Warband nothing (TavernGym +0.079, z +9). Nov 4: Bob's Buddy
+# ignores Wax Warband whatever its data (0, 1, 2, activated: all equal to no power), so it can't
+# check it; a fresh Tentacular and Broodmother need data 1 (0: no Tentacle, a 0/0 Whelp), then
+# they match TavernGym's fresh 2/2 and 1/1 (+0.171 vs +0.179, +0.315 vs +0.315 on 60 fights)
 POWER_DATA = {"TB_BaconShop_HP_037a": lambda t: 1, "BG22_HERO_002p": lambda t: int(t >= 7),
-              "BG22_HERO_003p": lambda t: int(t >= 7)}
+              "BG22_HERO_003p": lambda t: int(t >= 7), "BG23_HERO_201p": lambda t: 1,
+              "BG22_HERO_305p": lambda t: 1}
 
 
 def fight(rng, by_tier, k, trinkets=(), powers=()):
