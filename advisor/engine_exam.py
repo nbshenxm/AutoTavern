@@ -13,6 +13,7 @@ Two networks (`--against`) are compared pair by pair on the same positions and s
 
     python -X utf8 -m advisor.engine_exam data/models/best.pt
     python -X utf8 -m advisor.engine_exam data/train/p37/last.pt --against data/models/best.pt
+    python -X utf8 -m advisor.engine_exam data/models/best.pt --search 8 --against data/models/best.pt
 """
 
 import argparse
@@ -76,32 +77,39 @@ def positions(decisions, combats):
 
 
 @torch.no_grad()
-def play_turn(net, d, combats, seed):
-    """(start board, End-of-turn board) of the network's turn from decision `d` (view minions)."""
+def play_turn(net, d, combats, seed, search_k=0):
+    """(start board, End-of-turn board) of the network's turn from decision `d` (view minions).
+    `search_k` > 0: each step is the first of the plan search's best plan (advisor.search, the
+    greedy plan and k sampled ones, re-planned at every decision as the live advisor does)."""
     g, gaps = bridge.build(d, bridge.game_combats(combats, d), seed=seed)
     if gaps:
         return None
     start = json.loads(g.view(0))["me"]["board"]
-    for _ in range(300):
+    for step in range(300):
         v = json.loads(g.view(0))
         if not g.needs_action(0) or v["phase"].lower() != "recruit":
             return None
-        probs, _ = search._policy(net, g, 0)
-        a = int(np.argmax(probs))
+        a = None
+        if search_k:
+            plan, _, _ = search.best_plan(g, net, 0, None, search_k, seed=seed * 100_003 + step)
+            a = plan[0] if plan else None
+        if a is None:
+            probs, _ = search._policy(net, g, 0)
+            a = int(np.argmax(probs))
         if a == v["actions"]["END"] and not v["me"]["pending"]:
             return start, v["me"]["board"]
         g.step(0, a)
     return None
 
 
-def exam(net, pos, combats, seeds):
+def exam(net, pos, combats, seeds, search_k=0):
     rows = []
     for d, real_end in pos:
         real_start = d["state"]["friendly"]["board"]
         yours = measure(real_start, real_end, logged_races)
         real = sum(stats(m) for m in real_end)
         for s in seeds:
-            r = play_turn(net, d, combats, s)
+            r = play_turn(net, d, combats, s, search_k)
             if r is None or real <= 0:
                 continue
             start, end = r
@@ -134,6 +142,8 @@ def main():
     ap.add_argument("--combats", default=str(ROOT / "data" / "replay" / "combats.jsonl"))
     ap.add_argument("--seeds", type=int, default=2)
     ap.add_argument("--out", help="the rows as JSON")
+    ap.add_argument("--search", type=int, default=0, metavar="K",
+                    help="the candidate (not --against) plays with the plan search over K plans")
     a = ap.parse_args()
     torch.set_num_threads(4)
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
@@ -143,7 +153,7 @@ def main():
     res = {}
     for name, path in [("cand", a.checkpoint)] + ([("champ", a.against)] if a.against else []):
         net, _ = load(path, "cpu")
-        rows = exam(net.eval(), pos, combats, seeds)
+        rows = exam(net.eval(), pos, combats, seeds, a.search if name == "cand" else 0)
         res[name] = rows
         s = summary(rows)
         print(json.dumps({"net": path, **s}), flush=True)
