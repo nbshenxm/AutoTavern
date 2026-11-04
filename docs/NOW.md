@@ -7,8 +7,8 @@ simulator audit in [AUDIT.md](AUDIT.md).
 ## Running
 
 - [ ] Office: act1 to 19:40 (4 h: even with R3 on the gate, engine and mid exams); then **main1, the mainline**: R3's setup on the rebuilt simulator, continuous ([TRAINING_PLAN.md](TRAINING_PLAN.md))
-- [ ] Cluster: late1 to ~20:00; its 4 h gate **worse** than R3 (+0.19 ± 0.05) though it agrees with your held-out late turns 4x more: imitation isn't strength. Then mid1 there as the one experiment
-- [ ] Simulator today: Sharing is Caring's nearest enemy, the rebuild's turn counters (Conflagration), Arcane Absorption rounding, Deathstrider on a dying Rally attacker; your Nov 4 actions 97.0% exact; combats attack by attack (advisor.attack_replay) 54.9% exact; the fidelity baseline reset on the new build
+- [ ] Cluster: late1 to ~20:40; its 4 h gate **worse** than R3 (+0.19 ± 0.05) though it agrees with your held-out late turns 4x more: imitation isn't strength. Then mid1 there as the one experiment
+- [ ] Simulator today: Sharing is Caring's nearest enemy, the turn counters, Arcane Absorption, Deathstrider; after a reconnect the game's combats (459 decisions); this afternoon from the early-round carry (0.69x) and the legality gaps: rebuilt Volumizers 3 Attack short, Winner's Bread and Overconfidence lost, Warcry Totem's spent free buys (both games with gaps now match the client everywhere); attack by attack 56.5% exact, the rest random recipients so far
 - [ ] Effect audit on the cluster (cards in action): saves per chunk and resumes
 
 ## Next up
