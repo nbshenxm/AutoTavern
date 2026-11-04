@@ -75,6 +75,20 @@ worth too much) whatever the network decides.
 - No seat bias: your combats with you in seat 0 and seat 1 give 98.8 and 99.3 predicted wins.
 - The remaining +2.9 SD is spread (Beasts +1.2, Mechs +1.3, the rest +2.4 SD); ties are calibrated.
 
+## Coverage of the current pool (Nov 4, `advisor.coverage`)
+
+| Kind | Checked (your logs or Bob's Buddy) | Tested only (a unit test pins it to its text) | Suspect | Changed in 37.0.2 | Unchecked |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Shop minions (245) | 235 | 1 | 9 | 0 | 0 |
+| Tavern spells (70) | 51 | 19 | 0 | 0 | 0 |
+| Lesser Trinkets (112) | 33 | 76 | 1 | 2 | 0 |
+| Greater Trinkets (120) | 29 | 86 | 2 | 3 | 0 |
+| Hero Powers (116) | 4 | 104 | 8 | 0 | 0 |
+
+The 109 cards that had neither got a test each on Nov 4 (113 tests: tests/cov_*.rs); none
+contradicted its text. "Tested only" is weaker than "checked": a test pins what the script does to
+what the text says, a log shows what the game does. Your games on 37.0.2 move cards up.
+
 ## Suspects in the coverage report, checked (Nov 4)
 
 | Card | Flag | What it is |
