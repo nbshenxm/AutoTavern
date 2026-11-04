@@ -6,10 +6,10 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Running
 
-- [ ] Office: act1, R3 + forced Activates (option A), to 19:40; its 4 h gate running. Cluster: late1, R3 + your better late turns (option B), to 20:00; its 4 h gate queued on the cluster CPUs. Bar for both: engine exam >= 1.05x R3, gate not worse
-- [ ] late1 agrees with your held-out late turns 32-34% (R3 7.6%; your refreshes 24-32%, R3 0%): it learns your late play, not only the 933 training decisions (95% on those), though held-out slips a little as training goes on
-- [ ] Queued: mid1 (office, after act1 at 19:40): R3 + your round 5-8 turns, the root-cause lever ([CASE_LATE_GAME.md](CASE_LATE_GAME.md#the-root-cause-r3s-own-training-games-nov-4))
-- [ ] Effect audit on the cluster (cards in action, 2,400 full games): now saves per chunk and resumes
+- [ ] Office: act1 to 19:40 (4 h: even with R3 on the gate, engine and mid exams); then **main1, the mainline**: R3's setup on the rebuilt simulator, continuous ([TRAINING_PLAN.md](TRAINING_PLAN.md))
+- [ ] Cluster: late1 to ~20:00; its 4 h gate **worse** than R3 (+0.19 ± 0.05) though it agrees with your held-out late turns 4x more: imitation isn't strength. Then mid1 there as the one experiment
+- [ ] Simulator today: Sharing is Caring's nearest enemy, the rebuild's turn counters (Conflagration), Arcane Absorption rounding, Deathstrider on a dying Rally attacker; your Nov 4 actions 97.0% exact; combats attack by attack (advisor.attack_replay) 54.9% exact; the fidelity baseline reset on the new build
+- [ ] Effect audit on the cluster (cards in action): saves per chunk and resumes
 
 ## Next up
 
