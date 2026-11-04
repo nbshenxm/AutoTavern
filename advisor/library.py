@@ -91,13 +91,13 @@ def build(combats):
     with their player as the combat showed them (hero, Hero Powers, trinkets, counters: the
     combat replay's set_side; `player` holds PLAYER_FIELDS, what TavernGym lacks left out)."""
     from advisor.bridge import set_counter
-    g = recruit_game(1, GAME_CONFIG)
     out, skipped = [], collections.Counter()
     for c in combats:
         rnd = (c["turn"] + 1) // 2
         for side in ("friendly", "opponent"):
             s = c["start"][side]
             gaps = []
+            g = recruit_game(1, GAME_CONFIG)  # a fresh seat each: trinkets and counters add up
             set_side(g, 1, {**s, "hand": []}, gaps, side)
             pl = json.loads(g.state_json())["players"][1]
             minions = pl["board"]
