@@ -10,6 +10,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Next up
 
+- [ ] Late-game case study ([CASE_LATE_GAME.md](CASE_LATE_GAME.md)): you scale one engine 2-3x a round from round 10; from your positions R3's turn is 0.63-0.75x yours (Glambot 411 vs 2,272): it spreads buffs, breaks the engine's board, sells the comp. Next: an engine exam from those positions, and where R3's targets go
 - [ ] Patch 37.0.2 is in the simulator ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)), home advisor rebuilt (R3 on the new rules); check the readings against your first games on the patch
 - [ ] Review ([REVIEW_20261103.md](REVIEW_20261103.md)): our check couldn't see a gain (±0.1 places); the gate (advisor.gate, paired) decides from now on
 - [ ] By the gate: R2 beat R1 by 0.14, R3 beat R2 by 0.12; since R3 nothing (big3 786, big3hero, lr3 at 3x the learning rate: all within ±0.05). The plateau is R3's, and not the learning rate
