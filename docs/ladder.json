@@ -77,6 +77,14 @@
    "gain": -0.053,
    "se": 0.035,
    "verdict": "even"
+  },
+  {
+   "name": "late1 4 h",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": 0.191,
+   "se": 0.052,
+   "verdict": "not better"
   }
  ]
 }

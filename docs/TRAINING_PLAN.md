@@ -38,7 +38,7 @@ head can't see what an engine is worth). Written before running; reordered only 
 
 | # | Change (one) | Why | Bar (set first) | State |
 | --- | --- | --- | --- | --- |
-| 1 | your round 5-8 turns as an imitation target (mid1) | the root cause: R3's own games never build engines | mid exam: engine held >= 40% (R3 29%) at +3, held-out agreement up; gate not worse | runs Nov 4 19:40 on the office (the last parallel one) |
+| 1 | your round 5-8 turns as an imitation target (mid1) | the root cause: R3's own games never build engines | mid exam: engine held >= 40% (R3 29%) at +3, held-out agreement up; gate not worse | the cluster's slot after late1 (Nov 4 ~20:00), from R3 = the mainline's start; prior low after late1 (below) |
 | 2 | library seats with their players (hero, Hero Powers, trinkets in combat) | training fights as real ones | gate not worse; R3's training-lobby place no longer the easy one | ready (data/library/boards_players.json) |
 | 3 | starts from the curated comps' mid-game boards, more of them | more games where an engine exists | mid exam engine held up; gate not worse | to build |
 | 4 | a deeper turn search (MCTS) as a teacher, once the value head sees the mid-game | expert iteration, as the constructed advisor | search beats the network on the gate first | later |
@@ -46,11 +46,21 @@ head can't see what an engine is worth). Written before running; reordered only 
 Results that are already in (Nov 4): act1 (forced Activates) and late1 (your better late turns) run
 to their ends tonight; a winner joins the mainline's setup, a loser leaves the queue.
 
+**Changed Nov 4, 14:30, on a result.** late1 at 4 h: the gate *worse* than R3 (+0.191 ± 0.052;
+from your positions +0.30), while its agreement with your held-out late turns rose 4x (7.6% →
+33%): imitating a few hundred of your decisions pulls the policy toward your moves and away from
+what wins. act1 at 4 h: even on the gate, the engine exam and the mid exam. So (1) the mainline
+starts tonight at 19:40 on the office instead of a 12-hour mid1 there: R3's fixed setup on the
+rebuilt simulator (the day's fixes), nothing having beaten R3; (2) mid1, the same imitation recipe
+on your round 5-8 turns, keeps its place at the head of the queue but runs as the one experiment
+on the cluster after late1, with its bar unchanged; if it fails the gate like late1, imitation at
+this scale leaves the queue.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
 | --- | --- | --- |
-| Nov 5 | R3's (big3: --solo, the top-1% library, real starts 0.5, comp starts 0.33, lr 1e-5, 1 epoch) + the winners of act1 / late1 / mid1 | the best of tonight's verdicts, else R3 |
+| Nov 4 19:40 (main1, office, until Nov 8 20:00 then on) | R3's (big3: --solo, the top-1% library, real starts 0.5, comp starts 0.33, lr 1e-5, 1 epoch), on TavernGym with the Nov 4 fixes; a winning experiment's change joins at a checkpoint | R3 (big3 it 510): neither act1 nor late1 beat it at 4 h |
 
 ## Rules
 
