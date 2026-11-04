@@ -120,6 +120,20 @@ def lookahead_action(g, net, seed, top=4, reps=2):
     return best
 
 
+# `--force CARD...`: a probe, not a player: whenever one of these minions can Activate, it does
+FORCE = set()
+
+
+def forced(v):
+    """The first legal Activate of a FORCE minion, or None."""
+    if v["me"]["pending"]:
+        return None
+    for i, m in enumerate(v["me"]["board"]):
+        if (m.get("id") or "").split("_G")[0] in FORCE and v["mask"][23 + i]:
+            return 23 + i
+    return None
+
+
 @torch.no_grad()
 def play_turn(net, d, combats, seed, search_k=0, look=None):
     """(start board, End-of-turn board) of the network's turn from decision `d` (view minions).
@@ -133,8 +147,10 @@ def play_turn(net, d, combats, seed, search_k=0, look=None):
         v = json.loads(g.view(0))
         if not g.needs_action(0) or v["phase"].lower() != "recruit":
             return None
-        a = None
-        if look:
+        a = forced(v) if FORCE else None
+        if a is not None:
+            pass
+        elif look:
             a = lookahead_action(g, net, seed * 100_003 + step, *look)
         elif search_k:
             plan, _, _ = search.best_plan(g, net, 0, None, search_k, seed=seed * 100_003 + step)
@@ -195,6 +211,7 @@ def main():
     ap.add_argument("--lookahead", type=int, nargs=2, metavar=("TOP", "REPS"),
                     help="the candidate plays with the full-turn lookahead (lookahead_action)")
     ap.add_argument("--types", nargs="+", help="only positions whose main type is one of these (BEAST MECHANICAL...)")
+    ap.add_argument("--force", nargs="+", default=[], help="a probe: the candidate Activates these minions whenever it can")
     a = ap.parse_args()
     torch.set_num_threads(4)
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
@@ -205,6 +222,8 @@ def main():
     for name, path in [("cand", a.checkpoint)] + ([("champ", a.against)] if a.against else []):
         net, _ = load(path, "cpu")
         cand = name == "cand"
+        FORCE.clear()
+        FORCE.update(a.force if cand else [])
         rows = exam(net.eval(), pos, combats, seeds, a.search if cand else 0,
                     a.lookahead if cand else None, a.types)
         res[name] = rows
