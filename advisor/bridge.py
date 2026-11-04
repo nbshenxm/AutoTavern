@@ -63,6 +63,34 @@ COUNTER_FROM_SHOWN = {
 }
 
 
+INCUBATION = "BG36_MidGameEffect_000t4"
+
+
+def set_schedules(player, logged_board):
+    """The Dark Gifts that wait for a later turn as the log shows them (state JSON `player`, its
+    board in the logged order). Incubation ("in 2 turns, double this minion's stats"): its
+    `<gift>e` enchantment holds the turns left (2, then 1; gone once it doubled). Re-attached in a
+    rebuild, it scheduled a fresh 2 turns: a doubling a turn late, or a second one (a logged
+    Relentless Deflector doubled 14/12 to 28/24 the next turn, the rebuild didn't)."""
+    from advisor.state import CAT
+    inc = CAT.get(INCUBATION, {}).get("cid")
+    if inc is None or len(player.get("board", [])) != len(logged_board):
+        return
+    keep = []
+    left = {}
+    for m, logged in zip(player["board"], logged_board):
+        e = {x["card"]: x.get("data") or [0] for x in logged.get("ench", [])}
+        if any(k.startswith(INCUBATION + "e") for k in e):
+            left[m["eid"]] = e[INCUBATION + "e"][0] if INCUBATION + "e" in e else 0
+    for x in player.get("scheduled", []):
+        if x.get("script") == inc and x.get("target") in left:
+            if left[x["target"]] <= 0:
+                continue  # it already doubled
+            x["turns_left"] = left[x["target"]]
+        keep.append(x)
+    player["scheduled"] = keep
+
+
 def set_counter(m, logged):
     """Minion `m` (state JSON) gets the counter logged minion `m` shows in its script data
     (COUNTER_FROM_DATA, COUNTER_FROM_SHOWN)."""
@@ -358,6 +386,7 @@ def build(d, combats=(), seed=7, earlier=()):
             # INTERACTABLE_OBJECT to 0); a rebuilt minion would offer it again
             if logged.get("interactable") == 0:
                 m["activations"] = max(1, m.get("activations", 0))
+    set_schedules(p0, me["board"])
     # Trinkets with a per-turn use the log counts down ("(1 left!)"): spent ones marked used
     for t in me["trinkets"]:
         if t["card"] in TRINKET_USES_LEFT and t["data"][0] == 0 and t["card"] in CAT:
