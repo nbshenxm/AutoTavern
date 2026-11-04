@@ -1157,6 +1157,10 @@ pub enum DebugCmd {
         after_start: bool,
         #[serde(default)]
         first_attacker: Option<Side>,
+        /// The logged defenders in order ([card id, Attack, Health] before each attack): each
+        /// trial follows them while they are legal targets (`Game::forced_targets`).
+        #[serde(default)]
+        forced: Vec<(String, i32, i32)>,
     },
 }
 
@@ -1682,9 +1686,14 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
             ghost_b,
             after_start,
             first_attacker,
+            forced,
         } => {
             check(a)?;
             check(b)?;
+            let forced: std::collections::VecDeque<(CardId, i32, i32)> = forced
+                .iter()
+                .map(|(id, a, h)| (db().id(id), *a, *h))
+                .collect();
             if a == b {
                 return Err("pick two different players".into());
             }
@@ -1705,6 +1714,9 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                 c.cfg.record_log = !details && i == 0;
                 c.log.clear();
                 c.rng = crate::rng::Rng::new(g.seed ^ (0x9E37_79B9 * (i as u64 + 1)));
+                c.forced_targets = forced.clone();
+                (c.forced_left_at, c.forced_done) = (None, 0);
+                c.attack_trace = (!forced.is_empty()).then(Vec::new);
                 let target = if ghost_b { None } else { Some(b) };
                 let ghost = if ghost_b {
                     c.ghost_player = Some(b);
@@ -1749,6 +1761,12 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                         "damage_taken": taken,
                         "lethal_win": out.winner == 0 && !ghost_b && c.players[b].health <= 0,
                         "lethal_loss": out.winner == 1 && c.players[a].health <= 0,
+                        // A forced replay: the attacks it followed, where it left the log
+                        "forced_done": c.forced_done,
+                        "forced_left_at": c.forced_left_at,
+                        "attack_trace": c.attack_trace.as_ref().map(|t| t.iter().map(|x| json!([
+                            x.0, db().get(x.1).id, x.2, x.3, db().get(x.4).id, x.5, x.6
+                        ])).collect::<Vec<_>>()),
                     }));
                 } else if i == 0 {
                     let rec = CombatRecord {

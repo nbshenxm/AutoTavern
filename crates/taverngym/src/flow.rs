@@ -313,6 +313,10 @@ impl Game {
             turn_alive: 0,
             log: vec![],
             last_frames: vec![],
+            forced_targets: Default::default(),
+            forced_left_at: None,
+            forced_done: 0,
+            attack_trace: None,
         };
         g.log(|| {
             format!(

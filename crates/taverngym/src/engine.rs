@@ -135,6 +135,20 @@ pub struct Game {
     /// Frames of the most recent simulated combat (moved into its `CombatRecord`).
     #[serde(skip)]
     pub last_frames: Vec<CombatFrame>,
+    /// A logged combat's defenders in order (card, Attack, Health as logged before the attack):
+    /// `combat::pick_target` takes each one instead of a random target while it is a legal
+    /// one, so a replay follows the log's attacks (`advisor.attack_replay`). Empty: random.
+    #[serde(skip)]
+    pub forced_targets: std::collections::VecDeque<(CardId, i32, i32)>,
+    /// Where a forced replay left the log: the attack's index (None: it never did).
+    #[serde(skip)]
+    pub forced_left_at: Option<u32>,
+    #[serde(skip)]
+    pub forced_done: u32,
+    /// When set, every attack's (side, attacker card, Attack, Health, defender card, Attack,
+    /// Health) as it is declared (the log's view of an attack; a replay compares them).
+    #[serde(skip)]
+    pub attack_trace: Option<Vec<(Side, CardId, i32, i32, CardId, i32, i32)>>,
 }
 
 impl Game {

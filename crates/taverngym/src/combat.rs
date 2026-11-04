@@ -508,6 +508,24 @@ pub fn pick_target(ctx: &mut Ctx, side: Side) -> Option<EntityId> {
     let visible = |m: &Minion| m.alive() && !m.has(Kw::STEALTH);
     let n_taunt = b.iter().filter(|m| visible(m) && has_taunt(m)).count();
     let n_visible = b.iter().filter(|m| visible(m)).count();
+    let legal = |m: &Minion| visible(m) && (n_taunt == 0 || has_taunt(m));
+    // A replay of a logged combat: the logged defender (its card, nearest stats) while it is a
+    // legal target here; the first one that isn't ends the replay (random from then on).
+    if let Some(&(card, a, h)) = ctx.g.forced_targets.front() {
+        let want = crate::cards::db().normal_of(card);
+        let hit = b
+            .iter()
+            .filter(|m| legal(m) && crate::cards::db().normal_of(m.card) == want)
+            .min_by_key(|m| (m.atk - a).abs() as i64 + (m.hp - h).abs() as i64)
+            .map(|m| m.eid);
+        ctx.g.forced_targets.pop_front();
+        if let Some(t) = hit {
+            ctx.g.forced_done += 1;
+            return Some(t);
+        }
+        ctx.g.forced_left_at = Some(ctx.g.forced_done);
+        ctx.g.forced_targets.clear();
+    }
     let (n, f): (usize, fn(&Minion) -> bool) = if n_taunt > 0 {
         (n_taunt, |m| {
             m.alive() && !m.has(Kw::STEALTH) && has_taunt(m)
@@ -603,6 +621,14 @@ pub fn do_attack(ctx: &mut Ctx, side: Side, attacker: EntityId, defender: Entity
         ctx.g.log(|| format!("{who}'s {a} attacks {d}"));
         if ctx.g.cfg.record_log {
             ctx.frame_attacks.push((attacker, defender));
+        }
+    }
+    if ctx.g.attack_trace.is_some()
+        && let (Some(a), Some(d)) = (ctx.minion(attacker), ctx.minion(defender))
+    {
+        let row = (side, a.card, a.atk, a.hp, d.card, d.atk, d.hp);
+        if let Some(t) = ctx.g.attack_trace.as_mut() {
+            t.push(row);
         }
     }
     run_rally(ctx, side, attacker, defender);
