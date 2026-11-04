@@ -19,6 +19,8 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Later
 
+- [ ] The fidelity baseline for 37.0.2: your pre-patch logs replay at 88.8% exact on the new rules (93.6% before: Glambot 5/5, Tea Set +3/+3...); reset it on the first post-patch games
+
 - [ ] A Hero Power exam: per hero, use rate against yours and whether using it more pays
 
 - [ ] R4 (Nov 3): late >= 0.40x, on-type buys >= 50%

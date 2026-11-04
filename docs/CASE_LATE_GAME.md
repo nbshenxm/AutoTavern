@@ -108,5 +108,7 @@ fifth as often. The simulator plays Lionfish right (not among the one-action rep
 37.0.2 build): this is learning, not the rules. For Mechs the gap is less clear-cut than "fewer
 spells": R3 casts as many on Mechs and Magnetizes more, mostly onto minions other than the engine.
 
-Side finding: Snarky Shark replays mismatch 20 of 56 times (warbands 3% low; a Hyena's Lobster
-8/4 simulated, 2/1 logged): "improve your future Tasty Lobsters" may apply differently. To check.
+Side finding, checked: Snarky Shark replays mismatch 20 of 56 times (warbands 3% low; a Hyena's
+Lobster 8/4 simulated, 2/1 logged). Not a rule: TavernGym improves the Deathrattle's buff as the
+text says; the 8/4 Lobster was the random target of another Lobster's Deathrattle there (random
+targets and Gryphon's random Beasts differ per minion, the totals stay within 3%).
