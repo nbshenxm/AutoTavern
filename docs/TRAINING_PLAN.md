@@ -54,6 +54,9 @@ to their ends tonight; a winner joins the mainline's setup, a loser leaves the q
 
 ## Rules
 
+- The plan isn't fixed ahead of the evidence: the queue, the budgets and the setup change when a
+  result (or a finding about the simulator or the game) says so, with the reason written here at
+  that moment. What it rules out is changing course without one.
 - One mainline, one experiment at a time; no third run beside them.
 - No flag changed in a running run; a change is a new experiment.
 - A result is written in docs/EXPERIMENTS.md before the next step is chosen.
