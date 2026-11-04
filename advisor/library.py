@@ -16,7 +16,11 @@ import collections
 import json
 from pathlib import Path
 
-from advisor.state import GAME_CONFIG, add_minion, debug, recruit_game
+from advisor.state import GAME_CONFIG, add_minion, debug, power_state, recruit_game, set_side
+
+# The player fields a library board carries (config::LibraryPlayer): what the seat fights with
+# besides its warband
+PLAYER_FIELDS = ("hero", "powers", "trinkets", "stats", "effects", "counters", "levels")
 
 ROOT = Path(__file__).resolve().parents[1]
 COMBATS = ROOT / "data" / "replay" / "combats.jsonl"
@@ -83,23 +87,32 @@ def starts(decisions, combats):
 
 
 def build(combats):
-    """[{round, tier, minions, source}]: the warbands whose every minion TavernGym has."""
+    """[{round, tier, minions, player, source}]: the warbands whose every minion TavernGym has,
+    with their player as the combat showed them (hero, Hero Powers, trinkets, counters: the
+    combat replay's set_side; `player` holds PLAYER_FIELDS, what TavernGym lacks left out)."""
+    from advisor.bridge import set_counter
     g = recruit_game(1, GAME_CONFIG)
     out, skipped = [], collections.Counter()
     for c in combats:
         rnd = (c["turn"] + 1) // 2
         for side in ("friendly", "opponent"):
             s = c["start"][side]
-            debug(g, cmd="clear_zone", p=1, zone="board")
             gaps = []
-            for m in s["board"][:7]:
-                add_minion(g, 1, "board", m, gaps, side)
-            minions = json.loads(g.state_json())["players"][1]["board"]
-            if not s["board"] or gaps or len(minions) != len(s["board"][:7]):
+            set_side(g, 1, {**s, "hand": []}, gaps, side)
+            pl = json.loads(g.state_json())["players"][1]
+            minions = pl["board"]
+            missing = [x for x in gaps if "minion" in x or "unscripted" in x]
+            if not s["board"] or missing or len(minions) != len(s["board"][:7]):
                 skipped["empty" if not s["board"] else "missing card"] += 1
                 continue
+            power_state(pl["powers"], s.get("hero_powers", []))
+            for m, logged in zip(minions, s["board"]):
+                set_counter(m, logged)
+            if gaps:
+                skipped["player part missing (kept the rest)"] += 1
             who = "me" if side == "friendly" else f"p{s.get('player_id')}"
             out.append({"round": rnd, "tier": int(s["tier"] or 1), "minions": minions,
+                        "player": {k: pl.get(k) for k in PLAYER_FIELDS if pl.get(k) is not None},
                         "source": f"{c['log']}#{c['segment']} turn {c['turn']} {side}",
                         "track": f"{c['log']}#{c['segment']} {who}"})
     return out, skipped
@@ -291,7 +304,7 @@ def library(seats, path=BOARDS, strength=STRENGTH, curve=None, comps=False, floo
     ids = {t: i + 1 for i, t in enumerate(sorted({b["track"] for b in boards if b.get("track")}))}
     out = [{"round": b["round"], "tier": b["tier"], "track": ids.get(b.get("track"), 0),
             "minions": [m if b.get("synthetic") else _scaled(m, factors.get(b["round"], 1.0))
-                        for m in b["minions"]]}
+                        for m in b["minions"]], **({"player": b["player"]} if b.get("player") else {})}
            for b in boards]
     growth = [float(curve.get(r, 0.0)) for r in range(max(curve, default=0) + 1)] if curve else []
     return {"seats": list(seats), "boards": out, "growth": growth}

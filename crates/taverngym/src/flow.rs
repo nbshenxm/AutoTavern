@@ -909,6 +909,17 @@ impl Game {
             pl.board = minions.clone();
             pl.last_board = minions;
             pl.tier = b.tier.max(1);
+            if let Some(lp) = &b.player {
+                if lp.hero.is_some() {
+                    pl.hero = lp.hero;
+                }
+                pl.powers = lp.powers.clone();
+                pl.trinkets = lp.trinkets.clone();
+                pl.stats = lp.stats.clone();
+                pl.effects = lp.effects.clone();
+                pl.counters = lp.counters.clone();
+                pl.levels = lp.levels.clone();
+            }
         }
     }
 

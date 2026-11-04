@@ -272,6 +272,23 @@ pub struct LibraryBoard {
     pub minions: Vec<crate::state::Minion>,
     /// The real player it belongs to (one game's player, or one of its opponents); 0 = none.
     pub track: u32,
+    /// That player as the log showed them at the combat: hero, Hero Powers, trinkets and their
+    /// counters, "this game" counters. The seat takes them with the warband: without them the
+    /// library fought as bare warbands (no Start of Combat Hero Power, no combat trinket, no
+    /// Undead or Beetle bonus for what it summons). None: the warband alone (curated comps).
+    pub player: Option<LibraryPlayer>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibraryPlayer {
+    pub hero: Option<crate::cards::CardId>,
+    pub powers: Vec<crate::state::HeroPowerState>,
+    pub trinkets: Vec<crate::cards::CardId>,
+    pub stats: crate::state::PlayerStats,
+    pub effects: Vec<crate::state::PlayerEffect>,
+    pub counters: Vec<(crate::cards::CardId, i32)>,
+    pub levels: Vec<(crate::cards::CardId, i32)>,
 }
 
 /// A strategy for the scripted bots (`RulesConfig::teacher`, `teacher.rs`): card ids with the
