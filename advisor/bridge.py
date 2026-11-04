@@ -228,7 +228,7 @@ def build(d, combats=(), seed=7, earlier=()):
         set_deities(st, d["deity"], [(0, me)])
     refresh_effects(p0, me)
     if earlier:  # what the turn's earlier decisions did that the log no longer shows
-        armed, owed = turn_so_far(earlier, dict(taverngym.layout()))
+        armed, owed, cast = turn_so_far(earlier, dict(taverngym.layout()))
         if len(p0["board"]) == len(me["board"]):
             for m, logged in zip(p0["board"], me["board"]):
                 if armed.get(logged.get("eid")):
@@ -237,6 +237,10 @@ def build(d, combats=(), seed=7, earlier=()):
         scratch = 6 if len(seats(d)) >= 7 else 7
         for power, minions in owed:
             owe(g, st, 0, power, minions, scratch)
+        for card, n in cast.items():  # waiting for the next combat (one at a time for Upper Hand)
+            cid = CAT[card]["cid"]
+            p0["effects"] = [x for x in p0.setdefault("effects", []) if x.get("card") != cid]
+            p0["effects"].append({"card": cid, "stacks": 1 if card == "BG28_573" else n})
     # Maximum Gold above the round's (an effect that gave it for good): the next turns' Gold
     if me.get("max_gold") and me["max_gold"] > base_max:
         p0["max_gold_bonus"] = me["max_gold"] - base_max

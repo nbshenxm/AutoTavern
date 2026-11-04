@@ -27,18 +27,21 @@ def _name(c):
     return CAT.get(normal_form(c or "")[0], {}).get("name", c)
 
 
-def pairs(decisions):
-    """(last decision of a turn, first decision of the next turn) of the same game segment."""
+def pairs(decisions, with_earlier=False):
+    """(last decision of a turn, first decision of the next turn) of the same game segment;
+    `with_earlier`: also the turn's decisions before the last (what they did that the log no
+    longer shows: `bridge.build(earlier=)`)."""
     opts = [d for d in decisions if d["kind"] == "options" and d["turn"] % 2 == 1]
-    last, first = {}, {}
+    last, first, turns = {}, {}, collections.defaultdict(list)
     for d in opts:
         k = (d["log"], d["segment"], d["turn"])
         last[k] = d
         first.setdefault(k, d)
+        turns[k].append(d)
     for (log, seg, t), d in last.items():
         nxt = first.get((log, seg, t + 2))
         if nxt is not None:
-            yield d, nxt
+            yield (d, nxt, turns[(log, seg, t)][:-1]) if with_earlier else (d, nxt)
 
 
 def matched(before, real, sim):
@@ -58,13 +61,13 @@ def matched(before, real, sim):
     return rows
 
 
-def carry(d, nxt, combats, seed=7):
+def carry(d, nxt, combats, seed=7, earlier=()):
     """{round, real, sim, per-minion [(card, real stats, sim stats)]} or None (not rebuilt)."""
     met = [c for c in combats if c["log"] == d["log"] and c["player_id"] == d["player_id"]
            and c["turn"] == d["turn"] + 1]
     if not met:
         return None
-    g, gaps = bridge.build(d, bridge.game_combats(combats, d), seed=seed)
+    g, gaps = bridge.build(d, bridge.game_combats(combats, d), seed=seed, earlier=earlier)
     if gaps:
         return None
     opp = met[0]["start"]["opponent"]["board"]
@@ -112,7 +115,8 @@ def main():
     a = ap.parse_args()
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
-    out = [r for d, n in pairs(decisions) for k in range(a.seeds) if (r := carry(d, n, combats, seed=7 + k))]
+    out = [r for d, n, e in pairs(decisions, True) for k in range(a.seeds)
+           if (r := carry(d, n, combats, seed=7 + k, earlier=e))]
     by = collections.defaultdict(list)
     for r in out:
         by["rounds 1-6" if r["round"] <= 6 else "rounds 7-9" if r["round"] <= 9 else "rounds 10+"].append(r)

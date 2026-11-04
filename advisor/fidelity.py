@@ -156,8 +156,8 @@ def check_combat(combats, decisions, n=200):
 def check_carry(rows, combats, seeds=2):
     """Over combat and the turn change: the exact share and the growth ratio by round band."""
     from advisor import carry_test
-    out = [r for d, nx in carry_test.pairs(rows) for k in range(seeds)
-           if (r := carry_test.carry(d, nx, combats, seed=7 + k))]
+    out = [r for d, nx, e in carry_test.pairs(rows, True) for k in range(seeds)
+           if (r := carry_test.carry(d, nx, combats, seed=7 + k, earlier=e))]
     bands = {}
     for name, lo, hi in (("rounds 1-6", 1, 6), ("rounds 7-9", 7, 9), ("rounds 10+", 10, 99)):
         rs = [r for r in out if lo <= r["round"] <= hi]
