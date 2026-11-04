@@ -37,8 +37,15 @@ def setup(c, snap, seed, used=(), owed=()):
         set_side(g, p, snap[side], gaps, side)
     import taverngym
     st = json.loads(g.state_json())
+    from advisor.bridge import set_counter
     for p, side in enumerate(SIDES):
         power_state(st["players"][p]["powers"], snap[side].get("hero_powers", []))
+        # "Improve this" and other counters (a Lurking Leviathan at +15 fought at +3: the
+        # Reborn Gryphon it buffed came back 12/1 where the log had 36/5)
+        board = st["players"][p]["board"]
+        if len(board) == len(snap[side]["board"]):
+            for m, logged in zip(board, snap[side]["board"]):
+                set_counter(m, logged)
     set_deities(st, c.get("deity"), [(0, snap["friendly"]), (1, snap["opponent"])])
     arm_powers(st["players"][0]["powers"], snap["friendly"].get("hero_powers", []),
                lambda h: h.get("card") in used)

@@ -63,6 +63,21 @@ COUNTER_FROM_SHOWN = {
 }
 
 
+def set_counter(m, logged):
+    """Minion `m` (state JSON) gets the counter logged minion `m` shows in its script data
+    (COUNTER_FROM_DATA, COUNTER_FROM_SHOWN)."""
+    cid, golden = normal_form(logged["card"])
+    data = logged.get("data") or []
+    f = COUNTER_FROM_DATA.get(cid)
+    if f is not None and len(data) >= 2:
+        m["counter"] = max(0, f(data))
+    if cid in COUNTER_FROM_SHOWN and len(data) >= 2:
+        i, base = COUNTER_FROM_SHOWN[cid]
+        g = 2 if golden or logged.get("golden") else 1
+        if data[i] > 0:
+            m["counter"] = max(0, data[i] // base - g)
+
+
 FAELIN_POWER = "BG22_HERO_201p"  # Expedition Plans
 # The game's own trinket offers (the Lesser at round 6, the Greater at round 9): paid
 REGULAR_TRINKET_OFFERS = {"BG30_Trinket_1st", "BG30_Trinket_2nd"}
@@ -329,15 +344,7 @@ def build(d, combats=(), seed=7, earlier=()):
     # Per-minion counters the log shows in the card's script data
     if len(p0["board"]) == len(me["board"]):
         for m, logged in zip(p0["board"], me["board"]):
-            cid, golden = normal_form(logged["card"])
-            f = COUNTER_FROM_DATA.get(cid)
-            if f is not None and len(logged.get("data") or []) >= 2:
-                m["counter"] = max(0, f(logged["data"]))
-            if cid in COUNTER_FROM_SHOWN and len(logged.get("data") or []) >= 2:
-                i, base = COUNTER_FROM_SHOWN[cid]
-                g = 2 if golden or logged.get("golden") else 1
-                if logged["data"][i] > 0:
-                    m["counter"] = max(0, logged["data"][i] // base - g)
+            set_counter(m, logged)
             # The stats Blood Gems gave it (BG20_GEMe; BG20_GEMe2 repeats them): TavernGym keeps
             # them apart for what moves Gems (Gem Confiscation steals its neighbours'); rebuilt
             # as plain stats, there was nothing to steal (a Tunneler's 48/91: 0)
