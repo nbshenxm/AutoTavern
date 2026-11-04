@@ -13,6 +13,7 @@ simulator audit in [AUDIT.md](AUDIT.md).
 
 ## Next up
 
+- [ ] Your notes from tonight's games: (1) the Southsea Busker opening (buy round 1, hold, play round 2: Tier 2 in round 2 and Tier 3 in round 3 without selling): TavernGym plays the line right; an exam of what R3 does from such starts is running; (2) Roaring Recruiter's stats: the lineup showed it after a planned Prisonguard Activate (5/11, the board 2/8): the overlay now says when lineup stats are the plan's
 - [ ] From Nov 5: the training plan ([TRAINING_PLAN.md](TRAINING_PLAN.md)): the mainline from tonight's best verdict, the next experiment library seats with players; the champion ladder on the progress page
 - [ ] R5 tonight at 20:00: R3 unless a candidate passes the gate and the recheck; the simulator fixes and the exams ship either way
 - [ ] Late-game case study ([CASE_LATE_GAME.md](CASE_LATE_GAME.md)): the late gap is made in rounds 5-9, where R3's value head can't tell your turns from its own (55%); search on top of it finds nothing, so the network has to learn engines' worth
