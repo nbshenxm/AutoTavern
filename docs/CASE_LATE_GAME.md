@@ -71,3 +71,20 @@ habits are already close to yours.
   R3 puts on the engine minion against yours (the first diagnosis: is it the choice head, or does
   it not see the engine?).
 - Then one change at a time, judged by the engine exam and the gate.
+
+## The engine exam: R3's baseline (Nov 3, 37.0.2 build)
+
+`python -X utf8 -m advisor.engine_exam data/models/best.pt`: 62 of your round 9-13 turn starts x 2
+seeds, R3 greedy for the turn; its warband at End Turn against yours at that round's combat.
+
+| | You | R3 |
+| --- | --- | --- |
+| warband, one turn on | 1 | 0.76x (log -0.28 ± 0.04) |
+| the turn's gain onto the two biggest minions (funnel) | 41% | 35% |
+| End warband of the main type | 78% | 69% |
+| the two biggest minions still there | 71% | 82% (you sell them to triple or pivot) |
+
+By engine: Beasts (Headhunter Gryphon starts) 0.55x, Glambot 0.60x, Resourceful Robot 0.66x,
+Polarizing Beatboxer 0.72x; Ashen Corruptor 0.97x, Devilish Distractor 0.87x; Unbound Tempest 1.19x,
+Eternal Knight 1.26x. (Tarecgosa 1.02x: the Certificate works in combat, after the exam's End Turn.)
+A candidate is compared pair by pair (`--against data/models/best.pt`).
