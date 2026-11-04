@@ -274,6 +274,25 @@ fn sharing_is_caring_copies_the_facing_enemy_stats_at_start_of_combat() {
     );
 }
 
+/// Sharing is Caring with uneven boards: the boards are centred, so a lone minion faces the
+/// middle of three enemies, and one of two minions faces the second of four.
+#[test]
+fn sharing_is_caring_faces_the_centred_enemy_on_uneven_boards() {
+    for (ours, theirs, facing) in [(1usize, 3usize, 1usize), (2, 4, 1), (3, 2, 0)] {
+        let mut g = game(208);
+        g.cfg.record_log = true;
+        give(&mut g, 0, "BG31_889");
+        play_last(&mut g, 0);
+        set_board(&mut g, 0, &vec![VANILLA; ours]);
+        set_board(&mut g, 1, &vec![VANILLA; theirs]);
+        g.players[1].board[facing].atk = 6;
+        g.players[1].board[facing].hp = 8;
+        g.players[1].board[facing].max_hp = 8;
+        fight(&mut g);
+        assert_eq!(after_soc(&g, 0)[0], (9, 11), "{ours} vs {theirs}");
+    }
+}
+
 /// Hallowed Ritual: "Discover a Tier 7 minion."
 #[test]
 fn hallowed_ritual_discovers_a_tier_seven_minion() {

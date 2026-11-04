@@ -411,17 +411,26 @@ pub fn scripts() -> Vec<(&'static str, Script)> {
             target_spell(ANY, |c, _, t| c.give_kw(t, Kw::DIVINE_SHIELD)),
         ),
         // Sharing is Caring: Start of Combat: your left-most minion gains the stats of the
-        // nearest (left-most) enemy minion.
+        // nearest enemy minion: both boards are centred, so with d more enemy minions than
+        // yours it is the enemy at d/2, one of the two at random when d is odd, the left-most
+        // when they have no more (Bob's Buddy's "nearest", probed on every size up to 7).
         (
             "BG31_889",
             next_combat(|c, me| {
-                let foe = c.boards[1 - me.side]
+                let foes: Vec<(i32, i32)> = c.boards[1 - me.side]
                     .iter()
-                    .find(|m| m.alive())
-                    .map(|m| (m.atk, m.hp));
-                if let (Some(t), Some((a, h))) = (c.leftmost(me.side), foe) {
-                    c.buff(t, a, h);
+                    .filter(|m| m.alive())
+                    .map(|m| (m.atk, m.hp))
+                    .collect();
+                let ours = c.friendly(me.side).len();
+                let Some(t) = c.leftmost(me.side) else { return };
+                if foes.is_empty() {
+                    return;
                 }
+                let d = foes.len().saturating_sub(ours);
+                let i = if d % 2 == 1 && c.g.rng.coin() { d / 2 + 1 } else { d / 2 };
+                let (a, h) = foes[i.min(foes.len() - 1)];
+                c.buff(t, a, h);
             }),
         ),
         // Hallowed Ritual: Discover a Tier 7 minion.
