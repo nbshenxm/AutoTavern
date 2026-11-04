@@ -22,7 +22,7 @@ import taverngym
 
 from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, player_stats,
                            power_state, recruit_game,
-                           set_deities,
+                           set_deities, TURN_COUNTERS,
                            turn_so_far,
                            set_side)
 
@@ -321,6 +321,11 @@ def build(d, combats=(), seed=7, earlier=()):
         set_deities(st, d["deity"], [(0, me)])
     refresh_effects(p0, me)
     pending_spells(p0, me)
+    # This turn's play counters are what its earlier decisions played, none without them: a
+    # trinket given in the rebuild doesn't count (Pocket Cyclone's four Easterly Winds left 4
+    # spells and 4 Tavern spells cast this turn)
+    for k in TURN_COUNTERS:
+        p0["stats"][k] = 0
     if earlier:  # what the turn's earlier decisions did that the log no longer shows
         armed, owed, cast, played = turn_so_far(earlier, dict(taverngym.layout()))
         for k, n in played.items():
