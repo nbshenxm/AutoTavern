@@ -50,6 +50,7 @@ worth too much) whatever the network decides.
 | rebuild | Winner's Bread's "+4/+6 if you win" and Overconfidence's Gold (cast earlier in the turn) are TavernGym schedules the rebuild never made; the log keeps them as enchantments (`BG36_883e` on the minion, `BG28_884e` on the player: 115 decisions) | a won round 4: the logged Bronze Warden +4/+6, rebuilt +0 | scheduled from the enchantments: exact (Warden 18/18, Gold 14/14) |
 | rebuild | Warcry Totem's free Battlecry buys ("2 left!") rebuilt unused; Pilgrimp Sticker likewise (only Bazaar Sticker's last use was read) | 231 decisions with free buys the client had spent (a 0-Gold Shipwrecked Rascal and Lovesick Balladist the client refused) | uses spent from the logged count: the game's legality 648 -> 666 of 666 |
 | check | a hand card the client refuses at the minion cap had a second, legal option (an Oct 29 Bile Spitter, listed before the warband, never taken) that the legality check and the live advisor's allowed mask read as a play | 103 of the 104 "refused" plays | not a play: 435 of 435 |
+| check | what's left after the Nov 4 fixes, read case by case | single actions: Methodical Madness, Snarky Shark, Channel the Devourer (random targets); Blood Gems on Mechs with Glambots, Misplaced Tea Set, Spark Snapper (2/3 Satellite, now 2/2), Unbound Tempest (4, now 3), Enterprising Escapee (6 Gold, now 5): pre-patch games on 37.0.2 rules (your Nov 4 logs show the new numbers). Whole turns: Discovers and random summons, then what follows from them. Attack by attack: random recipients (Lobster's Beast: 13 triggers on the attacker where uniform gives 9.8; Offensive Sacrifice's minion). Carry rounds 1-6: Devout Hellcaller and Eternal Knight deaths in the fight, Volumizer Portrait's random Volumizer tripling | none found: legality 100.0% (5,144), carry 0.87x / 1.07x / 1.00x (3 seeds) |
 
 ## Results so far
 
@@ -135,5 +136,6 @@ what the text says, a log shows what the game does. Your games on 37.0.2 move ca
   Blood Gems too (every Gem play, a Gem-playing minion's included), and no Tavern-spell count. Rebuilt at 0 (a
   Pocket Cyclone owner 4, its pickup's casts). This turn's counters are read (the turn's earlier decisions)
 - Gem Confiscation on a Mech beside two Glambots, Balinda Stonehearth in play (Oct 31, 2 actions): +45/+45 where the
-  log has +39/+39 (one Gem or Satellite more); unknown
+  log has +39/+39. Likely 37.0.2: the same pre-patch turn's Blood Gems on Mechs give +2/+2 more each with two Glambots
+  (their Satellite was 4/4, now 5/5)
 - Not covered by your logs: two thirds of spells and trinkets, most heroes (advisor.coverage)
