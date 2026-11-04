@@ -182,3 +182,26 @@ type), stops levelling, and never gets the engine.
 Forcing your habits one by one makes R3 *worse*: its other choices aren't made for them (the Nov 1
 level test said the same of levelling alone). Your mid-game is a package aimed at an engine; what
 no probe moves is the engine itself (R3 holds it 30% of the time, you 93%).
+
+**Does R3 buy your engine when it's offered?** In your games, the card that carried the game was in
+the Tavern on 16 turns of rounds 5-11 and you bought it on 13 (81%). Three rounds on from your
+positions, it was in R3's Tavern on 15 turns and R3 bought it on 2 (13%; its probability of buying
+it right then: median 0.000).
+
+More probes (paired vs R3, three rounds on): take the engine whenever it's offered: 1.00x (it rarely
+is: R3 stays at Tier 4, the engines are mostly Tier 5-6), engine held 40%; your Tier curve + take the
+engine: 0.88x, 41%; + the type lock: 0.80x, 44%. Forced together, your habits still leave R3 worse
+off and short of the engine (you hold it 93% of the time).
+
+**Does R3 know your mid-game is better?** The value probe on your round 5-8 turns: it prefers your
+End Turn in **55%** of 67 (+0.015 ± 0.011, chance), 55% where your warband is clearly bigger. On your
+round 9-13 turns: 71%. In the mid-game the value head can't see what a committed type and engine
+pieces are worth until they pay off, late. So PPO gives the mid-game choices that build an engine
+no credit, the policy never learns them, forcing them doesn't follow through, and a search scored by
+this value head can't find them either.
+
+**What follows for the levers.** act1 (Activates) and late1 (your late turns) work where the value
+head already sees the difference; neither reaches the mid-game. The mid-game needs a signal the
+value head doesn't have: your mid-game turns as targets (option B for rounds 5-8, which also shows
+PPO games where an engine gets built, so the value head can learn what it's worth), or the value
+head trained on how your positions turned out.
