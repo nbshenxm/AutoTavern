@@ -76,8 +76,52 @@ def positions(decisions, combats):
     return out
 
 
+def turn_value(net, c, rng, max_steps=80):
+    """The value head at the End Turn of the rest of the turn on game copy `c`, the policy
+    sampled (temperature 1) through Refreshes and offers."""
+    for _ in range(max_steps):
+        v = json.loads(c.view(0))
+        if not c.needs_action(0) or v["phase"].lower() != "recruit":
+            break
+        probs, value = search._policy(net, c, 0)
+        a = int(rng.choice(len(probs), p=probs / probs.sum()))
+        if a == v["actions"]["END"] and not v["me"]["pending"]:
+            return value
+        c.step(0, a)
+    return search._policy(net, c, 0)[1]
+
+
+def lookahead_action(g, net, seed, top=4, reps=2):
+    """A full-turn lookahead: the policy's `top` actions and every legal Activate, each played
+    `reps` times to the turn's end on a fair copy (hidden cards re-dealt), the best by the mean
+    value there (End Turn: the value now)."""
+    v = json.loads(g.view(0))
+    probs, now = search._policy(net, g, 0)
+    legal = np.flatnonzero(probs > 0)
+    cands = list(legal[np.argsort(-probs[legal])][:top])
+    cands += [int(a) for a in legal if 23 <= a < 30 and a not in cands]  # Activates
+    if len(cands) == 1:
+        return int(cands[0])
+    rng = np.random.default_rng(seed)
+    best, best_v = None, -np.inf
+    for a in cands:
+        a = int(a)
+        if a == v["actions"]["END"] and not v["me"]["pending"]:
+            val = now
+        else:
+            vals = []
+            for r in range(reps):
+                c = search.fair_copy(g, 0, seed=seed * 7919 + a * 31 + r)
+                c.step(0, a)
+                vals.append(turn_value(net, c, rng))
+            val = float(np.mean(vals))
+        if val > best_v:
+            best, best_v = a, val
+    return best
+
+
 @torch.no_grad()
-def play_turn(net, d, combats, seed, search_k=0):
+def play_turn(net, d, combats, seed, search_k=0, look=None):
     """(start board, End-of-turn board) of the network's turn from decision `d` (view minions).
     `search_k` > 0: each step is the first of the plan search's best plan (advisor.search, the
     greedy plan and k sampled ones, re-planned at every decision as the live advisor does)."""
@@ -90,7 +134,9 @@ def play_turn(net, d, combats, seed, search_k=0):
         if not g.needs_action(0) or v["phase"].lower() != "recruit":
             return None
         a = None
-        if search_k:
+        if look:
+            a = lookahead_action(g, net, seed * 100_003 + step, *look)
+        elif search_k:
             plan, _, _ = search.best_plan(g, net, 0, None, search_k, seed=seed * 100_003 + step)
             a = plan[0] if plan else None
         if a is None:
@@ -102,14 +148,16 @@ def play_turn(net, d, combats, seed, search_k=0):
     return None
 
 
-def exam(net, pos, combats, seeds, search_k=0):
+def exam(net, pos, combats, seeds, search_k=0, look=None, types=None):
     rows = []
     for d, real_end in pos:
         real_start = d["state"]["friendly"]["board"]
+        if types and main_type(real_start, logged_races) not in types:
+            continue
         yours = measure(real_start, real_end, logged_races)
         real = sum(stats(m) for m in real_end)
         for s in seeds:
-            r = play_turn(net, d, combats, s, search_k)
+            r = play_turn(net, d, combats, s, search_k, look)
             if r is None or real <= 0:
                 continue
             start, end = r
@@ -144,6 +192,9 @@ def main():
     ap.add_argument("--out", help="the rows as JSON")
     ap.add_argument("--search", type=int, default=0, metavar="K",
                     help="the candidate (not --against) plays with the plan search over K plans")
+    ap.add_argument("--lookahead", type=int, nargs=2, metavar=("TOP", "REPS"),
+                    help="the candidate plays with the full-turn lookahead (lookahead_action)")
+    ap.add_argument("--types", nargs="+", help="only positions whose main type is one of these (BEAST MECHANICAL...)")
     a = ap.parse_args()
     torch.set_num_threads(4)
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
@@ -153,7 +204,9 @@ def main():
     res = {}
     for name, path in [("cand", a.checkpoint)] + ([("champ", a.against)] if a.against else []):
         net, _ = load(path, "cpu")
-        rows = exam(net.eval(), pos, combats, seeds, a.search if name == "cand" else 0)
+        cand = name == "cand"
+        rows = exam(net.eval(), pos, combats, seeds, a.search if cand else 0,
+                    a.lookahead if cand else None, a.types)
         res[name] = rows
         s = summary(rows)
         print(json.dumps({"net": path, **s}), flush=True)
