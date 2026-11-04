@@ -95,6 +95,7 @@ def wasted_gold(obs, i, a):
 _L = dict(layout())
 A_CANCEL = _L["A_CANCEL"]
 A_HERO_POWER, A_CHOOSE, N_CHOICE = _L["A_HERO_POWER"], _L["A_CHOOSE"], _L["N_CHOICE"]
+A_ACTIVATE, N_BOARD = _L["A_ACTIVATE"], _L["N_BOARD"]
 
 
 def action_mix(actions):
@@ -133,7 +134,7 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
     slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
     `starts` (RealStarts) replaces some of the games that begin anew. `explore` = (p_refresh,
-    p_upgrade): a legal Refresh or Upgrade is taken in place of the sampled action with that
+    p_upgrade[, p_hero_power[, p_activate]]): a legal Refresh or Upgrade is taken in place of the sampled action with that
     probability (the network almost never samples a Refresh, so it never learns what one finds);
     such a step is marked forced: its consequences are learned from, the step itself isn't."""
     opponent_of = opponent_of or {}
@@ -174,6 +175,14 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                 for which, p_x in pairs:
                     pick = (np.random.random(len(own)) < p_x) & m_own[:, which] & ~forced
                     a[pick], forced[pick] = which, True
+                if len(explore) > 3:
+                    # (a fourth: a legal Activate, the one of a random minion that has one. The
+                    # late-game case study: R3 activated Lurking Lionfish 0.6 times a turn where
+                    # you did 3.1, and forcing it grew its Beast warbands 18%)
+                    acts = m_own[:, A_ACTIVATE:A_ACTIVATE + N_BOARD]
+                    pick = (np.random.random(len(own)) < explore[3]) & acts.any(1) & ~forced
+                    for j in np.flatnonzero(pick):
+                        a[j], forced[j] = A_ACTIVATE + int(np.random.choice(np.flatnonzero(acts[j]))), True
             if random_hero > 0:
                 # A random hero instead of the network's pick: it never picked 48 of the 116
                 # (Captain Hooktusk among them), so their Hero Powers went unpractised. Forced:
@@ -742,8 +751,8 @@ def main():
                     help="a control: the network doesn't see observation version 4's numbers nor the "
                          "card table's text columns (policy.EntityNet blind_v4)")
     ap.add_argument("--explore", type=float, nargs="+", default=None, metavar="P",
-                    help="take a legal Refresh / Upgrade (/ Hero Power: a third value) with these "
-                         "probabilities (collect's explore)")
+                    help="take a legal Refresh / Upgrade (/ Hero Power: a third value / a minion's "
+                         "Activate: a fourth) with these probabilities (collect's explore)")
     ap.add_argument("--random-hero", type=float, default=0.0, metavar="P",
                     help="at the hero offer, a random hero with this probability (forced: not learned)")
     ap.add_argument("--explore-sil", type=float, default=0.0, metavar="COEF",

@@ -19,9 +19,12 @@ from advisor.policy import observe
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def rows(decisions, combats, L):
+def rows(decisions, combats, L, full=False):
     """[(features, cards, mask, action)] for every Options decision whose chosen action maps to a
-    TavernGym action legal in the rebuilt state (a turn's last decision: End Turn)."""
+    TavernGym action legal in the rebuilt state (a turn's last decision: End Turn). `full`: also
+    a minion's Activate and a move (advisor.value_probe.act_of; turn_replay leaves them out: the
+    Lionfish activations the late-game case study is about)."""
+    from advisor import value_probe
     out = []
     by_turn = {}
     for d in decisions:
@@ -32,7 +35,7 @@ def rows(decisions, combats, L):
             g, gaps = bridge.build(d, bridge.game_combats(combats, d))
             if gaps:
                 continue
-            act = turn_replay.action_of(d, L, g)
+            act = value_probe.act_of(d, g) if full else turn_replay.action_of(d, L, g)
             if act is not None:
                 a = act[0][0]
             elif k == len(ds) - 1 and not d.get("chosen"):
@@ -51,14 +54,22 @@ def main():
     ap.add_argument("--combats", default=str(ROOT / "data" / "replay" / "combats.jsonl"))
     ap.add_argument("--out", default=str(ROOT / "data" / "search" / "human"))
     ap.add_argument("--held-out", type=int, default=2, help="the last N games: evaluation only")
+    ap.add_argument("--better-than", metavar="PROBE_JSON",
+                    help="only the turns advisor.value_probe's rows (--out) rate above the network's "
+                         "own (value_you > value_net), with Activates and moves mapped too")
     a = ap.parse_args()
     L = dict(taverngym.layout())
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
+    if a.better_than:
+        keep_turns = {(r["log"], r["turn"]) for r in json.loads(Path(a.better_than).read_text(encoding="utf-8"))
+                      if r["value_you"] > r["value_net"]}
+        decisions = [d for d in decisions if (d["log"], d["turn"]) in keep_turns]
+        print(f"{len(keep_turns)} turns rated above the network's own, {len(decisions)} decisions")
     logs = sorted({d["log"] for d in decisions})
     held = set(logs[-a.held_out:]) if a.held_out else set()
     for name, keep in ((a.out, lambda d: d["log"] not in held), (a.out + "_eval", lambda d: d["log"] in held)):
-        r = rows([d for d in decisions if keep(d)], combats, L)
+        r = rows([d for d in decisions if keep(d)], combats, L, full=bool(a.better_than))
         out = Path(name)
         out.mkdir(parents=True, exist_ok=True)
         for old in out.glob("shard_*.npz"):
