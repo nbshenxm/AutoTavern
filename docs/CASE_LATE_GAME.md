@@ -88,3 +88,25 @@ By engine: Beasts (Headhunter Gryphon starts) 0.55x, Glambot 0.60x, Resourceful 
 Polarizing Beatboxer 0.72x; Ashen Corruptor 0.97x, Devilish Distractor 0.87x; Unbound Tempest 1.19x,
 Eternal Knight 1.26x. (Tarecgosa 1.02x: the Certificate works in combat, after the exam's End Turn.)
 A candidate is compared pair by pair (`--against data/models/best.pt`).
+
+## Where the engine's fuel goes (Beast and Mech warbands, rounds 9-13, 16 turns each, per turn)
+
+| | Beasts: you | Beasts: R3 | Mechs: you | Mechs: R3 |
+| --- | --- | --- | --- | --- |
+| Lurking Lionfish activations | **3.1** | **0.6** | | |
+| Beasts / Mechs played | 11.3 | 7.8 | 6.1 | 1.4 + 4.0 Magnetized |
+| spells on the main type | 0.8 | 2.3 | 2.4 | 2.1 |
+| buys / sells / Refreshes | 4.1 / 13.0 / 8.9 | 4.6 / 11.1 / 10.6 | 5.3 / 4.4 / 6.4 | 3.6 / 2.9 / 6.3 |
+
+(Your Magnetizations are counted as Mech plays here: the log shows them as plays onto a minion.)
+
+The Beast engine runs in the Recruit phase: Lionfish's Activate (2 Gold) puts a Fishbait in the
+Tavern for the left-most Beast to attack, which triggers its Rally (Gryphon: a random Beast;
+Hyena: a Lobster), and Deathstrider triggers the left-most Deathrattle on each (Lobster: buff and
+improve; twice with Titus); the Beasts Gryphon brings are sold for more activations. R3 runs it a
+fifth as often. The simulator plays Lionfish right (not among the one-action replay's mismatches,
+37.0.2 build): this is learning, not the rules. For Mechs the gap is less clear-cut than "fewer
+spells": R3 casts as many on Mechs and Magnetizes more, mostly onto minions other than the engine.
+
+Side finding: Snarky Shark replays mismatch 20 of 56 times (warbands 3% low; a Hyena's Lobster
+8/4 simulated, 2/1 logged): "improve your future Tasty Lobsters" may apply differently. To check.
