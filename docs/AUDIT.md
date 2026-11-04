@@ -122,5 +122,6 @@ what the text says, a log shows what the game does. Your games on 37.0.2 move ca
   Old Gods at Tier 6; Glambot on Tavern Mechs; Devilish Distractor and effect-cast spells; Deft
   Deserter's keyword per minion; powers gained mid-game starting improved (C'Thun, Kragg); Dead
   Bellringer onto another Bellringer ("a different friendly Undead": usually just "another")
+- Bob's Buddy, random warbands on the Nov 4 build (6,000 fights): mean |difference| 0.019. Leaning: golden Scarlet Survivor (z +5.6) and Dark Paradox (+4.9), both settled by your logs in TavernGym's favour; Crimson Vindicator (+4.7) gained Windfury in 37.0.2 and HDT's card data (HearthDb.dll, app 1.59.6, Oct 22) predates the patch: Bob's Buddy plays the old one. Until HDT updates, its verdicts on cards the patch changed are not evidence
 - Legality gaps (Nov 4, 5,144 decisions, 97.6% identical): 103 of the 104 plays the client allowed and TavernGym refused are one Bile Spitter in one game (Oct 29), offered on a full board (something on that copy; unknown); 16 of the 19 buys TavernGym allowed are one 0-cost Shipwrecked Rascal (Oct 30) the client never offered as a target. Single cards in single games: noted, not guessed at
 - Not covered by your logs: two thirds of spells and trinkets, most heroes (advisor.coverage)
