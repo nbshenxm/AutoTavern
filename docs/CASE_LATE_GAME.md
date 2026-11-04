@@ -205,3 +205,31 @@ head already sees the difference; neither reaches the mid-game. The mid-game nee
 value head doesn't have: your mid-game turns as targets (option B for rounds 5-8, which also shows
 PPO games where an engine gets built, so the value head can learn what it's worth), or the value
 head trained on how your positions turned out.
+
+## The root cause: R3's own training games (Nov 4)
+
+256 of R3's training games (`--solo`: seat 0 alone against library seats 1-7 that follow real
+players' warbands scaled to the top-1% curve, skipping recruit), greedy. Library warbands as they
+fight (they are set at combat: a first measurement at End Turn read the round before and wrongly
+showed them weak early):
+
+| Round | R3 | Its Tier | Its health | Library seats (top-1% curve) | Your real opponents |
+| --- | --- | --- | --- | --- | --- |
+| 5 | 86 | 1.7 | 44 | 58 | 52 |
+| 7 | 190 | 2.1 | 44 | 171 | 137 |
+| 8 | 266 | 2.4 | 42 | 355 | 234 |
+| 9 | 422 | 2.6 | 35 | 808 | 380 |
+| 10 | 580 | 2.7 | 27 | 2,020 | 1,708 |
+| 11 | 761 | 2.9 | 17 | 3,816 | 1,651 |
+
+Mean place 5.08; it dies at rounds 10-13 (1st place's last round 15.5, 8th's 9.6).
+
+R3 keeps pace with the top-1% curve to round 7 **at Tier 2** (tempo), then falls behind fast. In
+this lobby the late game is out of any simulated player's reach (Nov 1: the teacher bot did *better*
+levelling slower, -0.16; faster +0.39), so the best plan the network can find is tempo, to die later.
+It never reaches Tier 5-6, rarely sees the engines, never experiences what they pay, and its value
+head stays blind to the mid-game (55%); with no value for engines, PPO never moves toward them. A
+loop: strength tweaks to the lobby alone (big3ad, big3open) didn't break it, because the network
+lacks the skill that would make levelling pay. Something has to put engine-building games in front
+of it: mid1 (your round 5-8 turns as targets), whose own training games then build engines so the
+value head can learn what they're worth.
