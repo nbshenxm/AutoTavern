@@ -118,7 +118,7 @@ def run_chunk(job):
     stats = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
     for k in range(first, first + n):
         play(net, seed * 100_000 + k, rng, stats)
-    return {s: {kind: dict(v) for kind, v in kinds.items()} for s, kinds in stats.items() if s}
+    return first, {s: {kind: dict(v) for kind, v in kinds.items()} for s, kinds in stats.items() if s}
 
 
 def report(stats):
@@ -147,6 +147,7 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "data" / "progress" / "effect_audit.json"))
     ap.add_argument("--report", help="only print the report of a saved run (or several, merged: comma-separated)")
     ap.add_argument("--workers", type=int, default=1, help="processes (the cluster's CPUs)")
+    ap.add_argument("--chunk", type=int, default=4, help="games a chunk (the unit saved and resumed)")
     a = ap.parse_args()
     stats = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
     if a.report:
@@ -156,20 +157,40 @@ def main():
                     for d, c in deltas.items():
                         stats[src][kind][tuple(json.loads(d))] += c
     else:
+        # Small chunks, the totals saved after each one (a cluster job's hour can end mid-run):
+        # a rerun with the same --out and --seed skips the chunks already in it.
         import multiprocessing as mp
-        per = max(1, a.games // max(1, a.workers))
-        jobs = [(a.checkpoint, a.seed, k, min(per, a.games - k)) for k in range(0, a.games, per)]
+        out = Path(a.out)
+        done_chunks = set()
+        if out.exists():
+            saved = json.loads(out.read_text(encoding="utf-8"))
+            if saved.get("seed") == a.seed and saved.get("chunk") == a.chunk:
+                done_chunks = set(saved.get("done", []))
+                for src, kinds in saved["stats"].items():
+                    for kind, deltas in kinds.items():
+                        for d, c in deltas.items():
+                            stats[src][kind][tuple(json.loads(d))] += c
+        jobs = [(a.checkpoint, a.seed, k, min(a.chunk, a.games - k)) for k in range(0, a.games, a.chunk)
+                if k not in done_chunks]
+        print(f"{len(done_chunks)} chunks already saved, {len(jobs)} to play", flush=True)
+
+        def save():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_suffix(".part")
+            tmp.write_text(json.dumps({"games": a.chunk * len(done_chunks), "seed": a.seed, "chunk": a.chunk,
+                                       "done": sorted(done_chunks), "stats": {
+                s: {k: {json.dumps(list(d)): c for d, c in v.items()} for k, v in kinds.items()}
+                for s, kinds in stats.items() if s}}), encoding="utf-8")
+            tmp.replace(out)
         with mp.get_context("spawn").Pool(max(1, a.workers)) as pool:
-            for done, part in enumerate(pool.imap_unordered(run_chunk, jobs), 1):
+            for first, part in pool.imap_unordered(run_chunk, jobs):
                 for src, kinds in part.items():
                     for kind, deltas in kinds.items():
                         for d, c in deltas.items():
-                            stats[src][kind][d] += c
-                print(f"{done} of {len(jobs)} chunks, {len(stats)} cards seen changing stats", flush=True)
-        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.out).write_text(json.dumps({"games": a.games, "stats": {
-            s: {k: {json.dumps(list(d)): c for d, c in v.items()} for k, v in kinds.items()}
-            for s, kinds in stats.items() if s}}), encoding="utf-8")
+                            stats[src][kind][tuple(d) if isinstance(d, list) else d] += c
+                done_chunks.add(first)
+                save()
+                print(f"{len(done_chunks)} chunks, {len(stats)} cards seen changing stats", flush=True)
     rows = report(stats)
     fired = {r["card"] for r in rows} | set(stats)
     pool = [k for k, c in CAT.items() if c.get("in_pool") and not c.get("normal_id") and text_pairs(k)
