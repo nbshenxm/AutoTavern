@@ -57,7 +57,9 @@ def combat_trinkets():
 
 # Hero Powers that act in combat by themselves (passive: no activation, no choice)
 COMBAT_POWERS = ("BG20_HERO_282p", "BG22_HERO_002p", "BG22_HERO_003p", "BG22_HERO_305p", "BG23_HERO_201p",
-                 "TB_BaconShop_HP_037a", "TB_BaconShop_HP_061", "TB_BaconShop_HP_069", "TB_BaconShop_HP_086")
+                 "TB_BaconShop_HP_037a", "TB_BaconShop_HP_061", "TB_BaconShop_HP_069", "TB_BaconShop_HP_086",
+                 # (Nov 4: the other two passive ones of pool heroes: Glory of Combat, summoned +1/+2 Taunt)
+                 "BG20_HERO_100p", "TB_BaconShop_HP_107")
 
 
 # A Hero Power's script data in the client (your logs): Wax Warband's buff size (1 fresh: its
