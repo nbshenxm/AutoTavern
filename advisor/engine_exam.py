@@ -134,6 +134,34 @@ def forced(v):
     return None
 
 
+# `--funnel`: a probe: a friendly target or a Magnetization the network picks goes to the biggest
+# minion of the warband's main type instead (its engine, as you funnel buffs into it)
+FUNNEL = [False]
+
+
+def funnel(v, a):
+    me = v["me"]
+    board = me["board"]
+    t = main_type(board, lambda m: m.get("races") or [])
+    engine = [m for m in board if t in (m.get("races") or []) or "ALL" in (m.get("races") or [])]
+    if not engine:
+        return a
+    big = max(engine, key=stats)
+    p = me["pending"]
+    if isinstance(p, dict) and p.get("kind") == "target" and 30 <= a < 46:
+        opts = p.get("targets") or []
+        friendly = {m["eid"] for m in board}
+        if opts[a - 30] in friendly and big["eid"] in opts:
+            return 30 + opts.index(big["eid"])
+    if 126 <= a < 196:
+        h, b = divmod(a - 126, 7)
+        i = next(i for i, m in enumerate(board) if m["eid"] == big["eid"])
+        alt = 126 + h * 7 + i
+        if "MECHANICAL" in (big.get("races") or []) and v["mask"][alt]:
+            return alt
+    return a
+
+
 @torch.no_grad()
 def play_turn(net, d, combats, seed, search_k=0, look=None):
     """(start board, End-of-turn board) of the network's turn from decision `d` (view minions).
@@ -158,6 +186,8 @@ def play_turn(net, d, combats, seed, search_k=0, look=None):
         if a is None:
             probs, _ = search._policy(net, g, 0)
             a = int(np.argmax(probs))
+            if FUNNEL[0]:
+                a = funnel(v, a)
         if a == v["actions"]["END"] and not v["me"]["pending"]:
             return start, v["me"]["board"]
         g.step(0, a)
@@ -212,6 +242,7 @@ def main():
                     help="the candidate plays with the full-turn lookahead (lookahead_action)")
     ap.add_argument("--types", nargs="+", help="only positions whose main type is one of these (BEAST MECHANICAL...)")
     ap.add_argument("--force", nargs="+", default=[], help="a probe: the candidate Activates these minions whenever it can")
+    ap.add_argument("--funnel", action="store_true", help="a probe: the candidate's friendly targets and Magnetizations go to its engine")
     a = ap.parse_args()
     torch.set_num_threads(4)
     decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
@@ -224,6 +255,7 @@ def main():
         cand = name == "cand"
         FORCE.clear()
         FORCE.update(a.force if cand else [])
+        FUNNEL[0] = a.funnel and cand
         rows = exam(net.eval(), pos, combats, seeds, a.search if cand else 0,
                     a.lookahead if cand else None, a.types)
         res[name] = rows
