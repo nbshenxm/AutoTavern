@@ -96,7 +96,7 @@ fn upgrade_script(family: Option<char>) -> Script {
                 // One cannon, its damage the Yamato upgrades' sum (the client keeps them as one
                 // enchantment holding the total: 6, 27, 87 in your logs): it fires once a combat,
                 // from whichever attached Yamato comes first.
-                if c.add_combat_data(me.side, cid("BG31_HERO_801ptce"), 1) != 1 {
+                if c.add_combat_data(me.side, cid("BG31_HERO_801ptc"), 1) != 1 {
                     return;
                 }
                 let yamato: Vec<CardId> = c.minion(me.eid).map_or(vec![], |m| {
