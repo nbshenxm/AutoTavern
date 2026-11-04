@@ -24,7 +24,7 @@ import torch
 import taverngym
 from advisor import search
 from advisor.policy import load
-from advisor.state import CAT, GAME_CONFIG
+from advisor.state import CAT, GAME_CONFIG, debug
 
 ROOT = Path(__file__).resolve().parents[1]
 L = dict(taverngym.layout())
@@ -47,18 +47,21 @@ def text_pairs(card):
         out |= {(int(a), int(b)) for a, b in re.findall(r"\+(\d+)/\+(\d+)", t)}
         out |= {(int(a), 0) for a in re.findall(r"\+(\d+) Attack", t)}
         out |= {(0, int(b)) for b in re.findall(r"\+(\d+) Health", t)}
-    return out
+    return {x for x in out if x != (0, 0)}
 
 
-def matches(delta, pairs):
-    """A change is the text's when it is a whole multiple of one of its amounts."""
+def matches(delta, pairs, extra=(0, 0)):
+    """A change is the text's when it is a whole multiple of one of its amounts, each part raised
+    by at most `extra` (a Tavern spell: the player's Tavern-spell bonus when it was counted)."""
     a, h = delta
     for x, y in pairs:
-        for k in range(1, 400):
-            if (x * k, y * k) == (a, h):
-                return True
-            if x * k > abs(a) and y * k > abs(h):
-                break
+        for ea in range(extra[0] + 1):
+            for eh in range(extra[1] + 1):
+                for k in range(1, 400):
+                    if ((x + ea) * k, (y + eh) * k) == (a, h):
+                        return True
+                    if (x + ea) * k > abs(a) and (y + eh) * k > abs(h):
+                        break
     return False
 
 
@@ -85,6 +88,7 @@ def play(net, seed, rng, stats):
                 a = int(rng.choice(len(probs), p=probs / probs.sum()))
             if v["phase"].lower() == "recruit" and not p and a == v["actions"]["END"]:
                 pl = json.loads(g.state_json())["players"][seat]
+                ea, eh = debug(g, cmd="spell_extra", p=seat)
                 for zone in ("board", "hand"):
                     for x in pl.get(zone, []):
                         m = x["item"].get("Minion") if zone == "hand" else x
@@ -95,11 +99,26 @@ def play(net, seed, rng, stats):
                                 continue
                             seen.add((m["eid"], i))
                             src = card_of(mod["src"])
-                            stats[src][mod["kind"]][(mod["atk"], mod["hp"])] += 1
+                            spell = (CAT.get(src) or {}).get("kind") == "tavern_spell"
+                            key = (mod["atk"], mod["hp"]) + ((min(ea, 20), min(eh, 20)) if spell else (0, 0))
+                            stats[src][mod["kind"]][key] += 1
             g.step(seat, a)
             stepped = True
         if not stepped:
             break
+
+
+def run_chunk(job):
+    """Games `first` .. `first + n - 1` in one process: their stats as plain dicts."""
+    checkpoint, seed, first, n = job
+    torch.set_num_threads(1)
+    net, _ = load(checkpoint, "cpu")
+    net.eval()
+    rng = np.random.default_rng(seed * 1_000 + first)
+    stats = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
+    for k in range(first, first + n):
+        play(net, seed * 100_000 + k, rng, stats)
+    return {s: {kind: dict(v) for kind, v in kinds.items()} for s, kinds in stats.items() if s}
 
 
 def report(stats):
@@ -112,10 +131,10 @@ def report(stats):
         pairs = text_pairs(src)
         if not n or not pairs:
             continue
-        off = sum(c for d, c in adds.items() if not matches(d, pairs))
+        off = sum(c for d, c in adds.items() if not matches(d[:2], pairs, d[2:4] if len(d) > 2 else (0, 0)))
         rows.append({"card": src, "name": CAT[src]["name"], "kind": CAT[src]["kind"], "n": n,
                      "off_text": round(off / n, 3), "text": sorted(pairs),
-                     "top": [[list(d), c] for d, c in adds.most_common(5)]})
+                     "top": [[list(d[:2]), c] for d, c in adds.most_common(5)]})
     rows.sort(key=lambda r: -r["off_text"] * min(r["n"], 50))
     return rows
 
@@ -127,6 +146,7 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out", default=str(ROOT / "data" / "progress" / "effect_audit.json"))
     ap.add_argument("--report", help="only print the report of a saved run (or several, merged: comma-separated)")
+    ap.add_argument("--workers", type=int, default=1, help="processes (the cluster's CPUs)")
     a = ap.parse_args()
     stats = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
     if a.report:
@@ -136,14 +156,16 @@ def main():
                     for d, c in deltas.items():
                         stats[src][kind][tuple(json.loads(d))] += c
     else:
-        torch.set_num_threads(1)
-        net, _ = load(a.checkpoint, "cpu")
-        net.eval()
-        rng = np.random.default_rng(a.seed)
-        for k in range(a.games):
-            play(net, a.seed * 100_000 + k, rng, stats)
-            if (k + 1) % 10 == 0:
-                print(f"{k + 1} games, {len(stats)} cards seen changing stats", flush=True)
+        import multiprocessing as mp
+        per = max(1, a.games // max(1, a.workers))
+        jobs = [(a.checkpoint, a.seed, k, min(per, a.games - k)) for k in range(0, a.games, per)]
+        with mp.get_context("spawn").Pool(max(1, a.workers)) as pool:
+            for done, part in enumerate(pool.imap_unordered(run_chunk, jobs), 1):
+                for src, kinds in part.items():
+                    for kind, deltas in kinds.items():
+                        for d, c in deltas.items():
+                            stats[src][kind][d] += c
+                print(f"{done} of {len(jobs)} chunks, {len(stats)} cards seen changing stats", flush=True)
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(json.dumps({"games": a.games, "stats": {
             s: {k: {json.dumps(list(d)): c for d, c in v.items()} for k, v in kinds.items()}
