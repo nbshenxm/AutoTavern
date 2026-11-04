@@ -133,6 +133,11 @@ what the text says, a log shows what the game does. Your games on 37.0.2 move ca
 - Cards in action (advisor.effect_audit, 480 full games so far, every seat the network, random heroes and trinkets): 221 cards changed stats. Every card flagged off its text is explained: improvements (Conviction, Baby Elekk, Conflagration with a Tavern-spell bonus), Czarina Portrait's Health, Stone Age Slab's +20/+20 then double, Incubation's doubling, Rat in a Cage's +2 then double. Of the pool cards with stat text, 63 never changed a minion's stats: by design for combat-only effects, "this game" auras, Tavern-spell bonuses and the Deity's buffs (the audit reads Recruit-phase minions); rare in these games for Mysterious K'Thir, Tichondrius and Ophidian Staff (unit-tested)
 - Bob's Buddy, random warbands on the Nov 4 build (6,000 fights): mean |difference| 0.019. Leaning: golden Scarlet Survivor (z +5.6) and Dark Paradox (+4.9), both settled by your logs in TavernGym's favour; Crimson Vindicator (+4.7) gained Windfury in 37.0.2 and HDT's card data (HearthDb.dll, app 1.59.6, Oct 22) predates the patch: Bob's Buddy plays the old one. Until HDT updates, its verdicts on cards the patch changed are not evidence
 - Legality gaps (Nov 4): both explained and fixed (Warcry Totem's spent free buys; a second client option on a capped Bile Spitter), see above
+- Combat calibration on the Nov 4 build (advisor.replay, 207 fights on client 255790): you win 114 where TavernGym
+  predicts 105.6 from Start of Combat (+2.7 SD), 109.3 from the first attack (+1.5 SD; rounds 11+: +0.1). Ties 13
+  where 18 are predicted. The least likely results replay attack by attack exactly with the logged targets (the
+  luck was in the targets: a 1% fight, a 4% one); the likely ties you won are coin flips (a Flittering Bat's 1/1s).
+  No card stands out; the excess is spread over rounds 1-10
 - The game's spell totals: TavernGym keeps spells cast and Tavern spells cast this game apart (Dark Gifts that grow
   with Tavern spells, BG36_318, the network's input); the log's player has NUM_SPELLS_PLAYED_THIS_GAME, which counts
   Blood Gems too (every Gem play, a Gem-playing minion's included), and no Tavern-spell count. Read from a Faceless Converter
