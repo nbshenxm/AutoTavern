@@ -14123,3 +14123,30 @@ fn a_sacrifice_triggered_while_its_host_lives_buffs_another_minion() {
         assert!(atk(o) > 1, "seed {seed}: the other minion got nothing");
     }
 }
+
+#[test]
+fn library_seats_fight_with_their_player() {
+    // A library board carries its player (hero, Hero Powers, trinkets, counters as the combat
+    // showed them): the seat takes them with the warband at combat.
+    let mut g = game(4712);
+    let m = minion(&mut g, 1, "BG35_602");
+    let board = taverngym::config::LibraryBoard {
+        round: g.turn,
+        tier: 3,
+        minions: vec![m],
+        track: 0,
+        player: Some(taverngym::config::LibraryPlayer {
+            trinkets: vec![cid("BG30_MagicItem_962")], // Training Certificate
+            ..Default::default()
+        }),
+    };
+    g.cfg.library = Some(taverngym::config::Library {
+        seats: vec![1],
+        skip_recruit: false,
+        boards: std::sync::Arc::new(vec![board]),
+        growth: vec![],
+    });
+    g.combat_round();
+    assert!(g.players[1].trinkets.contains(&cid("BG30_MagicItem_962")));
+    assert_eq!(g.players[1].last_board.len(), 1);
+}
