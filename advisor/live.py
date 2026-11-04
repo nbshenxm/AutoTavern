@@ -31,7 +31,11 @@ from advisor import bridge, genre_hint, decisions, display, logs, meta
 from advisor.state import CAT, debug
 
 HS_LOGS = Path(r"D:\Program Files (x86)\Hearthstone\Logs")
-CARDS = Path(r"D:\GitHub\Hearthstone_AI_Advisor\data\cards\255790")
+# The client's card data (CardDefs.xml, enUS/zhCN) of the live build: 37.0.2 (256589) since Nov 4,
+# downloaded from HearthstoneJSON into data/client; the 37.0 copy where that isn't there
+CARDS = next((d for d in (Path(__file__).resolve().parents[1] / "data" / "client" / "256589",
+                          Path(r"D:\GitHub\Hearthstone_AI_Advisor\data\cards\255790"))
+              if (d / "CardDefs.xml").is_file()), Path(r"D:\GitHub\Hearthstone_AI_Advisor\data\cards\255790"))
 LIVE_DIR = Path(os.environ.get("LOCALAPPDATA", ".")) / "TavernAdvisor"
 MODEL = Path(__file__).resolve().parents[1] / "data" / "models" / "best.pt"
 CREATE_GAME = "GameState.DebugPrintPower() - CREATE_GAME"
