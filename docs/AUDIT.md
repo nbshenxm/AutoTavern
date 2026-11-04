@@ -122,4 +122,5 @@ what the text says, a log shows what the game does. Your games on 37.0.2 move ca
   Old Gods at Tier 6; Glambot on Tavern Mechs; Devilish Distractor and effect-cast spells; Deft
   Deserter's keyword per minion; powers gained mid-game starting improved (C'Thun, Kragg); Dead
   Bellringer onto another Bellringer ("a different friendly Undead": usually just "another")
+- Legality gaps (Nov 4, 5,144 decisions, 97.6% identical): 103 of the 104 plays the client allowed and TavernGym refused are one Bile Spitter in one game (Oct 29), offered on a full board (something on that copy; unknown); 16 of the 19 buys TavernGym allowed are one 0-cost Shipwrecked Rascal (Oct 30) the client never offered as a target. Single cards in single games: noted, not guessed at
 - Not covered by your logs: two thirds of spells and trinkets, most heroes (advisor.coverage)
