@@ -43,17 +43,24 @@ def played(decisions):
 
 
 def status(c):
-    rec, car, bb = c.get("recruit"), c.get("carry"), c.get("bb")
+    rec, car, bb, games = c.get("recruit"), c.get("carry"), c.get("bb"), c.get("games")
     bad = []
-    if rec and rec["replays"] >= 3 and rec["mismatching"] / rec["replays"] > 0.3:
+    # Per-minion exactness alone isn't a fault (random targets, a stat off by one): the totals
+    # must disagree too
+    if rec and rec["replays"] >= 3 and rec["mismatching"] / rec["replays"] > 0.3             and abs(rec["real"] - rec["sim"]) > max(20, 0.02 * abs(rec["real"])):
         bad.append("recruit")
     if car and car["n"] >= 3 and abs(car["real"] - car["sim"]) > max(20, 0.15 * abs(car["real"])):
         bad.append("carry")
     if bb and bb["n"] >= 20 and abs(bb["z"]) >= 3:
         bad.append("bb")
+    # advisor.trinket_audit: the simulator in your games with the trinket (combats and turns)
+    if games and games["n"] >= 5 and games["rate"] < 0.75:
+        bad.append("games")
+    if bad and c.get("patched"):
+        return "changed in 37.0.2: " + ", ".join(bad) + " (your logs predate it)"
     if bad:
         return "suspect: " + ", ".join(bad)
-    if (rec and rec["replays"] >= 3) or (car and car["n"] >= 3) or (bb and bb["n"] >= 20):
+    if (rec and rec["replays"] >= 3) or (car and car["n"] >= 3) or (bb and bb["n"] >= 20)             or (games and games["n"] >= 5):
         return "checked"
     return "unchecked"
 
@@ -63,11 +70,16 @@ def main():
     decisions = [json.loads(l) for l in open(dec_path, encoding="utf-8")] if dec_path.exists() else []
     plays = played(decisions)
     recruit, carry, bb = _load("recruit_cards.json"), _load("carry_cards.json"), _load("bb_cards.json")
+    trinket_games = _load("trinket_audit.json").get("trinkets", {})
+    patch = ROOT / "tools" / "overlays" / "37.0.2.json"
+    patched = set(json.loads(patch.read_text(encoding="utf-8"))["cards"]) if patch.exists() else set()
     out = {}
+    # The current pool: minions, Tavern spells and trinkets the game deals, the pool heroes' powers
+    powers = {c.get("hero_power_id") for c in CAT.values() if c.get("kind") == "hero" and c.get("in_pool")}
     for k, c in CAT.items():
         if c.get("kind") not in KINDS or c.get("normal_id"):
             continue
-        if c["kind"] == "minion" and not c.get("in_pool"):
+        if not (c.get("in_pool") or (c["kind"] == "hero_power" and k in powers)):
             continue
         row = {"name": c.get("name"), "kind": c["kind"], "tier": c.get("tier"), "played": plays.get(k, 0)}
         if k in recruit:
@@ -76,18 +88,26 @@ def main():
             row["carry"] = {"n": round(carry[k]["n"], 1), "real": round(carry[k]["real"]), "sim": round(carry[k]["sim"])}
         if k in bb:
             row["bb"] = bb[k]
+        if k in trinket_games:
+            t = trinket_games[k]
+            parts = [t[f] for f in ("combats", "turns") if t.get(f) and t[f][0] is not None]
+            n = sum(x[1] for x in parts)
+            hit = sum(x[0] * x[1] for x in parts)
+            row["games"] = {"n": n, "rate": round(hit / n, 3) if n else None}
+        if k in patched:
+            row["patched"] = True
         row["status"] = status(row)
         out[k] = row
     (PROGRESS / "coverage.json").write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     by = collections.defaultdict(collections.Counter)
     for r in out.values():
         by[r["kind"]][r["status"].split(":")[0]] += 1
-    print("kind: checked / suspect / unchecked")
+    print("kind: checked / suspect / changed in 37.0.2 / unchecked")
     for kind in KINDS:
         b = by[kind]
-        print(f"  {kind:16s} {b['checked']:4d} {b['suspect']:4d} {b['unchecked']:4d}")
+        print(f"  {kind:16s} {b['checked']:4d} {b['suspect']:4d} {b['changed in 37.0.2']:4d} {b['unchecked']:4d}")
     for k, r in sorted(out.items(), key=lambda kv: kv[1]["status"]):
-        if r["status"].startswith("suspect"):
+        if r["status"].startswith(("suspect", "changed")):
             print(f"  suspect {r['name']:28s} {k:18s} {r['status']}")
 
 

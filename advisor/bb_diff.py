@@ -155,6 +155,26 @@ def main():
     report(list(done.values()), a.n)
 
 
+def card_stats(ok):
+    """[(z, mean, n, card)]: per card, TavernGym's (win - loss) minus Bob's Buddy's, signed toward
+    the side that has it, over the fights it's in (8+), the largest |z| first."""
+    cards = collections.defaultdict(list)
+    for r in ok:
+        x = (r["tg"][0] - r["tg"][2]) - (r["bb"][0] - r["bb"][2])
+        for sign, side in ((1, "player"), (-1, "opponent")):
+            for c in ({m["card"] for m in r["fight"][side]["minions"]} | set(r["fight"][side].get("trinkets", []))
+                      | {h["card"] for h in r["fight"][side].get("hero_powers", [])}):
+                cards[c].append(sign * x)
+    out = []
+    for c, xs in cards.items():
+        if len(xs) < 8:
+            continue
+        mean = sum(xs) / len(xs)
+        sd = math.sqrt(sum((x - mean) ** 2 for x in xs) / (len(xs) - 1))
+        out.append((mean / (sd / math.sqrt(len(xs)) + 1e-9), mean, len(xs), c))
+    return sorted(out, key=lambda t: -abs(t[0]))
+
+
 def report(rows, n):
     ok = [r for r in rows if not r["error"] and None not in r["bb"] and None not in r["tg"]]
     print(f"{len(ok)} fights compared ({len(rows) - len(ok)} with an error)")
@@ -162,24 +182,15 @@ def report(rows, n):
     d = [(r["tg"][0] - r["tg"][2]) - (r["bb"][0] - r["bb"][2]) for r in ok]
     print(f"mean difference in (win - loss): {sum(d) / len(d):+.3f}; mean |difference| {sum(map(abs, d)) / len(d):.3f}; "
           f"fights differing by > 0.3: {sum(abs(x) > 0.3 for x in d)}")
-    # Per card: the difference signed toward the side that has it
-    cards = collections.defaultdict(list)
-    for r, x in zip(ok, d):
-        for sign, side in ((1, "player"), (-1, "opponent")):
-            for c in ({m["card"] for m in r["fight"][side]["minions"]} | set(r["fight"][side].get("trinkets", []))
-                      | {h["card"] for h in r["fight"][side].get("hero_powers", [])}):
-                cards[c].append(sign * x)
-    rows_ = []
-    for c, xs in cards.items():
-        if len(xs) < 8:
-            continue
-        mean = sum(xs) / len(xs)
-        sd = math.sqrt(sum((x - mean) ** 2 for x in xs) / (len(xs) - 1))
-        rows_.append((mean / (sd / math.sqrt(len(xs)) + 1e-9), mean, len(xs), c))
-    rows_.sort(key=lambda t: -abs(t[0]))
+    rows_ = card_stats(ok)
+    # Every run's fights per card (advisor.coverage reads it): this run's file and the others'
+    every = []
+    for f in sorted((ROOT / "data" / "progress").glob("bb_diff*.jsonl")):
+        every += [json.loads(l) for l in open(f, encoding="utf-8")]
+    every = [r for r in every if not r.get("error") and None not in r["bb"] and None not in r["tg"]]
     Path(ROOT / "data" / "progress" / "bb_cards.json").write_text(
-        json.dumps({c: {"n": k, "mean": round(mean, 4), "z": round(z, 2)} for z, mean, k, c in rows_}, indent=1),
-        encoding="utf-8")
+        json.dumps({c: {"n": k, "mean": round(mean, 4), "z": round(z, 2)} for z, mean, k, c in card_stats(every)},
+                   indent=1), encoding="utf-8")
     print("cards TavernGym favours (+) or disfavours (-) against Bob's Buddy, by z:")
     for z, mean, k, c in rows_[:30]:
         print(f"  {CAT[c]['name']:30s} {c:16s} n={k:4d} mean {mean:+.3f}  z {z:+.1f}")
