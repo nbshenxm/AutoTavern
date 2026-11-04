@@ -20,7 +20,8 @@ from pathlib import Path
 
 import taverngym
 
-from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, power_state, recruit_game,
+from advisor.state import (CAT, GAME_CONFIG, RULES, add_minion, arm_powers, debug, normal_form, owe, player_stats,
+                           power_state, recruit_game,
                            set_deities,
                            turn_so_far,
                            set_side)
@@ -31,6 +32,10 @@ RACE_NAMES = ("BEAST", "DEMON", "DRAGON", "ELEMENTAL", "MECHANICAL", "MURLOC", "
 # Trinket -> its uses per turn; its TAG_SCRIPT_DATA_NUM_1 is the uses left this turn
 TRINKET_USES_LEFT = {
     "BG32_MagicItem_822": 1,  # Bazaar Sticker: one Tavern spell a turn costs Health
+    "BG32_MagicItem_821": 1,  # Pilgrimp Sticker: one Demon a turn costs Health
+    # Warcry Totem: the first two Battlecry minions bought each turn are free (rebuilt with both
+    # free in the 231 logged decisions after one was bought: a 0-Gold buy the client refused)
+    "BG36_MagicItem_202": 2,
 }
 # Minion -> the TAG_SCRIPT_DATA_NUM index holding TavernGym's `counter` for it
 # A minion's counter from what the log shows on it (its script data: the "(N left!)" number
@@ -64,6 +69,7 @@ COUNTER_FROM_SHOWN = {
 
 
 INCUBATION = "BG36_MidGameEffect_000t4"
+WINNERS_BREAD = "BG36_883"
 
 
 def set_schedules(player, logged_board):
@@ -88,6 +94,15 @@ def set_schedules(player, logged_board):
                 continue  # it already doubled
             x["turns_left"] = left[x["target"]]
         keep.append(x)
+    # Winner's Bread ("if you win your next combat, give it another +4/+6 at the start of your
+    # next turn"): its `e` enchantment is the part still waiting (gone once given). The minion is
+    # rebuilt from the log, not by the spell: no schedule, so a won round 4 gave a logged Bronze
+    # Warden +4/+6 that the rebuild never did (advisor.carry_test, Nov 4)
+    bread = CAT.get(WINNERS_BREAD, {}).get("cid")
+    for m, logged in zip(player["board"], logged_board):
+        if bread is not None and any(x["card"] == WINNERS_BREAD + "e" for x in logged.get("ench", [])):
+            keep.append({"turns_left": 1, "script": bread, "target": m["eid"], "a": 4, "b": 6,
+                         "if_won": True})
     player["scheduled"] = keep
 
 
@@ -204,6 +219,25 @@ def refresh_effects(p0, me):
     p0["effects"] = effects + [{"card": cid, "stacks": stacks}]
 
 
+# Spells whose part waits for the start of the next turn, as the player enchantment the log keeps
+# until then: Overconfidence ("if you win your next combat, gain 3 Gold"; in 115 logged
+# decisions), Time Management ("at the start of your next turn, give your minions +2/+2 twice").
+# A rebuild restores the minions, not the spell's schedule: the Gold or the buffs never came
+PENDING_SPELLS = {"BG28_884e": "BG28_884", "BG31_881te2": "BG31_881"}
+
+
+def pending_spells(p0, me):
+    """The logged player's spells waiting for the next turn, as TavernGym schedules (`p0`)."""
+    cids = {CAT[c]["cid"] for c in PENDING_SPELLS.values() if c in CAT}
+    keep = [x for x in p0.get("scheduled", []) if x.get("script") not in cids]
+    for e in me.get("player_ench", []):
+        card = PENDING_SPELLS.get(e["card"])
+        if card in CAT:
+            keep.append({"turns_left": 1, "script": CAT[card]["cid"], "target": 0, "a": 0, "b": 0,
+                         "if_won": False})
+    p0["scheduled"] = keep
+
+
 def build(d, combats=(), seed=7, earlier=()):
     """(game, gaps) for decision `d`; `combats` are the game's earlier combats
     (`game_combats`), which give the opponents' last seen warbands."""
@@ -253,6 +287,12 @@ def build(d, combats=(), seed=7, earlier=()):
             add_minion(g, 0, "shop", x, gaps, "shop")
         else:
             add_spell(g, "shop", x["card"], x.get("data", [0])[0], gaps)
+    # A Volumizer added to hand or the Tavern ran its first-play part too: the logged counters
+    # again, recorded as already in every minion's logged stats
+    vol = {k: v for k, v in player_stats(me).items() if k.startswith("volumizer")}
+    if vol:
+        debug(g, cmd="set_stats", p=0, stats=vol)
+    debug(g, cmd="adopt_bonuses", p=0)
     costs = me.get("costs", {})
     # Free Refreshes: the Refresh button's count when the log has it (older exports: a Refresh
     # that costs nothing is one); gold next turn from the player (a Southsea Busker...)
@@ -280,6 +320,7 @@ def build(d, combats=(), seed=7, earlier=()):
     if d.get("deity"):  # the lobby's Deity, yours at its logged size (the others' unknown)
         set_deities(st, d["deity"], [(0, me)])
     refresh_effects(p0, me)
+    pending_spells(p0, me)
     if earlier:  # what the turn's earlier decisions did that the log no longer shows
         armed, owed, cast, played = turn_so_far(earlier, dict(taverngym.layout()))
         for k, n in played.items():
@@ -399,10 +440,11 @@ def build(d, combats=(), seed=7, earlier=()):
             if logged.get("interactable") == 0:
                 m["activations"] = max(1, m.get("activations", 0))
     set_schedules(p0, me["board"])
-    # Trinkets with a per-turn use the log counts down ("(1 left!)"): spent ones marked used
+    # Trinkets with a per-turn use the log counts down ("(1 left!)"): the uses spent marked used
     for t in me["trinkets"]:
-        if t["card"] in TRINKET_USES_LEFT and t["data"][0] == 0 and t["card"] in CAT:
-            p0["turn_data"].append([CAT[t["card"]]["cid"], TRINKET_USES_LEFT[t["card"]]])
+        uses = TRINKET_USES_LEFT.get(t["card"])
+        if uses and t["card"] in CAT and t["data"][0] < uses:
+            p0["turn_data"].append([CAT[t["card"]]["cid"], uses - max(0, t["data"][0])])
     # Ambassador Faelin's minions wait in hand until the Tavern reaches their Tier: held by the
     # Hero Power (TavernGym releases them on the Upgrade), not locked for a number of turns
     faelin = next((h for h in p0["powers"] if h.get("card") == CAT.get(FAELIN_POWER, {}).get("cid")), None)
@@ -527,6 +569,11 @@ def client_actions(d):
     hand = {h["eid"]: i for i, h in enumerate(hand_cards(s["friendly"]))}
     powers = {}
     out = set()
+    # A hand card whose play the client refuses at the minion cap: another legal option on the
+    # same card is not a play (an Oct 29 Bile Spitter had one, listed before the warband, never
+    # taken: 103 of the 104 plays TavernGym "refused")
+    capped = {o["entity"]["eid"] for o in d["options"]
+              if not o["legal"] and o.get("error") == "REQ_MINION_CAP" and o["entity"]}
     for o in d["options"]:
         if not o["legal"]:
             continue
@@ -552,7 +599,7 @@ def client_actions(d):
             for t in o["targets"]:
                 if t["legal"] and t["entity"].get("eid") in board:
                     out.add(("sell", board[t["entity"]["eid"]]))
-        elif e.get("owner") == "friendly" and e.get("zone") == "HAND" and e["eid"] in hand:
+        elif e.get("owner") == "friendly" and e.get("zone") == "HAND" and e["eid"] in hand and e["eid"] not in capped:
             out.add(("play", hand[e["eid"]]))
         elif e.get("owner") == "friendly" and e.get("zone") == "PLAY" and e.get("type") == "MINION":
             # A warband minion: with targets an Activate, without one a move (not compared)

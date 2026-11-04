@@ -1085,6 +1085,11 @@ pub enum DebugCmd {
     ResetLimits {
         p: PlayerId,
     },
+    /// Record `p`'s "this game" bonuses as already in its minions' stats
+    /// (`Game::adopt_bonuses`): for stats set from a game client.
+    AdoptBonuses {
+        p: PlayerId,
+    },
     SetHero {
         p: PlayerId,
         hero: String,
@@ -1504,6 +1509,10 @@ pub fn run_debug(g: &mut Game, cmd: DebugCmd) -> Result<Value, String> {
                 h.locked = 0;
                 h.held = false;
             }
+        }
+        DebugCmd::AdoptBonuses { p } => {
+            check(p)?;
+            g.adopt_bonuses(p);
         }
         DebugCmd::ResetLimits { p } => {
             check(p)?;

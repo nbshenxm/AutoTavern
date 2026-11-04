@@ -252,6 +252,49 @@ def test_rebuilt_volumizers_leave_the_logged_bonus_alone():
     assert len(p["board"][0]["attached"]) > 2 and (p["board"][0]["atk"], p["board"][0]["hp"]) == (300, 300)
 
 
+
+def test_rebuilt_volumizers_survive_a_later_resync():
+    # The logged stats hold the logged bonus: a card added to hand afterwards (a re-sync) must
+    # not take the bonus each Volumizer's making inflated off it (16 Attack rebuilt as 13)
+    from advisor.bridge import add_spell
+    from advisor.state import recruit_game, set_side
+
+    g = recruit_game(1)
+    red = {"card": "BG34_170t", "atk": 16, "hp": 2, "max_hp": 2, "golden": False, "keywords": [], "ench": []}
+    side = {"board": [red, dict(red)], "hand": [], "hero_powers": [], "trinkets": [], "player_ench": [],
+            "volumizer": [13, 1], "hero": "TB_BaconShop_HERO_27", "tier": 3, "health": 20}
+    set_side(g, 0, side, [], "test")
+    add_spell(g, "hand", "BG28_827", 0, [])
+    board = json.loads(g.view(0))["me"]["board"]
+    assert [(m["atk"], m["hp"]) for m in board] == [(16, 2), (16, 2)]
+
+
+def test_waiting_spells_are_scheduled_from_their_enchantments():
+    # Winner's Bread's "+4/+6 if you win" (BG36_883e on the minion) and Overconfidence's Gold
+    # (BG28_884e on the player, once per cast) wait in TavernGym schedules
+    from advisor import bridge
+    from advisor.state import CAT
+
+    player = {"board": [{"eid": 5}], "scheduled": []}
+    bridge.set_schedules(player, [{"card": "BGS_034", "ench": [{"card": "BG36_883e", "data": [4, 6]}]}])
+    assert player["scheduled"] == [{"turns_left": 1, "script": CAT["BG36_883"]["cid"], "target": 5,
+                                    "a": 4, "b": 6, "if_won": True}]
+    p0 = {"scheduled": []}
+    bridge.pending_spells(p0, {"player_ench": [{"card": "BG28_884e", "data": [0, 0]}] * 2})
+    assert [x["script"] for x in p0["scheduled"]] == [CAT["BG28_884"]["cid"]] * 2
+
+
+def test_capped_hand_cards_are_not_plays():
+    # A card the client refuses at the minion cap may have a second, legal option: not a play
+    from advisor import bridge
+
+    card = {"eid": 9, "card": "BG33_318", "type": "MINION", "zone": "HAND", "owner": "friendly"}
+    d = {"state": {"shop": [], "friendly": {"board": [], "hand": [{"eid": 9, "card": "BG33_318"}]}},
+         "options": [{"id": 1, "type": "POWER", "legal": True, "entity": card, "targets": []},
+                     {"id": 2, "type": "POWER", "legal": False, "error": "REQ_MINION_CAP", "entity": card,
+                      "targets": []}]}
+    assert ("play", 0) not in bridge.client_actions(d)
+
 def test_improve_this_cards_keep_their_improvements():
     # The log shows what an "improve this" card gives now (a golden Spark Snapper's Satellite:
     # 36/54 after 16 improvements of 2); a rebuild starting it at 0 gave a 4/6 Satellite

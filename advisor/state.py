@@ -436,3 +436,7 @@ def set_side(g, p, s, gaps, label):
     # every rebuilt Volumizer)
     for zone_name, i, m in made:
         debug(g, cmd="edit_minion", p=p, zone=zone_name, index=i, atk=m["atk"], hp=max(1, m["hp"]))
+    # ...and those stats hold the logged bonuses: recorded as applied (each minion kept the
+    # inflated bonus of its making, so the next re-sync - a card added to hand - took 3 Attack
+    # off every rebuilt Volumizer: advisor.carry_test, Nov 4)
+    debug(g, cmd="adopt_bonuses", p=p)
