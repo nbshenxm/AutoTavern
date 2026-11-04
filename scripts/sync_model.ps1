@@ -90,6 +90,15 @@ try {
         $sent = Join-Path $repo "data\library\sent.sha256"
         $hash = (Get-FileHash $boards -Algorithm SHA256).Hash + (Get-FileHash $starts -Algorithm SHA256).Hash
         $last = if (Test-Path $sent) { Get-Content $sent } else { "" }
+        # Each step after a new game keeps its own mark (data/library/done_STEP.sha256, the logs'
+        # hash): this task stops at 30 minutes, and on Nov 4 it was cut after the first step;
+        # the library's mark then said "done" and the later steps never ran. Now a cut chain
+        # carries on with the next step an hour later.
+        function Pending($step) {
+            $mark = Join-Path $repo "data\library\done_$step.sha256"
+            -not ((Test-Path $mark) -and ((Get-Content $mark) -eq $hash))
+        }
+        function Done($step) { Set-Content (Join-Path $repo "data\library\done_$step.sha256") $hash }
         if ($hash -ne $last) {
             & scp -q -o BatchMode=yes -o ConnectTimeout=20 $boards "office:autotavern/data/library/boards.json.tmp"
             & scp -q -o BatchMode=yes -o ConnectTimeout=20 $starts "office:autotavern/data/library/starts.jsonl.tmp"
@@ -97,33 +106,45 @@ try {
             if ($LASTEXITCODE -eq 0) {
                 Set-Content $sent $hash
                 Log "library sent to the office: $($said -join ' ')"
+            } else { Log "library: office unreachable (exit $LASTEXITCODE)" }
+        }
+        if ($hash -eq (Get-Content $sent -ErrorAction SilentlyContinue)) {
+            if (Pending "human") {
                 # The player's own choices (advisor.human_data), rebuilt from the same logs
                 & $py -X utf8 -m advisor.human_data 2>&1 | Out-Null
+                $ok = $LASTEXITCODE -eq 0
                 foreach ($dir in @("human", "human_eval")) {
                     $shards = Get-ChildItem (Join-Path $repo "data\search\$dir") -Filter "shard_*.npz" -ErrorAction SilentlyContinue
-                    if ($shards) {
+                    if ($shards -and $ok) {
                         & ssh -o BatchMode=yes -o ConnectTimeout=20 office "mkdir -p autotavern/data/search/$dir.new"
                         foreach ($f in $shards) { & scp -q -o BatchMode=yes -o ConnectTimeout=20 $f.FullName "office:autotavern/data/search/$dir.new/" }
                         & ssh -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern/data/search && rm -rf $dir.old && mv $dir $dir.old && mv $dir.new $dir && rm -rf $dir.old"
+                        $ok = $LASTEXITCODE -eq 0
                     }
                 }
-                Log "the player's choices sent to the office"
+                if ($ok) { Done "human"; Log "the player's choices sent to the office" } else { Log "the player's choices FAILED" }
+            }
+            if (Pending "review") {
                 # docs/ROBUSTNESS.md: every advice of the new game re-checked (advisor.review,
-                # data/review), and the simulator against all logs vs its baseline
-                # (advisor.fidelity, data/replay/fidelity_last.json); both pause while you play
+                # data/review); it pauses while you play
                 & $py -X utf8 -m advisor.review 2>&1 | Select-Object -Last 12 | ForEach-Object { Log "review: $_" }
-                if ($LASTEXITCODE -ne 0) { Log "review FAILED (exit $LASTEXITCODE)" }
+                if ($LASTEXITCODE -ne 0) { Log "review FAILED (exit $LASTEXITCODE)" } else { Done "review" }
+            }
+            if (Pending "fidelity") {
                 # The simulator check takes ~45 min with all its parts: longer than this task may
                 # run (30 min: it was killed on Nov 2 and every later hour skipped). It runs on the
                 # office, detached, on the logs just parsed; a later hour collects it (top of this
                 # script; a failure is logged "fidelity FAILED", as a crash once went unnoticed)
-                & scp -q -o BatchMode=yes -o ConnectTimeout=20 (Join-Path $repo "data\replay\decisions.jsonl") (Join-Path $repo "data\replay\combats.jsonl") "office:autotavern/data/replay/"
+                & scp -q -o BatchMode=yes -o ConnectTimeout=20 (Join-Path $repo "dataeplay\decisions.jsonl") (Join-Path $repo "dataeplay\combats.jsonl") "office:autotavern/data/replay/"
                 # (setsid -f: detached for good; a plain "nohup ... &" kept the ssh call waiting)
                 & ssh -n -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern && rm -f data/replay/fidelity.exit && setsid -f bash scripts/office/fidelity.sh > /dev/null 2>&1 < /dev/null"
-                Log "fidelity started on the office"
+                if ($LASTEXITCODE -eq 0) { Done "fidelity"; Log "fidelity started on the office" }
+            }
+            if (Pending "usefulness") {
                 # (and how often you followed the advice, per game: advisor.usefulness)
                 & $py -X utf8 -m advisor.usefulness 2>&1 | Select-Object -Last 3 | ForEach-Object { Log "usefulness: $_" }
-            } else { Log "library: office unreachable (exit $LASTEXITCODE)" }
+                if ($LASTEXITCODE -eq 0) { Done "usefulness" }
+            }
         }
     }
 } catch {
