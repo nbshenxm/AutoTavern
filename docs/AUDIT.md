@@ -34,14 +34,18 @@ worth too much) whatever the network decides.
 | rebuild | "improve this" counters unread (Spark Snapper, Ultraviolet Ascendant, Sacrificial Wrathguard, Lurking Leviathan; Patient Scout, Sky Admiral Rogers) | every rebuilt one started at 0: a Snapper with 16 improvements gave a 4/6 Satellite (Gatekeeper Amalgam played 10/12, real 42/60) | read from the amount the log shows |
 | log parse + rebuild | Hero Power improvements (TAG_SCRIPT_DATA_NUM_3, never parsed): Wax Warband rebuilt unimproved | your Start of Combat gains +8...+40 came out +4/+6 | read: 8 of 9 logged combats exact |
 | rebuild | Blood Gem stats rebuilt as plain stats | Gem Confiscation stole nothing | kept apart: 7 of 7 exact |
+| rebuild | next-combat Tavern spells cast earlier in the turn (Brood of Nozdormu, Upper Hand, Sharing is Caring) are in no log field once cast | a round-13 golden Tarecgosa lost Brood: kept 149k where the log had 248k (the whole rounds 10+ gap: 0.87x) | read from the turn's earlier decisions (5 casts in your logs) |
+| TavernGym | Brood of Nozdormu doubled the Attack as a gain, which golden Tarecgosa doubles again (the client: "Attack set to") | that Tarecgosa kept 296k (real 197k Attack) once Brood was carried | a raise that isn't doubled (`Ctx::raise_as_set`): exact; rounds 10+ 1.00x |
 | log parse + rebuild | the lobby's Deity and its size (player tags BACON_OLD_GOD_ATTACK/HEALTH) never read: rebuilt lobbies drew a random Deity at printed size | a Y'Shaarj where your lobby had a 7/4 C'Thun: a won fight at p 0.14 (Bob's Buddy 1.00) | the logged Deity and size |
 
 ## Results so far
 
 - One action: 93.6% of 2,278 logged actions exact (93.4% before this round); the big scalers within 0.1-3% in total stats
   (Methodical Madness 308,908 real / 308,944).
-- Combat and the turn change: 0.92-1.05x the real growth through round 9, 0.86x from round 10
-  (left: the Volumizer stack count, Tarecgosa's combat).
+- Combat and the turn change (Nov 3, 37.0.2 build, 543 turn pairs x 3): rounds 1-6 0.73x (small
+  numbers: 507 real, 370 TavernGym), rounds 7-9 1.06x, rounds 10+ 1.00x (0.87x before the Brood fixes).
+- Combat outcome by round (Nov 3, start mode): rounds 1-6 +1.2 SD, 7-9 +2.0 SD, 10+ +1.0 SD: the
+  late fights are calibrated; what's left of the bias is mid-game.
 - Combat outcome: predicted 100.6 wins of 212, actual 109 (+2.9 SD; +3.1 before the Deity fix):
   TavernGym still underrates your side in close fights.
 - Card text: ~700 scripts, no number or scaling contradiction; edge cases listed below.
