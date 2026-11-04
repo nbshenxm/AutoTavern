@@ -112,3 +112,16 @@ Side finding, checked: Snarky Shark replays mismatch 20 of 56 times (warbands 3%
 Lobster 8/4 simulated, 2/1 logged). Not a rule: TavernGym improves the Deathrattle's buff as the
 text says; the 8/4 Lobster was the random target of another Lobster's Deathrattle there (random
 targets and Gryphon's random Beasts differ per minion, the totals stay within 3%).
+
+## Does R3 know your turn is better? (advisor.value_probe)
+
+At your End Turn (rebuilt from the turn's last decision) and at R3's own End Turn from the same
+start, R3's value head (its expected placement reward, 1st = 1, 8th = -1), 62 positions:
+
+- it rates your position higher in **71%** of them (mean +0.056 ± 0.013, about 0.2 places)
+- where your warband is over 1.2x its own: **86%** (22 positions); where its own is bigger: 63% (8)
+
+The value head recognises your late turns as better; the policy doesn't propose them. That is the
+case a search helps: more candidate turns, picked by the value head, and their choices then
+taught back to the policy. The plan search as built stops a plan at the first Refresh or offer,
+so the first test is the advisor's way (re-plan at every decision): `advisor.engine_exam --search K`.
