@@ -141,3 +141,12 @@ search scored by R3's value head doesn't take them: the one-step lookahead had t
 candidates and rarely chose them, so the value head credits that growth too little (or two
 rollouts are too noisy to see it). Search on top of this value head doesn't fix the late game;
 the network has to learn what the engines are worth.
+
+## A probe for Mechs: funnel into the engine (Nov 4)
+
+`--funnel` (32 Mech positions): every friendly target and Magnetization R3 picks goes to the
+biggest Mech instead. **0.85x R3 (-0.167 ± 0.054): worse.** Mech engines don't want one target:
+Polarizing Beatboxer echoes only Magnetizations onto a *different* minion, Utility Drone pays for
+every Magnetization *each* minion has, Glambot fires for a spell on *any* Mech. Your edge there is
+volume (6.1 Mechs and Magnetic cards played a turn), not concentration. Funnelling stays out of
+the training levers; the Beast lever (Activates) is in act1.
