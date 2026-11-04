@@ -3,6 +3,46 @@
 One a day at 20:00 (the schedule and targets: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31)).
 Newest first.
 
+## R4 · Nov 3 (shipped 21:05) · tag `bg-r4`
+
+**Strength: unchanged, and now we can say so precisely.** The overlay still runs R3's network
+(big3 iteration 510): nothing has beaten it on the new gate. **The rules are patch 37.0.2.**
+
+**The gate (advisor.gate).** The old check (250 games, ±0.1 places) couldn't see a real gain
+([REVIEW_20261103.md](REVIEW_20261103.md)). Now both networks play seat 0 of the same games and
+seeds (your positions, top-1% lobbies, fresh games), paired, about 2,000-3,400 pairs a verdict.
+What it found:
+
+| Comparison | Gain in places (negative = better) | Verdict |
+| --- | --- | --- |
+| R2 vs R1 | -0.135 ± 0.049 | better |
+| R3 vs R2 | -0.121 ± 0.035 | better |
+| big3 it 786 vs R3 | -0.013 ± 0.034 | even |
+| big3hero it 908 vs R3 | -0.041 ± 0.038 | even (worse in the top-1% lobbies) |
+| lr3 4 h (3x learning rate) vs R3 | +0.053 ± 0.040 | not better |
+
+So the releases did improve (about 0.26 places R1 → R3), and the plateau is R3's.
+
+**Patch 37.0.2 in the simulator** ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)):
+131 cards from the client data (stats, texts, Trinket and spell prices), Murcules back (scripted)
+and Expert Aviator out, four Trinkets out of the pool, Weighted Gauntlet a Greater Trinket, Wand of
+Divination out of Quilboar lobbies, the new Dark Gift windows and the typed Dark Gift options from
+turn 7; the scripts' numbers card by card. The network reads the new stats and texts; what the
+changed effects are worth it learns in p37.
+
+**Live fix:** a Discover a Hero Power target (Captain Hooktusk's Trash for Treasure) now ends the
+shown plan, instead of going on to the simulator's own pick ("Choose Deadly Spore", which looked
+like a misread Headhunter Gryphon).
+
+**Targets:** late >= 0.40 and on-type >= 50%: not met (same network).
+
+**Known faults:** as R3 (the opening Freezes and never levels; late, it over-refreshes and buys
+off-type). The readings of the patch text listed in the patch note are to be checked against your
+first games on 37.0.2.
+
+**In training for R5:** p37 (office): the gate's pick fine-tuned on the 37.0.2 rules until Nov 4
+14:00, gated against R3 at 4 h and 10 h.
+
 ## R3 · Nov 2 (shipped 21:10) · tag `bg-r3`
 
 **Strength: a small step; the late game is unchanged.** The overlay runs **big3 iteration 510**
