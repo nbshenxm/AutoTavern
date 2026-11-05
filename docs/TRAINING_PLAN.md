@@ -39,8 +39,8 @@ head can't see what an engine is worth). Written before running; reordered only 
 | # | Change (one) | Why | Bar (set first) | State |
 | --- | --- | --- | --- | --- |
 | 1 | your round 5-8 turns as an imitation target (mid1) | the root cause: R3's own games never build engines | mid exam: engine held >= 40% (R3 29%) at +3, held-out agreement up; gate not worse | the cluster's slot after late1 (Nov 4 ~20:00), from R3 = the mainline's start; prior low after late1 (below) |
-| 2 | library seats with their players (hero, Hero Powers, trinkets in combat) | training fights as real ones | gate not worse; R3's training-lobby place no longer the easy one | ready (data/library/boards_players.json) |
-| 3 | starts from the curated comps' mid-game boards, more of them | more games where an engine exists | mid exam engine held up; gate not worse | to build |
+| 2 | library seats with their players (hero, Hero Powers, trinkets in combat) | training fights as real ones | gate not worse; R3's training-lobby place no longer the easy one | in main1 since Nov 5 08:20 (the rebuilt boards.json) |
+| 3 | starts from the curated comps' mid-game boards, more of them | more games where an engine exists | mid exam engine held up; gate not worse | comp2: `--comp-starts 0.66`, cluster, Nov 5 |
 | 4 | a deeper turn search (MCTS) as a teacher, once the value head sees the mid-game | expert iteration, as the constructed advisor | search beats the network on the gate first | later |
 
 Results that are already in (Nov 4): act1 (forced Activates) and late1 (your better late turns) run
@@ -92,11 +92,28 @@ checkpoint (needs your OK to stop it).
 --amp-collect`: collection 44 → 31 s, but the update 37 → 41.5 s on the office's GPU (faster on the cluster's).
 Restarted again at it 1086 with `--chunk 128 --amp-collect`: **68 s an iteration** (81 before), KL as before.
 
+**Nov 5, 12:30: the mainline is the model (your call), experiments beside it.** main1's steady line is the
+first gain since R3 (-0.097 ± 0.020 at 12 h); it keeps running and every experiment branches from its latest
+checkpoint and is judged against *main1 at the same iteration* (not R3): the same hours of training, one change.
+Found while choosing: queue item 2 (library seats with their players) is already in main1 since its 08:20
+restart today: data/library/boards.json was rebuilt with the players on Nov 4 at 23:22 (530 boards, all with a
+player; 469 before) and main1 reads it at each start. Not planned, not harmful (the realistic library); written
+in the setup table. So item 3 is next:
+
+**comp2** (cluster GPU, from main1 it ~1095, 12 h): `--comp-starts 0.66` (0.33 in main1): a third of all new
+games start from a curated comp's midgame instead of a sixth, so the network spends more of its games where an
+engine exists (the late gap is made in rounds 5-9 because its own games never build one). Everything else
+main1's (`--chunk 128 --amp-collect`, the same library and simulator build). **Bar, set first:** a gate pass
+against main1 at the same iteration wins outright; not worse on the gate with the mid exam's engine held up
+(main1's own measured at the same time) wins too; worse on the gate leaves the queue.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
 | --- | --- | --- |
 | Nov 4 19:40 (main1, office, until Nov 8 20:00 then on) | R3's (big3: --solo, the top-1% library, real starts 0.5, comp starts 0.33, lr 1e-5, 1 epoch), on TavernGym with the Nov 4 fixes; a winning experiment's change joins at a checkpoint | R3 (big3 it 510): neither act1 nor late1 beat it at 4 h |
+| Nov 5 08:20 (main1's restart) | + library seats with their players (the rebuilt boards.json: hero, Hero Powers, trinkets, counters) | main1's own (it 949) |
+| Nov 5 11:45 | + `--amp-collect` (bfloat16 collection; same training, 81 → 68 s an iteration) | main1's own (it 1086) |
 
 ## Rules
 
