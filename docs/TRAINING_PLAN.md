@@ -73,6 +73,12 @@ with `--eval-every 100`. The in-run evaluation (200-game checks every 10 iterati
 time, 37% of the run (126 s an iteration for 80 s of training); the cluster gates judge it instead. Next for
 speed: the update overlapping the next collection (36 s of the 80), tested apart from the run first.
 
+*Nov 5, 08:20-08:45 (your OK):* main1 ran 16 iterations with `--chunk 512 --amp-collect --overlap`: 57.7 s an
+iteration (80.7 before), but the KL between the collecting copy and the learner grew every iteration (0.001 to 0.05;
+before, 0.0003). Rewound to its iteration-949 checkpoint (the one being gated) on the previous settings; the
+drifted checkpoint is kept (data/train/main1/last_overlap_it972.pt). At home each flag alone, and all three at
+small batches, show no growth: being traced at full size before any retry.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
