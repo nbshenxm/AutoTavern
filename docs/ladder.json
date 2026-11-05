@@ -85,6 +85,30 @@
    "gain": 0.191,
    "se": 0.052,
    "verdict": "not better"
+  },
+  {
+   "name": "act1 end",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": -0.054,
+   "se": 0.033,
+   "verdict": "even"
+  },
+  {
+   "name": "R3 + opening rules (busker, level, no Freeze), round 1",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": 0.732,
+   "se": 0.082,
+   "verdict": "not better"
+  },
+  {
+   "name": "R3 + Upgrade to Tier 3 in rounds 2-4, round 1",
+   "date": "2026-11-04",
+   "vs": "R3",
+   "gain": 0.802,
+   "se": 0.078,
+   "verdict": "not better"
   }
  ]
 }

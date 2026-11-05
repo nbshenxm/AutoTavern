@@ -6,14 +6,14 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Running
 
-- [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator); act1's end gate
-- [ ] Cluster: late1 to ~20:40 (4 h gate: worse than R3); mid1 cancelled (the same imitation recipe)
+- [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator), iteration 540
+- [ ] Cluster: opening gates on R3, round 2 of 4 (round 1: 0.7-0.8 places *worse*)
 
 ## Next up
 
-- [ ] Opening gates on R3 (Busker hold, Upgrade, no Freeze): a pass ships
-- [ ] main1's first checks at +4 h (gate and engine exam against R3)
-- [ ] Releases only on a gate pass (none since R3: 8 candidates even or worse)
+- [ ] main1's first checks at +4 h, about 23:55 (gate and engine exam against R3)
+- [ ] A training plan for tempo: forced openings lose on R3, so the opening has to be learned
+- [ ] Releases only on a gate pass (none since R3: 10 candidates even or worse)
 
 ## Later
 
@@ -26,4 +26,5 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [x] Simulator: legality 100% of your decisions, early carry 0.69x -> 0.87x, combats attack by attack 54.9% -> 57.7% (AUDIT.md: about 15 fixes, among them the reconnect, Volumizers, Winner's Bread, Warcry Totem, Drek'Thar's copy, Tavern spells cast)
 - [x] Overlay: says when the lineup's stats are after the plan (your Roaring Recruiter note)
+- [x] act1 end: even with R3 (-0.05 ± 0.03), late1: worse (+0.19); neither ships
 - [x] Training plan: one mainline plus one experiment, the champion ladder on the progress page
