@@ -8,7 +8,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
 - [ ] Cluster GPU: comp2, main1 + twice the comps' midgame starts (the late gap is made in rounds 5-9), 12 h to about 00:30
-- [ ] Cluster CPUs: does one Upgrade pay for main1 where you could afford one? (it gives Upgrade a probability of 1e-6 or less there)
+- [ ] Cluster CPUs: comp2 vs main1 at iteration 1300 (round 1 of 3: +0.14 ± 0.06, worse); main1 at 24 h vs R3 from 20:00
 
 ## Next up
 
@@ -25,6 +25,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 5)
 
+- [x] Why main1 doesn't move toward your play: one Upgrade pays it in no lobby (+0.05..+0.14), and its value head is right about it (your mid-game End Turn ends no better under its play-on). The gap is its own mid-game play: what it buys and keeps in rounds 5-9
 - [x] Audit, main1 vs R3: its gain is efficiency in R3's own style; levelling, tribe commitment and the engine unchanged (Upgrade probability 1e-6..1e-13 at your positions)
 
 - [x] main1 12 h: -0.097 ± 0.020 against R3 on every suite (your positions -0.10, library -0.10, fresh -0.09)
