@@ -11,7 +11,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] Opening lines on R3 through the gate (Busker hold, level rounds 2-4, no early Freeze): a pass ships
+- [ ] Opening gates on R3 (Busker hold, Upgrade, no Freeze): a pass ships
 - [ ] main1's first checks at +4 h (gate and engine exam against R3)
 - [ ] Releases only on a gate pass (none since R3: 8 candidates even or worse)
 
