@@ -125,7 +125,7 @@ seats at your lobbies' logged strength; main1 alone):
   Experiment lobby1 from main1: the library seats at your lobbies' logged strength (`--library-strength 0`),
   everything else main1's. Bar: not worse than main1 at the same iteration on the gate's realistic suite (your
   positions), and it starts to level (Upgrades from your round 4-9 positions >= 0.1 a turn; now 0.00).
-- **B. It pays nowhere:** the cause is what it does with a Tier (buys off-tribe, breaks the engine), not the
+- **B. It pays nowhere** (the result, Nov 5 18:00: top 1% +0.075 ± 0.048, logged +0.14 ± 0.047, alone +0.054 ± 0.052; A is out): the cause is what it does with a Tier (buys off-tribe, breaks the engine), not the
   lobby. Search can only teach that if the value head sees the mid-game (55% on your round 5-8 turns, Nov 4;
   main1's measured tonight). If it still can't: teach the value head from outcomes of your positions (many
   rollouts each) before any search teacher; if it can: the plan search with that value as the teacher.
