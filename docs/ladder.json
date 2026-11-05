@@ -109,6 +109,22 @@
    "gain": 0.802,
    "se": 0.078,
    "verdict": "not better"
+  },
+  {
+   "name": "main1 4 h (it 625)",
+   "date": "2026-11-05",
+   "vs": "R3",
+   "gain": -0.086,
+   "se": 0.031,
+   "verdict": "pass"
+  },
+  {
+   "name": "act1 end, 4 seeds pooled (12,998 pairs)",
+   "date": "2026-11-05",
+   "vs": "R3",
+   "gain": -0.051,
+   "se": 0.017,
+   "verdict": "pass"
   }
  ]
 }

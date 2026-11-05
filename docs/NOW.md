@@ -6,14 +6,14 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Running
 
-- [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator); since 23:10 about 1.6x faster (evaluation moved out)
-- [ ] Cluster: act1 against R3 at 4x the pairs (it was -0.05 ± 0.03, too close to call); the tempo diagnostic
+- [ ] Office: main1, the mainline (R3's setup on the Nov 4 simulator); its 4 h gate **passed** against R3 (-0.086 ± 0.031)
+- [ ] Cluster: main1 at iteration 949 against R3 (3 seeds); the opening rules in realistic lobbies (your positions, the library)
 
-## Next up (Nov 5 morning; overnight everything runs on the office and the cluster)
+## Next up
 
-- [ ] Speed, on the office: a 15-minute test of `--chunk 512 --amp-collect --overlap` (home: update 40 s -> 27 s at chunk 512, bfloat16 collection 1.5x, its policy within KL 0.00003 of fp32), then main1 restarted from its last.pt with them
-- [ ] Read the night's results: act1 at 4x the pairs (cluster, ~04:30); main1's 4 h gate and engine exam (office, from 23:54); the tempo diagnostic (early health or later play decides the opening's fix)
-- [ ] Releases only for a major breakthrough, with a complete check (you, Nov 4)
+- [ ] Speed: main1 restarted with `--chunk 512 --amp-collect --overlap` (waits for your OK), then measured against 89 s an iteration
+- [ ] main1 at 12 h: still improving? (the cluster gate, about 13:30)
+- [ ] The opening: forced Upgrades lose in R3-only lobbies (13 health down by round 7, where nobody levels); a gain in your lobbies would make it a training target
 
 ## Later
 
@@ -22,7 +22,12 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league; the full 18M network
 
-## Done today (Nov 4)
+## Done (Nov 5)
+
+- [x] main1 4 h: the first gate pass since R3; act1 at 4 seeds: -0.051 ± 0.017, also better than R3
+- [x] The tempo diagnostic: the forced opening loses on early health in R3-only lobbies, later play is fine
+
+## Done (Nov 4)
 
 - [x] Simulator: legality 100% of your decisions, early carry 0.69x -> 0.87x, combats attack by attack 54.9% -> 57.7% (AUDIT.md: about 15 fixes, among them the reconnect, Volumizers, Winner's Bread, Warcry Totem, Drek'Thar's copy, Tavern spells cast)
 - [x] Overlay: says when the lineup's stats are after the plan (your Roaring Recruiter note)
