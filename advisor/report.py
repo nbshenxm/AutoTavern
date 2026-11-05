@@ -518,14 +518,7 @@ def _glance():
         tiles.append(("From your positions", f"{now['real']:.2f}", "placement, lower is better"))
     if "late_lib" in now or "late" in now:
         tiles.append(("Late game", f"{now.get('late_lib', now.get('late')):.2f}x", "of your lobbies' warbands"))
-    ex = {}
-    for r in _jsonl(PROGRESS / "exams.jsonl"):
-        if "big3 iteration 510" in str(r.get("source")) or r.get("net", "").endswith("models/best.pt"):
-            ex[r["exam"]] = r
-    if ex.get("habits"):
-        tiles.append(("Habits vs yours", f"{ex['habits']['gap']:.2f}", "gap, 0 = plays like you"))
-    if ex.get("positioning"):
-        tiles.append(("Positioning", f"{ex['positioning']['gap']:.3f}", "gap to the best order, 0 = master"))
+    # (the habits and positioning exams: in "Skill exams" below; five tiles keep the top short)
     last = DATA / "replay" / "fidelity_last.json"
     if last.exists():
         reg = json.loads(last.read_text(encoding="utf-8")).get("regressions") or []
@@ -551,6 +544,9 @@ def _glance():
         if res and res.exists() and j.get("total"):
             frac = sum(1 for line in open(res, encoding="utf-8") if line.strip()) / j["total"]
         label = f"{_short(j['name'], 60)} · {j.get('where', '')}"
+        if start > datetime.now():  # queued: when it starts, not an empty bar
+            label += f" · queued, starts {start:%b %d %H:%M}"
+            frac = None
         rows.append(_bar(min(1.0, frac), label) if frac is not None else f'<div class="small">{_esc(label)}</div>')
     if rows:
         out.append("<h3>Running</h3>" + "".join(rows))
