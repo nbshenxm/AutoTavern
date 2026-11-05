@@ -125,6 +125,30 @@
    "gain": -0.051,
    "se": 0.017,
    "verdict": "pass"
+  },
+  {
+   "name": "main1 12 h (it 949), 3 seeds pooled (10,062 pairs)",
+   "date": "2026-11-05",
+   "vs": "R3",
+   "gain": -0.097,
+   "se": 0.02,
+   "verdict": "pass"
+  },
+  {
+   "name": "R3 + Upgrade to Tier 3 in rounds 2-4, realistic lobbies",
+   "date": "2026-11-05",
+   "vs": "R3",
+   "gain": 0.18,
+   "se": 0.033,
+   "verdict": "not better"
+  },
+  {
+   "name": "R3 + Busker, Tier 3, no Freeze, realistic lobbies",
+   "date": "2026-11-05",
+   "vs": "R3",
+   "gain": 0.193,
+   "se": 0.032,
+   "verdict": "not better"
   }
  ]
 }

@@ -83,6 +83,11 @@ same when collection and update are kept apart in time: the one-update lag itsel
 is dropped; `--chunk 512 --amp-collect` (same math; bfloat16 collection) is being tested at full size on the
 cluster's GPU before main1 gets it.
 
+*Nov 5, 11:00:* the full-size test (cluster GPU, 40 iterations from main1's it 949, `--chunk 512 --amp-collect`):
+KL flat, mean |KL| 0.0008 (main1's own last 40: 0.00075), no growth from the first half to the second; 25 s an
+update (office, chunk 128: 37 s), collection about 40 s. Same training, faster: main1 to get both flags at a
+checkpoint (needs your OK to stop it).
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
