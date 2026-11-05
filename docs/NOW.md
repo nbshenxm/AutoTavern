@@ -9,11 +9,11 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator); since 23:10 about 1.6x faster (evaluation moved out)
 - [ ] Cluster: act1 against R3 at 4x the pairs (it was -0.05 ± 0.03, too close to call); the tempo diagnostic
 
-## Next up
+## Next up (Nov 5 morning; overnight everything runs on the office and the cluster)
 
-- [ ] main1's first checks at +4 h, about 23:55 (gate and engine exam against R3)
-- [ ] A training plan for tempo: forced openings lose on R3, so the opening has to be learned
-- [ ] Releases only on a gate pass (none since R3: 10 candidates even or worse)
+- [ ] Speed, on the office: a 15-minute test of `--chunk 512 --amp-collect --overlap` (home: update 40 s -> 27 s at chunk 512, bfloat16 collection 1.5x, its policy within KL 0.00003 of fp32), then main1 restarted from its last.pt with them
+- [ ] Read the night's results: act1 at 4x the pairs (cluster, ~04:30); main1's 4 h gate and engine exam (office, from 23:54); the tempo diagnostic (early health or later play decides the opening's fix)
+- [ ] Releases only for a major breakthrough, with a complete check (you, Nov 4)
 
 ## Later
 

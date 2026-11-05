@@ -129,14 +129,16 @@ def hero_offers(env, obs, own, fresh):
 
 
 def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None,
-            random_hero=0.0):
+            random_hero=0.0, amp=False):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
     slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
     `starts` (RealStarts) replaces some of the games that begin anew. `explore` = (p_refresh,
     p_upgrade[, p_hero_power[, p_activate]]): a legal Refresh or Upgrade is taken in place of the sampled action with that
     probability (the network almost never samples a Refresh, so it never learns what one finds);
-    such a step is marked forced: its consequences are learned from, the step itself isn't."""
+    such a step is marked forced: its consequences are learned from, the step itself isn't.
+    `amp`: the network's forward pass in bfloat16 (the collection waits on it: 6.7 of 9.8 s in fp32
+    on 64k decisions), its outputs back in float32 for the sampling."""
     opponent_of = opponent_of or {}
     stored, placements = 0, []
     last = getattr(env, "_last_action", None)
@@ -161,7 +163,9 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
             obs["action_mask"][own] = mask
             m = torch.from_numpy(mask).to(device)
             with torch.no_grad():
-                logits, v = net(f, c, m)
+                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device.startswith("cuda")):
+                    logits, v = net(f, c, m)
+                logits, v = logits.float(), v.float()
                 dist = torch.distributions.Categorical(logits=logits)
                 a = dist.sample()
                 lp = dist.log_prob(a)
@@ -214,6 +218,20 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
             starts.apply(env)
         obs = env.observe()
     return obs, placements
+
+
+@torch.no_grad()
+def collect_behind(stream, copied, *args, **kw):
+    """collect on its own CUDA stream, for --overlap's thread (the update keeps the default one):
+    its waits for results then don't wait for the update's queued work. `copied`: the event after
+    the actor's weights were copied. (obs, placements, seconds)."""
+    t = time.time()
+    if stream is None:
+        return (*collect(*args, **kw), time.time() - t)
+    stream.wait_event(copied)
+    with torch.cuda.stream(stream):
+        out = collect(*args, **kw)
+    return (*out, time.time() - t)
 
 
 @torch.no_grad()
@@ -702,6 +720,8 @@ def main():
     ap.add_argument("--lam", type=float, default=0.95)
     ap.add_argument("--ent", type=float, default=0.01, help="entropy bonus")
     ap.add_argument("--amp", action="store_true", help="bfloat16 forward pass in the updates")
+    ap.add_argument("--amp-collect", action="store_true",
+                    help="bfloat16 forward pass in the collection too (the learner's seats)")
     ap.add_argument("--eval-every", type=int, default=10)
     ap.add_argument("--eval-episodes", type=int, default=200)
     ap.add_argument("--resume")
@@ -775,6 +795,10 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--gpu-memory", type=float, default=0.4, help="the most of the GPU it takes")
     ap.add_argument("--chunk", type=int, default=CHUNK, help="rows per forward pass in updates (memory)")
+    ap.add_argument("--overlap", action="store_true",
+                    help="collect the next batch while the update runs (a thread, with a copy of the weights "
+                         "from before the update: the batch is one update behind, PPO's ratio covers it); "
+                         "with --solo")
     a = ap.parse_args()
     cap_gpu_memory(a.device, a.gpu_memory)
     from advisor import meta
@@ -834,6 +858,8 @@ def main():
     controlled = [0] if a.solo else list(range(8))
     if a.solo and (a.generations or not a.library):
         raise SystemExit("--solo needs --library (seats 1-7) and no --generations")
+    if a.overlap and not a.solo:
+        raise SystemExit("--overlap needs --solo (opponents assigned per iteration aren't carried over)")
     if a.library:  # their warbands are replaced at every combat: whoever plays them doesn't matter
         from advisor import library
         lib_version = library.BOARDS.stat().st_mtime_ns
@@ -877,6 +903,15 @@ def main():
     learner = collections.defaultdict(lambda: collections.deque(maxlen=3000))
     if it0 == 0:
         log({"iteration": 0, "eval": evaluate(net, a.device, a.eval_episodes, threads=a.threads)})
+    # --overlap: the next batch, collected while the update runs (a future, by `actor`, a copy of
+    # the weights before the update); None when nothing is collected ahead
+    ahead, actor, stream, behind = None, None, None, None
+    if a.overlap:
+        from concurrent.futures import ThreadPoolExecutor
+        behind = ThreadPoolExecutor(1)
+        actor = make(net.config).to(a.device)
+        actor.eval()
+        stream = torch.cuda.Stream() if a.device.startswith("cuda") else None
     it = it0
     while budget == 0 or time.time() - t0 < budget:
         wait_while_playing(log)
@@ -886,7 +921,11 @@ def main():
                        and sum(len(x) for x in learner.values()) >= 1000)
         if a.library and (library.BOARDS.stat().st_mtime_ns != lib_version or recalibrate):
             # New real warbands (the home sync uploads them after you play), or the adaptive
-            # library's new curve: new games with them
+            # library's new curve: new games with them (a batch collected ahead on the old games
+            # is dropped)
+            if ahead is not None:
+                ahead.result()
+                ahead = None
             lib_version = library.BOARDS.stat().st_mtime_ns
             if recalibrate:
                 lib_curve = library.adaptive_curve(learner, a.library_adaptive, base_curve)
@@ -902,10 +941,15 @@ def main():
         if judge and judge.refresh(log):
             best_h2h = 4.5  # a new generation: the record against the old best is void
         opponents = gen.assign(env, it, pool) if gen else ({} if a.solo else assign_opponents(env, pool, it))
-        if starts is not None:
-            starts.refresh()
-        obs, placements = collect(env, net, obs, seats, a.transitions, a.device, opponents, starts,
-                                  explore=a.explore, random_hero=a.random_hero)
+        if ahead is not None:
+            obs, placements, collect_s = ahead.result()
+            ahead = None
+        else:
+            if starts is not None:
+                starts.refresh()
+            obs, placements, collect_s = collect_behind(None, None, env, net, obs, seats, a.transitions, a.device,
+                                                        opponents, starts, explore=a.explore,
+                                                        random_hero=a.random_hero, amp=a.amp_collect)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
         if a.library_adaptive:  # one look at each game's seat 0, wherever it is
@@ -915,6 +959,17 @@ def main():
                     learner[v["turn"]].append(sum(m["atk"] + m["hp"] for m in v["me"]["board"]))
         batch = advantages(seats, a.gamma, a.lam)
         tc = time.time()
+        if a.overlap:  # the next batch, by the weights before this update
+            if starts is not None:
+                starts.refresh()
+            actor.load_state_dict(net.state_dict())
+            copied = None
+            if stream is not None:
+                copied = torch.cuda.Event()
+                copied.record()
+            ahead = behind.submit(collect_behind, stream, copied, env, actor, obs, seats, a.transitions, a.device,
+                                  opponents, starts, explore=a.explore, random_hero=a.random_hero,
+                                  amp=a.amp_collect)
         net.train()
         warm = it - it0 <= a.critic_warmup
         fade = max(0, it - anchor_from) / a.anchor_iters  # from the warmup's end
@@ -940,8 +995,10 @@ def main():
         stats["mix"] = action_mix([b[0][3] for b in batch])
         row = {"iteration": it, "batch": len(batch), "episodes": len(placements),
                "place": round(float(np.mean(placements)), 3) if placements else None,
-               "collect_s": round(tc - ts, 1), "update_s": round(time.time() - tc, 1),
-               "decisions_per_s": round(len(batch) / max(1e-6, tc - ts)), **stats}
+               "collect_s": round(collect_s, 1), "update_s": round(time.time() - tc, 1),
+               "decisions_per_s": round(len(batch) / max(1e-6, collect_s)), **stats}
+        if a.overlap:  # what the update waited for the batch (the rest of collect_s ran beside it)
+            row["wait_s"] = round(tc - ts, 1)
         if it % a.snapshot_every == 0:
             save(net, out / "pool" / f"it_{it}.pt", {"iteration": it})
             frozen = make(net.config).to(a.device)
