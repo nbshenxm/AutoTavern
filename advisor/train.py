@@ -797,8 +797,9 @@ def main():
     ap.add_argument("--chunk", type=int, default=CHUNK, help="rows per forward pass in updates (memory)")
     ap.add_argument("--overlap", action="store_true",
                     help="collect the next batch while the update runs (a thread, with a copy of the weights "
-                         "from before the update: the batch is one update behind, PPO's ratio covers it); "
-                         "with --solo")
+                         "from before the update: the batch is one update behind); with --solo. UNSTABLE at full "
+                         "size (Nov 5: the policy's step per update grew from KL 0.001 to 0.1 in 12 iterations, "
+                         "the same with the two kept apart in time: the lag itself, not the GPU streams)")
     a = ap.parse_args()
     cap_gpu_memory(a.device, a.gpu_memory)
     from advisor import meta

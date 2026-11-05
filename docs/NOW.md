@@ -11,7 +11,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] Speed: main1 restarted with `--chunk 512 --amp-collect --overlap` (waits for your OK), then measured against 89 s an iteration
+- [ ] Speed: `--overlap` made training unstable (dropped); `--chunk 512 --amp-collect` on the cluster's GPU first, then main1 (now 81 s an iteration)
 - [ ] main1 at 12 h: still improving? (the cluster gate, about 13:30)
 - [ ] The opening: forced Upgrades lose in R3-only lobbies (13 health down by round 7, where nobody levels); a gain in your lobbies would make it a training target
 

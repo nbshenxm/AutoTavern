@@ -77,7 +77,11 @@ speed: the update overlapping the next collection (36 s of the 80), tested apart
 iteration (80.7 before), but the KL between the collecting copy and the learner grew every iteration (0.001 to 0.05;
 before, 0.0003). Rewound to its iteration-949 checkpoint (the one being gated) on the previous settings; the
 drifted checkpoint is kept (data/train/main1/last_overlap_it972.pt). At home each flag alone, and all three at
-small batches, show no growth: being traced at full size before any retry.
+small batches, show no growth. Traced at full size (Nov 5): the copy is exact and reproduces the stored
+log-probabilities, but each update moves the policy further (KL per update 0.001 to 0.1 in 12 iterations), the
+same when collection and update are kept apart in time: the one-update lag itself is unstable here. `--overlap`
+is dropped; `--chunk 512 --amp-collect` (same math; bfloat16 collection) is being tested at full size on the
+cluster's GPU before main1 gets it.
 
 ## The mainline's setup
 
