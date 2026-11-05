@@ -214,6 +214,31 @@ def report(d):
             if x:
                 lines.append(f"| {b} | {x['share']:.2f} | {x['mean']:+.3f} | {x['part']:+.3f} |")
         lines.append("")
+    # Scaling: warband growth a round from round 8 to 12 (your lobbies' boards double every round;
+    # main1 it 949: 1.41x median, 1.8x+ in 2.6% of fresh games, which then place 2.1 against 4.2)
+    out["growth"] = {}
+    for suite in ("fresh", "real"):
+        for arm in ("cand", "ctrl"):
+            gs = [p[arm] for k, p in pairs.items() if k[0] == suite]
+            gr = [((g["turns"][12]["stats"] / g["turns"][8]["stats"]) ** 0.25, g["place"]) for g in gs
+                  if 8 in g["turns"] and 12 in g["turns"] and g["turns"][8]["stats"] > 0]
+            if not gr:
+                continue
+            x = np.array([a for a, _ in gr])
+            pl = np.array([b for _, b in gr])
+            out["growth"][f"{suite}/{arm}"] = {
+                "n": len(gr), "median": round(float(np.median(x)), 3), "p90": round(float(np.quantile(x, 0.9)), 3),
+                "scaling_share": round(float((x >= 1.8).mean()), 3),
+                "place_scaling": round(float(pl[x >= 1.8].mean()), 2) if (x >= 1.8).any() else None,
+                "place_other": round(float(pl[x < 1.8].mean()), 2) if (x < 1.8).any() else None}
+    if out["growth"]:
+        lines.append("## Scaling: warband growth a round, rounds 8 to 12 (alive at 12)")
+        lines.append("| suite / arm | games | median | 90% | share at 1.8x+ | place there | place otherwise |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+        for k, s in out["growth"].items():
+            lines.append(f"| {k} | {s['n']} | {s['median']} | {s['p90']} | {s['scaling_share']} | "
+                         f"{s['place_scaling']} | {s['place_other']} |")
+        lines.append("")
     cols = ["alive", "hp", "tier", "minions", "stats", "tribe", "gold_left"] + SHOWN
     for suite, table in out["rounds"].items():
         lines.append(f"## {suite}, round by round (candidate / control)")
