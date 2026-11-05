@@ -14,14 +14,14 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] main1 at 24 h (about Nov 5 20:00): still climbing past -0.097? Three seeds on the cluster's CPUs
 - [ ] comp2 at 4 h (about 16:00) and at its end, against main1 at the same iteration
-- [ ] The next method after comp2: a search teacher or a bigger network, chosen on comp2's result
+- [ ] Next experiment after comp2 (your OK): wide1, main1 grown to AutoTavern's network shape (feed-forward 4 x d, 15.7M; plays exactly as main1 at the start), 12 h vs main1 at the same iteration
 
 ## Later
 
 - [ ] Type commitment (on-type buys 35%, you 62-69%)
 - [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration); Freeze toggles are 6% of mid/late decisions (15-20% of turns hit the cap of 10; the advice has had none since Oct 31)
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
-- [ ] A Hero Power exam; a rating ladder and league; the full 18M network
+- [ ] A Hero Power exam; a rating ladder and league
 
 ## Done (Nov 5)
 
