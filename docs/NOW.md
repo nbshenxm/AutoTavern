@@ -6,12 +6,14 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Running
 
-- [ ] Office: main1, the mainline (R3's setup on the Nov 4 simulator); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
+- [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
+- [ ] Cluster GPU: comp2, main1 + twice the comps' midgame starts (the late gap is made in rounds 5-9), 12 h to about 00:30
 
 ## Next up
 
 - [ ] main1 at 24 h (about Nov 5 20:00): still climbing past -0.097? Three seeds on the cluster's CPUs
-- [ ] The next experiment beside main1 (the cluster's GPU): the late-game gap from rounds 5-9 ([CASE_LATE_GAME.md](CASE_LATE_GAME.md))
+- [ ] comp2 at 4 h (about 16:00) and at its end, against main1 at the same iteration
+- [ ] The next method after comp2: a search teacher or a bigger network, chosen on comp2's result
 
 ## Later
 
