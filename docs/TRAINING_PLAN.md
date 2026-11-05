@@ -130,7 +130,7 @@ seats at your lobbies' logged strength; main1 alone):
   main1's measured tonight). If it still can't: teach the value head from outcomes of your positions (many
   rollouts each) before any search teacher; if it can: the plan search with that value as the teacher.
 
-**Nov 5, 19:00: the next candidate, after comp2 (not started; your OK first).** Every probe today puts the gap
+**Nov 5, 19:00: the next candidate, after comp2 (your OK, 19:30: queued as job 108385, from main1's it 1400 snapshot widened, starts when comp2's array ends; judged against main1 at the same iteration as always).** Every probe today puts the gap
 in main1's own mid-game play, and AutoTavern's agent, whose recipe differs from ours mainly in scale, scales
 from turn 11 where ours doesn't. The one difference we can test at our size: the network. Our trunk is
 theirs (d 384, 8 layers, 8 heads) but with feed-forward layers 2 x d (11.0M); theirs is the usual 4 x d (18M;

@@ -14,7 +14,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] main1 at 24 h (about Nov 5 20:00): still climbing past -0.097? Three seeds on the cluster's CPUs
 - [ ] comp2 at 4 h (about 16:00) and at its end, against main1 at the same iteration
-- [ ] Next experiment after comp2 (your OK): wide1, main1 grown to AutoTavern's network shape (feed-forward 4 x d, 15.7M; plays exactly as main1 at the start), 12 h vs main1 at the same iteration
+- [ ] wide1 queued behind comp2 (about 00:30 to 13:00): main1 at it 1400 grown to AutoTavern's network shape (feed-forward 4 x d, 15.7M; plays exactly as main1 at the start), 12 h vs main1 at the same iteration
 
 ## Later
 
