@@ -308,6 +308,8 @@ def main():
     ap.add_argument("--workers", type=int, default=0, help="CPU worker processes (0: one process, GPU)")
     ap.add_argument("--chunk", type=int, default=4, help="games per worker task (with --workers)")
     ap.add_argument("--rules", default="", help=f"opening lines for the candidate's seat, comma-separated: {RULES}")
+    ap.add_argument("--seed", type=int, default=SEED,
+                    help="the first round's seed (another seed: new pairs, to pool with a finished gate)")
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
     log = lambda r: print(json.dumps(r), flush=True)
@@ -315,7 +317,7 @@ def main():
     if set(rules) - set(RULES):
         raise SystemExit(f"unknown rules {set(rules) - set(RULES)}; known: {RULES}")
     opts = dict(log=log, max_starts=a.starts, search_k=a.search, workers=a.workers, chunk=a.chunk, rules=rules)
-    res = run(a.cand, a.champ, a.rounds, SEED, a.fresh_games, a.device, a.threads, **opts)
+    res = run(a.cand, a.champ, a.rounds, a.seed, a.fresh_games, a.device, a.threads, **opts)
     if res["status"] == "pass" and not a.no_recheck:
         re = run(a.cand, a.champ, a.rounds, RECHECK_SEED, a.fresh_games, a.device, a.threads, **opts)
         res = {**res, "recheck": re, "status": "pass" if re["status"] == "pass" else "failed recheck"}

@@ -7,7 +7,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator), iteration 540
-- [ ] Cluster: opening gates on R3, round 2 of 4 (round 1: 0.7-0.8 places *worse*)
+- [ ] Cluster: act1 against R3 at 4x the pairs (it was -0.05 ± 0.03, too close to call); the tempo diagnostic
 
 ## Next up
 
@@ -26,5 +26,6 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [x] Simulator: legality 100% of your decisions, early carry 0.69x -> 0.87x, combats attack by attack 54.9% -> 57.7% (AUDIT.md: about 15 fixes, among them the reconnect, Volumizers, Winner's Bread, Warcry Totem, Drek'Thar's copy, Tavern spells cast)
 - [x] Overlay: says when the lineup's stats are after the plan (your Roaring Recruiter note)
+- [x] Opening rules forced on R3: 0.7-0.8 places worse (cancelled after round 1)
 - [x] act1 end: even with R3 (-0.05 ± 0.03), late1: worse (+0.19); neither ships
 - [x] Training plan: one mainline plus one experiment, the champion ladder on the progress page
