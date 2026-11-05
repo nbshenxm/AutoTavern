@@ -117,6 +117,19 @@ main1's (`--chunk 128 --amp-collect`, the same library and simulator build). **B
 against main1 at the same iteration wins outright; not worse on the gate with the mid exam's engine held up
 (main1's own measured at the same time) wins too; worse on the gate leaves the queue.
 
+**Nov 5, 16:30: the next step, written before the evidence that picks it.** main1 never levels (Upgrade
+probability 1e-6..1e-13 at your positions) and one Upgrade there is worth nothing to it in the training lobby
+(+0.075 ± 0.048). The same test is running in two lobbies where the late game is within reach (the library
+seats at your lobbies' logged strength; main1 alone):
+- **A. An Upgrade pays there** (paired gain, 2.5 SE): the top-1% lobby is what teaches tempo over investment.
+  Experiment lobby1 from main1: the library seats at your lobbies' logged strength (`--library-strength 0`),
+  everything else main1's. Bar: not worse than main1 at the same iteration on the gate's realistic suite (your
+  positions), and it starts to level (Upgrades from your round 4-9 positions >= 0.1 a turn; now 0.00).
+- **B. It pays nowhere:** the cause is what it does with a Tier (buys off-tribe, breaks the engine), not the
+  lobby. Search can only teach that if the value head sees the mid-game (55% on your round 5-8 turns, Nov 4;
+  main1's measured tonight). If it still can't: teach the value head from outcomes of your positions (many
+  rollouts each) before any search teacher; if it can: the plan search with that value as the teacher.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |

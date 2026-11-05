@@ -19,7 +19,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Later
 
 - [ ] Type commitment (on-type buys 35%, you 62-69%)
-- [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration)
+- [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration); Freeze toggles are 6% of mid/late decisions (15-20% of turns hit the cap of 10; the advice has had none since Oct 31)
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league; the full 18M network
 
