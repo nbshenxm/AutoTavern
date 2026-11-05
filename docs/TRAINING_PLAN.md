@@ -25,6 +25,16 @@ checkpoints):
   on), paired against the champion;
 - for imitation runs, agreement on your held-out games.
 
+**After every verdict, the audit (your rule, Nov 5): why it won or didn't.** `scripts/hpc/post_audit.sh
+CAND CONTROL NAME` (advisor.post_audit, cluster CPUs, data/audit/NAME): the gate's games, candidate against its
+control from the same seeds; where the place difference is made (the first round seat 0's health differs
+between the two); round by round health, Tier, warband, the main tribe's share, Gold left and actions; the mid
+and engine exams paired; Refreshes, buys, Upgrades and Freezes next to yours (compare_play, early and late).
+Also: did the change do what it was meant to (comp2: more engine games: do its comp-start games end with the
+engine, and does that carry to fresh games?). The cause found goes into EXPERIMENTS.md with the verdict and
+picks the next queue item; a result without a cause is a reason to investigate before the next run, not to
+guess.
+
 **An experiment wins** when it passes its bar *and* isn't worse on the gate. Its change then goes into
 the mainline's setup, and the mainline continues from its own latest checkpoint with it.
 

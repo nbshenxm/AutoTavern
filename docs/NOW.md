@@ -8,6 +8,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
 - [ ] Cluster GPU: comp2, main1 + twice the comps' midgame starts (the late gap is made in rounds 5-9), 12 h to about 00:30
+- [ ] Cluster CPUs: the first post-evaluation audit, main1 it 949 against R3: where its 0.1 places come from (rounds, habits)
 
 ## Next up
 
