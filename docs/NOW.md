@@ -6,7 +6,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Running
 
-- [ ] Office: act1 to 19:40, then main1 (the mainline: R3's setup on tonight's simulator, continuous)
+- [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator); act1's end gate
 - [ ] Cluster: late1 to ~20:40 (4 h gate: worse than R3); mid1 cancelled (the same imitation recipe)
 
 ## Next up
