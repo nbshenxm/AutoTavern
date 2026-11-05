@@ -6,7 +6,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Running
 
-- [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator), iteration 540
+- [ ] Office: main1, the mainline, since 19:54 (R3's setup on tonight's simulator); since 23:10 about 1.6x faster (evaluation moved out)
 - [ ] Cluster: act1 against R3 at 4x the pairs (it was -0.05 ± 0.03, too close to call); the tempo diagnostic
 
 ## Next up

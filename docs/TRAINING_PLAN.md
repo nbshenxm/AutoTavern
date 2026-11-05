@@ -68,6 +68,11 @@ gate (`advisor.gate --rules busker,level,nofreeze`, rounds 1-4 only). A pass shi
 training target; a fail says R3's value can't plan tempo, which then goes to what training rewards. Releases
 only on a gate pass from now on (you, Nov 4). main1 runs as planned.
 
+*Nov 4, 23:10 (your OK; no change to what it learns):* main1 restarted from its own last.pt (iteration 596)
+with `--eval-every 100`. The in-run evaluation (200-game checks every 10 iterations) stalled the GPU 460 s each
+time, 37% of the run (126 s an iteration for 80 s of training); the cluster gates judge it instead. Next for
+speed: the update overlapping the next collection (36 s of the 80), tested apart from the run first.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
