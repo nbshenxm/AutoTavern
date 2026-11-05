@@ -88,6 +88,10 @@ KL flat, mean |KL| 0.0008 (main1's own last 40: 0.00075), no growth from the fir
 update (office, chunk 128: 37 s), collection about 40 s. Same training, faster: main1 to get both flags at a
 checkpoint (needs your OK to stop it).
 
+*Nov 5, 11:20-11:45 (your OK; same training):* main1 restarted from its own last.pt (it 1078) with `--chunk 512
+--amp-collect`: collection 44 → 31 s, but the update 37 → 41.5 s on the office's GPU (faster on the cluster's).
+Restarted again at it 1086 with `--chunk 128 --amp-collect`: **68 s an iteration** (81 before), KL as before.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |

@@ -10,7 +10,6 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] Speed: `--chunk 512 --amp-collect` passed at full size (KL as main1's); main1 gets them at a checkpoint (81 s an iteration now, about 65 expected)
 - [ ] main1 at 24 h (about Nov 5 20:00): still climbing past -0.097? Three seeds on the cluster's CPUs
 - [ ] The next experiment beside main1 (the cluster's GPU): the late-game gap from rounds 5-9 ([CASE_LATE_GAME.md](CASE_LATE_GAME.md))
 
@@ -26,7 +25,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [x] main1 12 h: -0.097 ± 0.020 against R3 on every suite (your positions -0.10, library -0.10, fresh -0.09)
 - [x] Opening rules in realistic lobbies: still worse (+0.18, +0.19); forcing tempo onto R3 is off the queue
 - [x] main1 4 h: the first gate pass since R3; act1 at 4 seeds: -0.051 ± 0.017, also better than R3
-- [x] `--overlap` dropped (the one-update lag is unstable at full size); chunk 512 + bfloat16 collection pass
+- [x] main1 faster: bfloat16 collection, 81 → 68 s an iteration (chunk 512 was slower on the office's GPU); `--overlap` dropped (unstable)
 
 ## Done (Nov 4)
 
