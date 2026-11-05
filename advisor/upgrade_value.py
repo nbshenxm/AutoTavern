@@ -1,7 +1,8 @@
 """Does one Upgrade pay, for this network, where you could afford one? The networks give Upgrade a
 probability of 1e-6 to 1e-13 at your round 4-11 starts (Nov 5: R3 and main1), so training never
-samples one and can't learn what it is worth. From each such start (the gate's library lobby:
-seats 5-7 library, the others the network) the network plays on as it would, and in the paired
+samples one and can't learn what it is worth. From each such start (`--lobby`: the gate's library lobby,
+seats 5-7 library and the others the network; or those seats at your lobbies' logged strength; or
+the network alone) the network plays on as it would, and in the paired
 arm Upgrades once at the start of that turn and then plays on; same seeds, `--reps` of each.
 Split by round, Tier, Gold to spare and health: if it pays somewhere, the policy is stuck
 (exploration; the fix learns from forced Upgrades where they paid); if it pays nowhere, the
@@ -18,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from advisor.gate import library_config
+from advisor.gate import CONFIG, library_config
 from advisor.policy import load
 from advisor.train import BatchEnv, RealStarts, load_start, play_frozen
 
@@ -76,10 +77,21 @@ def play(net, states, seed, force):
 _W = {}
 
 
-def _init(path):
+def lobby_config(lobby):
+    """library: the gate's (seats 5-7 your lobbies' boards scaled to the top 1%, comps too); logged:
+    the same seats at your lobbies' logged strength; self: no library, all seats the network."""
+    if lobby == "self":
+        return CONFIG
+    if lobby == "logged":
+        from advisor import library
+        return {**CONFIG, "library": library.library([5, 6, 7], strength=0.0, comps=False)}
+    return library_config()
+
+
+def _init(path, lobby="library"):
     torch.set_num_threads(1)
     _W["net"] = load(path, "cpu")[0].eval()
-    _W["lib"] = library_config()
+    _W["lib"] = lobby_config(lobby)
     _W["starts"] = RealStarts(1.0, 0, log=lambda r: None).real
 
 
@@ -92,7 +104,7 @@ def _work(job):
         {"start": i, "row": b[1], "base": b[0], "up": u[0], "forced": u[2]} for i, b, u in zip(idx, base, up)]}
 
 
-def run(path, name, reps=8, seed=SEED, workers=60, chunk=8, limit=None):
+def run(path, name, reps=8, seed=SEED, workers=60, chunk=8, limit=None, lobby="library"):
     d = OUT / f"upgrade_{name}"
     d.mkdir(parents=True, exist_ok=True)
     out = d / "games.jsonl"
@@ -102,7 +114,7 @@ def run(path, name, reps=8, seed=SEED, workers=60, chunk=8, limit=None):
     todo = [j for j in jobs if (j[1], j[2]) not in done]
     print(f"{len(idx)} starts x {reps} reps: {len(done)} chunks done, {len(todo)} to play", flush=True)
     import multiprocessing as mp
-    with mp.get_context("spawn").Pool(workers, _init, (path,)) as pool, open(out, "a", encoding="utf-8") as f:
+    with mp.get_context("spawn").Pool(workers, _init, (path, lobby)) as pool, open(out, "a", encoding="utf-8") as f:
         for k, r in enumerate(pool.imap_unordered(_work, todo, chunksize=1)):
             f.write(json.dumps(r) + "\n")
             f.flush()
@@ -151,6 +163,8 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--workers", type=int, default=60)
     ap.add_argument("--chunk", type=int, default=8)
+    ap.add_argument("--lobby", choices=("library", "logged", "self"), default="library",
+                    help="the other seats (lobby_config)")
     ap.add_argument("--limit", type=int, help="the first N starts only (a smoke test)")
     ap.add_argument("--report")
     a = ap.parse_args()
@@ -159,7 +173,7 @@ def main():
         return
     if not (a.net and a.name):
         raise SystemExit("NET --name NAME (or --report DIR)")
-    run(a.net, a.name, a.reps, a.seed, a.workers, a.chunk, a.limit)
+    run(a.net, a.name, a.reps, a.seed, a.workers, a.chunk, a.limit, a.lobby)
 
 
 if __name__ == "__main__":
