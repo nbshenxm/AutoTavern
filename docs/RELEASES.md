@@ -1,7 +1,68 @@
 # Releases
 
-One a day at 20:00 (the schedule and targets: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31)).
+Only when a network passes the gate against the champion (from Nov 4; before, one a day at 20:00:
+[ROADMAP.md](ROADMAP.md#releases-from-2026-10-31)).
 Newest first.
+
+## Nov 4: no release (no gate pass)
+
+**From Nov 4 a release is a network that passes the gate against the champion; nothing else is
+called one.** R4 and R5 would have shipped R3's network again: they changed the simulator, not the
+strength. Since R3 (Nov 2) 8 candidates went through the gate: none better. What changed today, as a
+changelog:
+
+**The gate since R4** (paired, negative = better):
+
+| Candidate vs R3 | Gain in places | Verdict |
+| --- | --- | --- |
+| p37 10 h (fine-tuned on the 37.0.2 rules) | -0.046 ± 0.036 | inconclusive |
+| act1 4 h (forced Activates in exploration) | -0.053 ± 0.035 | even |
+| late1 4 h (your late turns as a teacher) | +0.191 ± 0.052 | worse, though it agreed with your held-out turns 4x more |
+
+late1's result changed the training plan (TRAINING_PLAN.md, Nov 4 14:30): one continuous
+mainline on the office from tonight (R3's setup on the rebuilt simulator), one experiment at a time
+on the cluster (mid1: your round 5-8 turns), each with its bar set first. The progress page shows
+the champion ladder (docs/ladder.json).
+
+**The simulator: what the advice sees is closer to your game.** Found by the new checks, fixed
+since R4 (docs/AUDIT.md):
+- From your logs: after a reconnect a game's earlier combats were lost (the player's id changes):
+  459 decisions in 4 games rebuilt with no combat history, the live advisor too. Rebuilt Volumizers
+  lost 3 Attack at the next re-sync. Winner's Bread's and Overconfidence's waiting part, Warcry
+  Totem's spent free buys, Incubation's turns, the turn's play counters (Elementals, spells...),
+  next-combat spells cast earlier in the turn (Brood of Nozdormu, Upper Hand), Battlecruiser
+  Upgrades, the lobby's Deity: now read.
+- Rules: Arcane Absorption rounds the half up; a dying Rally attacker triggers every Deathstrider;
+  Sharing is Caring hits the enemy across from it (centred boards); Brood of Nozdormu sets Attack;
+  "whenever you summon" before "after you summon"; library seats fight with their hero, Hero Powers
+  and trinkets.
+- From your Nov 4 games: Drek'Thar's / Vanndar's copy comes in just right of the minion it copies
+  (it was summoned at the end); the game's Tavern spells cast are read from Faceless Converter (an
+  opponent's C'Thun fought at 1823/913 where the log had 2303/1153).
+- The overlay says when the lineup's stats are after the plan (a planned Prisonguard Activate showed
+  your Roaring Recruiter 5/11 while it was 2/8 on your board).
+- The live advisor's plans no longer count Warcry Totem's free buys you already spent this turn;
+  the legality check no longer counts a capped hand card's second client option as a play (both
+  games with gaps now match the client on every decision).
+
+**Against your logs** (5,144 decisions, 258 combats; advisor.fidelity): the legal actions identical
+to the client's in 100.0% of decisions (97.6% this morning); single actions 90.8%, whole turns 85.3%
+(what's left: random targets, Discovers and pre-patch games on 37.0.2 rules); warband growth over
+combat and the turn change 0.87x / 1.07x / 1.00x by round band (rounds 1-6: 0.69x this morning);
+Bob's Buddy 0.040 on random warbands.
+
+**New checks:** the attack-by-attack replay (each logged combat with the logged targets forced:
+57.7% of combats exact, the rest random recipients so far), the effect audit (480 full
+games, every off-text stat change explained), Bob's Buddy on the current build (0.019 mean
+difference on random warbands; its card data predates 37.0.2), 113 card tests for the pool cards no
+audit reached, and the exams from your positions (mid-game, late-game, value probe).
+
+**Targets:** late >= 0.50: not met (same network). Your games: 5+ played with it, measured: 2 games
+since R4 (not enough to measure).
+
+**Known faults:** as R3 (the opening Freezes and never levels; late, it over-refreshes and buys
+off-type). The case study puts the late gap in the mid-game (R3 0.28x you three rounds on from
+rounds 6-9): that is what main1 and mid1 train on.
 
 ## R4 · Nov 3 (shipped 21:05) · tag `bg-r4`
 

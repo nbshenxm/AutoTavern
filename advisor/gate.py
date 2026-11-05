@@ -38,13 +38,69 @@ SEED, RECHECK_SEED = 41_000_000, 43_000_000
 SUITES = ("real", "library", "fresh")
 
 
+# Opening lines the candidate's seat may follow (--rules), each in rounds 1-4 only, the network's
+# own choice everywhere else: "busker" buys a Southsea Busker in round 1, keeps it in hand and
+# plays it in round 2 (Tier 2 in round 2 and Tier 3 in round 3 without a sale: your note, Nov 4);
+# "level" Upgrades whenever it can up to Tier 3; "nofreeze" never Freezes (R3: 0.6-0.7 Freezes a
+# turn in rounds 2-6, you 0.1; 0 Upgrades, you 0.55)
+RULES = ("busker", "level", "nofreeze")
+BUSKER = "BG26_135"
+A_FREEZE, A_UPGRADE, A_BUY, A_PLAY, N_POS = 2, 3, 8, 46, 8
+
+
+def _busker(item):
+    from advisor.state import normal_form
+    return normal_form((item or {}).get("id") or "")[0] == BUSKER
+
+
+def rule_view(env, i):
+    """Seat 0's recruit view of game i // 8 when an opening rule may apply (rounds 1-4, no choice
+    pending), else None."""
+    v = json.loads(env.game(i // 8).view(0))
+    if v["turn"] > 4 or v["phase"].lower() != "recruit" or v["me"]["pending"]:
+        return None
+    return v
+
+
+def rule_mask(v, mask, rules):
+    """What the rules forbid: Freeze; playing a Busker in round 1."""
+    mask = mask.copy()
+    if "nofreeze" in rules:
+        mask[A_FREEZE] = False
+    if "busker" in rules and v["turn"] == 1:
+        for h, item in enumerate(v["me"]["hand"]):
+            if _busker(item):
+                mask[A_PLAY + h * N_POS:A_PLAY + (h + 1) * N_POS] = False
+    return mask if mask.any() else None
+
+
+def rule_action(v, mask, rules):
+    """The action a rule takes first, or None."""
+    me = v["me"]
+    if "busker" in rules:
+        owned = any(_busker(x) for x in me["hand"] + me["board"])
+        if v["turn"] == 1 and not owned:
+            for j, item in enumerate(me["shop"]):
+                if _busker(item) and mask[A_BUY + j]:
+                    return A_BUY + j
+        if v["turn"] == 2:
+            for h, item in enumerate(me["hand"]):
+                a = A_PLAY + h * N_POS + min(len(me["board"]), N_POS - 1)
+                if _busker(item) and mask[a]:
+                    return a
+    if "level" in rules and 2 <= v["turn"] <= 4 and me["tier"] < 3 and mask[A_UPGRADE]:
+        return A_UPGRADE
+    return None
+
+
 def library_config():
     from advisor import library
     return {**CONFIG, "library": library.library([5, 6, 7], strength=1.0, comps=True)}
 
 
 @torch.no_grad()
-def play(net, other, n, seed, config, states=None, device="cuda", games=64, threads=8, search_k=0):
+def play(net, other, n, seed, config, states=None, device="cuda", games=64, threads=8, search_k=0,
+         rules=()):
     """Seat 0's place in `n` games (game i from states[i] when given, else round 1), `net` in
     seat 0, `other` in the rest, all greedy; game i's seed depends on (seed, i, games) only.
     `search_k` > 0: seat 0 plays the plan search's first step (advisor.search.best_plan over
@@ -69,7 +125,20 @@ def play(net, other, n, seed, config, states=None, device="cuda", games=64, thre
             ready = np.flatnonzero(obs["ready"] & obs["action_mask"].any(1))
             ready = np.array([i for i in ready if i // 8 not in got], dtype=np.int64)
             actions = np.zeros(env.n_slots, dtype=np.int64)
+            forced = {}
+            for i in (ready[ready % 8 == 0] if rules else ()):
+                v = rule_view(env, int(i))
+                if v is None:
+                    continue
+                m2 = rule_mask(v, obs["action_mask"][i], rules)
+                if m2 is not None:
+                    obs["action_mask"][i] = m2
+                a = rule_action(v, obs["action_mask"][i], rules)
+                if a is not None:
+                    forced[int(i)] = a
             play_frozen(obs, ready, net_of, actions, device)
+            for i, a in forced.items():
+                actions[i] = a
             for i in (ready[ready % 8 == 0] if search_k else ()):
                 plan, _, _ = search.best_plan(env.game(i // 8), net, 0, obs["action_mask"][i].astype(bool),
                                               search_k, seed=(seed + k + int(i)) * 100_003 + step)
@@ -94,17 +163,17 @@ def _init_worker(paths):
 
 
 def _work(job):
-    net, other, m, seed, suite, states, search_k = job
+    net, other, m, seed, suite, states, search_k, rules = job
     nets, cfg = _WORKER["nets"], _WORKER["configs"]["real" if suite == "real" else "library"]
     return play(nets[net], nets[other], m, seed, cfg, states, "cpu", games=m, threads=1,
-                search_k=search_k)
+                search_k=search_k, rules=rules)
 
 
-def play_pool(pool, net_path, other_path, n, seed, suite, states, search_k, chunk):
+def play_pool(pool, net_path, other_path, n, seed, suite, states, search_k, chunk, rules=()):
     """play() in chunks of `chunk` games on a worker pool (CPU): the same games as
     play(..., games=chunk), so it pairs with a run at that chunk size."""
     jobs = [(net_path, other_path, min(chunk, n - k), seed + k, suite,
-             None if states is None else states[k:k + chunk], search_k) for k in range(0, n, chunk)]
+             None if states is None else states[k:k + chunk], search_k, rules) for k in range(0, n, chunk)]
     return [x for part in pool.map(_work, jobs, chunksize=1) for x in part]
 
 
@@ -147,7 +216,7 @@ def verdict(s, rounds_done, min_rounds=2):
 
 
 def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cuda", threads=8,
-        name=None, log=print, max_starts=None, search_k=0, workers=0, chunk=4):
+        name=None, log=print, max_starts=None, search_k=0, workers=0, chunk=4, rules=()):
     """`search_k` > 0: the candidate plays with the plan search (on `workers` CPU processes,
     games in chunks of `chunk`; the champion's games then use the same chunks)."""
     if search_k and not workers:
@@ -165,7 +234,9 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
                     f"{Path(champ_path).stem}-{hck.get('iteration')}-{md5(champ_path)}_{seed}")
     if search_k:
         name += f"_search{search_k}"
-    elif workers:
+    if rules:
+        name += "_rules-" + "-".join(rules)
+    if not search_k and workers:
         name += f"_c{chunk}"
     pool = None
     if workers:
@@ -192,12 +263,12 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
         for k, (config, st, n) in suites.items():
             s = seed + r * 1_000_003 + SUITES.index(k) * 100_003
             if pool:
-                a = play_pool(pool, cand_path, champ_path, n, s, k, st, search_k, chunk)
+                a = play_pool(pool, cand_path, champ_path, n, s, k, st, search_k, chunk, rules)
                 b = champion_places(champ, champ_path, n, s, config, st, device, threads,
                                     f"{k}{len(states)}_c{chunk}",
                                     compute=lambda: play_pool(pool, champ_path, champ_path, n, s, k, st, 0, chunk))
             else:
-                a = play(cand, champ, n, s, config, st, device, threads=threads)
+                a = play(cand, champ, n, s, config, st, device, threads=threads, rules=rules)
                 b = champion_places(champ, champ_path, n, s, config, st, device, threads,
                                     f"{k}{len(states)}")
             row["diffs"][k] = [x - y for x, y in zip(a, b)]
@@ -236,10 +307,14 @@ def main():
                     help="the candidate plays with the plan search over K sampled plans (needs --workers)")
     ap.add_argument("--workers", type=int, default=0, help="CPU worker processes (0: one process, GPU)")
     ap.add_argument("--chunk", type=int, default=4, help="games per worker task (with --workers)")
+    ap.add_argument("--rules", default="", help=f"opening lines for the candidate's seat, comma-separated: {RULES}")
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
     log = lambda r: print(json.dumps(r), flush=True)
-    opts = dict(log=log, max_starts=a.starts, search_k=a.search, workers=a.workers, chunk=a.chunk)
+    rules = tuple(r for r in a.rules.split(",") if r)
+    if set(rules) - set(RULES):
+        raise SystemExit(f"unknown rules {set(rules) - set(RULES)}; known: {RULES}")
+    opts = dict(log=log, max_starts=a.starts, search_k=a.search, workers=a.workers, chunk=a.chunk, rules=rules)
     res = run(a.cand, a.champ, a.rounds, SEED, a.fresh_games, a.device, a.threads, **opts)
     if res["status"] == "pass" and not a.no_recheck:
         re = run(a.cand, a.champ, a.rounds, RECHECK_SEED, a.fresh_games, a.device, a.threads, **opts)

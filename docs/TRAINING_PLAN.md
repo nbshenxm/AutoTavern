@@ -60,6 +60,14 @@ this scale leaves the queue.
 mid1) re-staged at 7163c1d with this evening's simulator fixes, so mid1 and main1 start on the same rules
 (Drek'Thar's copy position, the rebuild fixes; docs/AUDIT.md).
 
+**Changed Nov 4, 19:40, on a result.** Since R3 (Nov 2) 8 candidates went through the gate, none better;
+imitating your turns made it worse (late1). mid1 is the same imitation recipe: cancelled. The experiment
+slot goes to the biggest measured flaw, the opening (R3: 0 Upgrades a turn in rounds 2-6, you 0.55; Freezes
+0.6-0.7, you 0.1; your Busker note): first, without training, opening lines on R3 at decision time through the
+gate (`advisor.gate --rules busker,level,nofreeze`, rounds 1-4 only). A pass ships at once and becomes a
+training target; a fail says R3's value can't plan tempo, which then goes to what training rewards. Releases
+only on a gate pass from now on (you, Nov 4). main1 runs as planned.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |

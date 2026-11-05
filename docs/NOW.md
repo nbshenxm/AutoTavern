@@ -7,14 +7,13 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: act1 to 19:40, then main1 (the mainline: R3's setup on tonight's simulator, continuous)
-- [ ] Cluster: late1 to ~20:40 (4 h gate: worse than R3), then mid1 (the one experiment)
-- [ ] Cluster: the effect audit's last chunks
+- [ ] Cluster: late1 to ~20:40 (4 h gate: worse than R3); mid1 cancelled (the same imitation recipe)
 
 ## Next up
 
-- [ ] R5 at 20:00: R3's network, today's simulator fixes and checks
+- [ ] Opening lines on R3 through the gate (Busker hold, level rounds 2-4, no early Freeze): a pass ships
 - [ ] main1's first checks at +4 h (gate and engine exam against R3)
-- [ ] Southsea Busker opening (hold, level rounds 2 and 3): what R3 does, then test it
+- [ ] Releases only on a gate pass (none since R3: 8 candidates even or worse)
 
 ## Later
 
