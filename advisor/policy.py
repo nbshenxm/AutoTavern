@@ -158,10 +158,14 @@ class EntityNet(nn.Module):
     choices, opponents (hero + leaderboard floats, their trinkets added to the hero card) and
     their last seen warbands."""
 
-    def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity", blind_v4=False):
+    def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity", blind_v4=False, ffn=2):
         super().__init__()
         self.config = {"arch": "entity", "card_dim": card_dim, "d": d, "layers": layers,
                        "heads": heads}
+        # The feed-forward width per layer, times d (2 until Nov 5; AutoTavern's 18M network has the
+        # usual 4: advisor.widen grows a checkpoint to it without changing what it plays)
+        if ffn != 2:
+            self.config["ffn"] = ffn
         # A control run's network (advisor.train --blind-v4): it never sees what observation
         # version 4 and the card table's text columns add, so an A/B of that information holds
         # across restarts on the new code
@@ -192,7 +196,7 @@ class EntityNet(nn.Module):
         self.proj = nn.ModuleDict({n: nn.Linear(card_dim + k, d) for n, _, k in FLOAT_BLOCKS})
         self.n_tokens = 1 + N_MISC + N_TRINKETS + sum(n for _, n, _ in FLOAT_BLOCKS)
         self.pos = nn.Parameter(torch.randn(self.n_tokens, d) * 0.02)
-        layer = nn.TransformerEncoderLayer(d, heads, 2 * d, dropout=0.0, batch_first=True,
+        layer = nn.TransformerEncoderLayer(d, heads, ffn * d, dropout=0.0, batch_first=True,
                                            norm_first=True)
         self.encoder = nn.TransformerEncoder(layer, layers, enable_nested_tensor=False)
         self.out_norm = nn.LayerNorm(d)

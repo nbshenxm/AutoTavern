@@ -130,6 +130,17 @@ seats at your lobbies' logged strength; main1 alone):
   main1's measured tonight). If it still can't: teach the value head from outcomes of your positions (many
   rollouts each) before any search teacher; if it can: the plan search with that value as the teacher.
 
+**Nov 5, 19:00: the next candidate, after comp2 (not started; your OK first).** Every probe today puts the gap
+in main1's own mid-game play, and AutoTavern's agent, whose recipe differs from ours mainly in scale, scales
+from turn 11 where ours doesn't. The one difference we can test at our size: the network. Our trunk is
+theirs (d 384, 8 layers, 8 heads) but with feed-forward layers 2 x d (11.0M); theirs is the usual 4 x d (18M;
+their 18M beat 8M and 3.5M). advisor.widen grows main1's checkpoint to 4 x d (15.7M) playing exactly as it
+did (zero output weights on the new units: logit difference 0 over 266 decisions); 1.18x the forward time.
+**wide1**: main1's checkpoint at comp2's end, widened; main1's setup otherwise; KL anchor 0.1 to its start for
+the first 100 iterations (their stage rule); 12 h. **Bar, set first:** a gate pass against main1 at the same
+iteration; or not worse with the audit's scaling share (warband 1.8x+ a round from round 8 to 12) up from
+main1's 2.6% (fresh) / 10% (your positions).
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
