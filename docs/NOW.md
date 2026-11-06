@@ -7,13 +7,13 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
-- [ ] Cluster GPU: spec1, the mid/late specialist (every game from your rounds 6+ positions, 13 training games), days; judged on your 8 held-out games
-- [ ] Cluster CPUs: comp2 vs main1 at iteration 1300 (round 1 of 3: +0.14 ± 0.06, worse); main1 at 24 h vs R3 from 20:00
+- [ ] Cluster GPU: spec1, the mid/late specialist (every game from your rounds 6+ positions, 13 training games), days; judged on your 8 held-out games; 72 s an iteration since 12:00 (155 before: faster loading of your positions)
+- [ ] Cluster CPUs: wide1 (it 1898) vs main1 (it 1900): the gate and the audit
 
 ## Next up
 
-- [ ] main1 at 24 h (about Nov 5 20:00): still climbing past -0.097? Three seeds on the cluster's CPUs
-- [ ] comp2 at 4 h (about 16:00) and at its end, against main1 at the same iteration
+- [ ] wide1's verdict (about 13:00): if it clearly wins, restart spec1 from widened main1
+- [ ] spec1 at 12 h (about 22:00): held-out games only, vs main1 at the same iteration (mid and engine exams, scaling share, real suite)
 
 ## Later
 
