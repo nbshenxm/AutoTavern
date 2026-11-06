@@ -677,15 +677,54 @@ class Generation:
         return out
 
 
+_BODY = {}  # id(state) -> (the state's JSON without cfg and rng, its lobby types, who is alive, the state)
+_CFG = {}  # the env's cfg as saved -> (that cfg's JSON without lobby_types, ready for one more key)
+
+
 def load_start(env, i, state):
     """Game `i` of `env` replaced by the stored position `state` (Game.state_json), with the
     env's rules (library seats and all) and the logged lobby's tribes, and the random state of
-    the game it replaces."""
+    the game it replaces. With --real-starts 1.0 a thousand games an iteration are loaded and the
+    env's cfg holds the whole library (5.7 MB): parsing the fresh game's save and writing its cfg
+    again took 80 of a 120 s collection (Nov 6). So the position's JSON is made once, the cfg's
+    once per cfg, and the fresh game's random state and index are read from its save as text. The
+    result is the same game (_load_start_slow, checked)."""
+    key = id(state)
+    got = _BODY.get(key)
+    if got is None or got[3] is not state:
+        rest = {k: v for k, v in state.items() if k not in ("cfg", "rng")}
+        got = (json.dumps(rest)[1:-1], (state.get("cfg") or {}).get("lobby_types"),
+               [p["alive"] for p in state["players"]], state)
+        _BODY[key] = got
+    body, lobby, alive, _ = got
+    s = env.save(i)  # {"game":{"cfg":{...},"seed":..,"rng":{"s":[..]},...},"index":N,"finished":[..]}
+    r = s.find('"rng":')
+    c0, c1 = s.find('"cfg":') + 6, s.rfind(',"seed":', 0, r)
+    if not (0 < c0 < c1 < r and s.count('"rng":', r + 1) == 0):
+        return _load_start_slow(env, i, state)
+    raw = s[c0:c1]
+    cfg = _CFG.get(raw)
+    if cfg is None:
+        d = json.loads(raw)
+        d.pop("lobby_types", None)
+        cfg = json.dumps(d)[:-1]  # ... "}" left off: the lobby's tribes go last
+        _CFG.clear()
+        _CFG[raw] = cfg
+    rng = s[r + 6:s.index("}", r) + 1]
+    index = s[s.rfind('"index":') + 8:s.rfind(',"finished"')]
+    lt = '"lobby_types": ' + json.dumps(lobby)
+    sep = "" if cfg.endswith("{") else ", "  # (an empty cfg would have no key before it)
+    # (one flag per seat the env controls: all eight, or seat 0 alone under --solo)
+    env.load(i, '{"game": {' + body + ', "cfg": ' + cfg + sep + lt + '}, "rng": ' + rng
+             + '}, "index": ' + index + ', "finished": ' + json.dumps([not alive[x] for x in env.controlled]) + '}')
+
+
+def _load_start_slow(env, i, state):
+    """The reference (before Nov 6), for the test that the fast one makes the same game."""
     fresh = json.loads(env.save(i))
     st = json.loads(json.dumps(state))
     st["cfg"] = {**fresh["game"]["cfg"], "lobby_types": st["cfg"].get("lobby_types")}
     st["rng"] = fresh["game"]["rng"]
-    # (one flag per seat the env controls: all eight, or seat 0 alone under --solo)
     env.load(i, json.dumps({"game": st, "index": fresh["index"],
                             "finished": [not st["players"][s]["alive"] for s in env.controlled]}))
 
