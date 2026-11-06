@@ -7,7 +7,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
-- [ ] Cluster GPU: wide1, main1 at it 1400 grown to AutoTavern's network shape (15.7M), 12 h to about 12:30; judged vs main1 at the same iteration
+- [ ] Cluster GPU: spec1, the mid/late specialist (every game from your rounds 6+ positions, 13 training games), days; judged on your 8 held-out games
 - [ ] Cluster CPUs: comp2 vs main1 at iteration 1300 (round 1 of 3: +0.14 ± 0.06, worse); main1 at 24 h vs R3 from 20:00
 
 ## Next up

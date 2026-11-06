@@ -179,7 +179,7 @@ from one of your positions in rounds 6+ of your *training* games (`--real-starts
 rounds 1-5 and the specialist from round 6 (AutoTavern's merged specialists). Judged only on the 8 held-out games
 (`BG_SPLIT=test`: 84 positions) against main1 at the same iteration. **Bar, set first:** mid exam (warband vs yours
 at +3) and engine exam better than main1's, the scaling share from your positions up, the gate's held-out real
-suite not worse. Days, checked every 12 h. If it doesn't scale either, more mid-game practice isn't the limit:
+suite not worse. Days, checked every 12 h (started Nov 6 10:00 from main1 it 2200, narrow, your OK: the GPU was idle until wide1's verdict; widened and restarted only if wide1 wins). If it doesn't scale either, more mid-game practice isn't the limit:
 the network's ability to learn it is.
 
 ## The mainline's setup
