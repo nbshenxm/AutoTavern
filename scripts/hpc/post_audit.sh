@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The audit after a gate verdict (advisor.post_audit), on the cluster's CPUs: candidate against its
 # control on the gate's games, then the exams paired (mid_exam, engine_exam) and the habits next to
-# yours (compare_play, early and late), all into data/audit/NAME. Each step is skipped once its
+# yours (compare_play, early and late) and their buys and sells where you built (buy_audit), all into
+# data/audit/NAME. Each step is skipped once its
 # output exists and the games resume chunk by chunk, so an array with %1 carries it past the 1-hour
 # limit:
 #
@@ -33,6 +34,10 @@ for who in cand ctrl; do
         > "$D/habits_late_$who.txt" 2>&1
     [ -f "$D/habits_early_$who.json" ] || "$PY" -X utf8 -m advisor.compare_play "$NET" --early --json "$D/habits_early_$who.json" \
         > "$D/habits_early_$who.txt" 2>&1
+done
+for who in cand ctrl; do
+    NET=$CAND; [ $who = ctrl ] && NET=$CTRL
+    [ -f "$D/buys_$who.json" ] || "$PY" -X utf8 -m advisor.buy_audit "$NET" --out "$D/buys_$who.json" > "$D/buys_$who.txt" 2>&1
 done
 touch "$D/DONE"
 echo "$(date '+%F %T') done"
