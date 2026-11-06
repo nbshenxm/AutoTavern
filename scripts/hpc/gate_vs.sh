@@ -18,6 +18,6 @@ source /fs1/projects/benchmarking_PIDS/HearthstoneAdvisor_BG/repo/scripts/hpc/en
 cd "$ROOT/gaterules"
 CAND=$1 CHAMP=$2 NAME=$3 SEED=${4:-41000000}
 echo "$(date '+%F %T') $(hostname): gate $CAND vs $CHAMP, seed $SEED"
-"$PY" -X utf8 -m advisor.gate --rounds 3 --fresh-games 512 --workers 60 --seed "$SEED" --no-recheck \
+"$PY" -X utf8 -m advisor.gate --rounds 3 --fresh-games "${FRESH:-512}" --workers 60 --seed "$SEED" --no-recheck \
     "$CAND" "$CHAMP" | tee -a "data/gate/$NAME.log"
 echo "$(date '+%F %T') done"
