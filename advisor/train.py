@@ -129,7 +129,7 @@ def hero_offers(env, obs, own, fresh):
 
 
 def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None,
-            random_hero=0.0, amp=False):
+            random_hero=0.0, amp=False, explore_tribe=0.0):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
     slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
@@ -137,6 +137,10 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
     p_upgrade[, p_hero_power[, p_activate]]): a legal Refresh or Upgrade is taken in place of the sampled action with that
     probability (the network almost never samples a Refresh, so it never learns what one finds);
     such a step is marked forced: its consequences are learned from, the step itself isn't.
+    `explore_tribe`: with this probability a buy of an off-tribe minion becomes a buy of the warband's
+    main tribe where an affordable one is in the Tavern (forced, as `explore`; --explore-sil imitates
+    it where it did better than expected). The buy audit (Nov 5): offered one in rounds 7-9, main1
+    takes it 35% of the time, you 72%.
     `amp`: the network's forward pass in bfloat16 (the collection waits on it: 6.7 of 9.8 s in fp32
     on 64k decisions), its outputs back in float32 for the sampling."""
     opponent_of = opponent_of or {}
@@ -187,6 +191,22 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                     pick = (np.random.random(len(own)) < explore[3]) & acts.any(1) & ~forced
                     for j in np.flatnonzero(pick):
                         a[j], forced[j] = A_ACTIVATE + int(np.random.choice(np.flatnonzero(acts[j]))), True
+            if explore_tribe > 0:
+                from advisor.buy_audit import top_tribe
+                from advisor.tribe_value import keep_tribe
+                buying = (a >= A_BUY) & (a < A_BUY + N_SHOP) & ~forced
+                pick = buying & (np.random.random(len(own)) < explore_tribe)
+                k = len(env.controlled)
+                for j in np.flatnonzero(pick):
+                    i = int(own[j])
+                    v = json.loads(env.game(i // k).view(env.controlled[i % k]))
+                    if str(v.get("phase", "")).lower() != "recruit" or v["me"]["pending"]:
+                        continue
+                    tribe = top_tribe(v["me"]["board"])
+                    b = keep_tribe(v, obs["action_mask"][i], int(a[j]), tribe) if tribe else None
+                    if b is not None:
+                        a[j], forced[j] = b, True
+                        env._tribe_forced = getattr(env, "_tribe_forced", 0) + 1
             if random_hero > 0:
                 # A random hero instead of the network's pick: it never picked 48 of the 116
                 # (Captain Hooktusk among them), so their Hero Powers went unpractised. Forced:
@@ -773,6 +793,9 @@ def main():
     ap.add_argument("--explore", type=float, nargs="+", default=None, metavar="P",
                     help="take a legal Refresh / Upgrade (/ Hero Power: a third value / a minion's "
                          "Activate: a fourth) with these probabilities (collect's explore)")
+    ap.add_argument("--explore-tribe", type=float, default=0.0, metavar="P",
+                    help="a buy of an off-tribe minion becomes an on-tribe one (offered, affordable) with "
+                         "this probability (collect's explore_tribe; forced: --explore-sil learns it where it paid)")
     ap.add_argument("--random-hero", type=float, default=0.0, metavar="P",
                     help="at the hero offer, a random hero with this probability (forced: not learned)")
     ap.add_argument("--explore-sil", type=float, default=0.0, metavar="COEF",
@@ -950,7 +973,8 @@ def main():
                 starts.refresh()
             obs, placements, collect_s = collect_behind(None, None, env, net, obs, seats, a.transitions, a.device,
                                                         opponents, starts, explore=a.explore,
-                                                        random_hero=a.random_hero, amp=a.amp_collect)
+                                                        random_hero=a.random_hero, amp=a.amp_collect,
+                                                        explore_tribe=a.explore_tribe)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
         if a.library_adaptive:  # one look at each game's seat 0, wherever it is
@@ -970,7 +994,7 @@ def main():
                 copied.record()
             ahead = behind.submit(collect_behind, stream, copied, env, actor, obs, seats, a.transitions, a.device,
                                   opponents, starts, explore=a.explore, random_hero=a.random_hero,
-                                  amp=a.amp_collect)
+                                  amp=a.amp_collect, explore_tribe=a.explore_tribe)
         net.train()
         warm = it - it0 <= a.critic_warmup
         fade = max(0, it - anchor_from) / a.anchor_iters  # from the warmup's end
@@ -998,6 +1022,9 @@ def main():
                "place": round(float(np.mean(placements)), 3) if placements else None,
                "collect_s": round(collect_s, 1), "update_s": round(time.time() - tc, 1),
                "decisions_per_s": round(len(batch) / max(1e-6, collect_s)), **stats}
+        if a.explore_tribe:
+            row["tribe_forced"] = getattr(env, "_tribe_forced", 0)
+            env._tribe_forced = 0
         if a.overlap:  # what the update waited for the batch (the rest of collect_s ran beside it)
             row["wait_s"] = round(tc - ts, 1)
         if it % a.snapshot_every == 0:
