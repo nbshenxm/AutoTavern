@@ -8,11 +8,10 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
 - [ ] Cluster GPU: spec1, the mid/late specialist (every game from your rounds 6+ positions, 13 training games), days; judged on your 8 held-out games; 72 s an iteration since 12:00 (155 before: faster loading of your positions)
-- [ ] Cluster CPUs: wide1 (it 1898) vs main1 (it 1900): the gate and the audit
+- [ ] Cluster: wide1's gate runs out (the not-worse check; the audit already says a tie)
 
 ## Next up
 
-- [ ] wide1's verdict (about 13:00): if it clearly wins, restart spec1 from widened main1
 - [ ] spec1 at 12 h (about 22:00): held-out games only, vs main1 at the same iteration (mid and engine exams, scaling share, real suite)
 
 ## Later
@@ -21,6 +20,11 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration); Freeze toggles are 6% of mid/late decisions (15-20% of turns hit the cap of 10; the advice has had none since Oct 31)
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league
+
+## Done (Nov 6)
+
+- [x] wide1 (twice the feed-forward width) vs main1 at the same iteration: **a tie** (-0.008 ± 0.075), scaling and the exams the same: capacity isn't the limit; spec1 stays narrow
+- [x] spec1 3x faster loading of your positions: 155 -> 72 s an iteration
 
 ## Done (Nov 5)
 

@@ -140,6 +140,7 @@ did (zero output weights on the new units: logit difference 0 over 266 decisions
 the first 100 iterations (their stage rule); 12 h. **Bar, set first:** a gate pass against main1 at the same
 iteration; or not worse with the audit's scaling share (warband 1.8x+ a round from round 8 to 12) up from
 main1's 2.6% (fresh) / 10% (your positions).
+**Result (Nov 6): a tie** (audit -0.008 ± 0.075, 841 pairs; scaling share 1.0% vs 2.4% fresh, 8.1% vs 7.7% yours; the exams the same). Twice the feed-forward width learns the same play in the same time: capacity is not what holds the mid-game back. Lesson added: no more width/size variants without new evidence.
 
 **Nov 5, 23:30: the direction (your call): learn with less, not by brute force.** The day's probes agree:
 no habit of yours forced on main1 pays (Upgrade, tribe, comp starts), its value head is right about its own
@@ -161,7 +162,7 @@ R3 on big3's setup; main1 -0.189 ± 0.024 at it 1400), (2) the simulator made mo
 the old rules flattened at -0.013 after 276 iterations; the same setup on the Nov 4 rules passed at -0.086 after
 115), (3) early network and observation changes. Nothing that put one part of your play into the policy ever
 did (forced rules and steps, exploration + self-imitation: big3sil, act1; imitation: human-data, late1; starts:
-comp2; lobby tweaks: big3ad/open; lr3; big3hero; search as a teacher once the network outgrew it): its style is a
+comp2; lobby tweaks: big3ad/open; lr3; big3hero; search as a teacher once the network outgrew it; width: wide1, 4 x d feed-forward, tied Nov 6): its style is a
 consistent whole, one habit alone is worse for it (measured Nov 5), and RL pushes it back. **Rule:** a new
 experiment is checked against this list first; a variant of a failed idea runs only with new evidence for why it
 would work now. A change of setup is judged by a long run (days) against main1 at the same iteration, not 4-12 h.
@@ -173,7 +174,7 @@ main1's gain since it 949 is 72% in rounds 1-5; its share of fresh games that sc
 the gain from your positions (0.09 ± 0.03) is a third of the fresh games' (~0.25); the mid and engine exams are
 flat. The full gate rewards the opening, which the advice needs least. **From now on the advisor's measures lead:**
 your positions (held out), the mid exam, the engine exam, the scaling share; the full gate only as a not-worse check.
-**spec1, the mid/late specialist:** from main1's latest checkpoint (widened if wide1 wins), every new game starts
+**spec1, the mid/late specialist:** from main1's latest checkpoint (wide1 tied: narrow), every new game starts
 from one of your positions in rounds 6+ of your *training* games (`--real-starts 1.0 --real-rounds 6 19
 --real-split train --comp-starts 0`: 148 positions, 13 games); everything else main1's. At advice time main1 plays
 rounds 1-5 and the specialist from round 6 (AutoTavern's merged specialists). Judged only on the 8 held-out games
