@@ -8,7 +8,6 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
 - [ ] Cluster GPU: spec1, the mid/late specialist (every game from your rounds 6+ positions, 13 training games), days; judged on your 8 held-out games; 72 s an iteration since 12:00 (155 before: faster loading of your positions)
-- [ ] Cluster: wide1's gate runs out (the not-worse check; the audit already says a tie)
 
 ## Next up
 
@@ -23,7 +22,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 6)
 
-- [x] wide1 (twice the feed-forward width) vs main1 at the same iteration: **a tie** (-0.008 ± 0.075), scaling and the exams the same: capacity isn't the limit; spec1 stays narrow
+- [x] wide1 (twice the feed-forward width) vs main1 at the same iteration: **a tie** (audit -0.008 ± 0.075; gate +0.048 ± 0.035), scaling and the exams the same: capacity isn't the limit; spec1 stays narrow
 - [x] spec1 3x faster loading of your positions: 155 -> 72 s an iteration
 
 ## Done (Nov 5)
