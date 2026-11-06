@@ -128,6 +128,57 @@ def hero_offers(env, obs, own, fresh):
     return out
 
 
+_TRIBE = {}
+
+
+def _tribe_tables():
+    """Per card embedding index (1 + cid): its races (CARD_RACES order, the last is ALL), whether
+    it's a minion, its Tier."""
+    if not _TRIBE:
+        import taverngym
+        from advisor.policy import CARD_RACES, N_MISC
+        cat = json.loads(taverngym.catalog_json())
+        n = max(c["cid"] for c in cat) + 2
+        races, minion, tier = np.zeros((n, len(CARD_RACES)), bool), np.zeros(n, bool), np.zeros(n, np.int64)
+        for c in cat:
+            for j, r in enumerate(CARD_RACES):
+                races[c["cid"] + 1, j] = r in (c.get("races") or [])
+            minion[c["cid"] + 1] = c["kind"] == "minion"
+            tier[c["cid"] + 1] = c.get("tier") or 0
+        # Card slots in observation order: misc, warband, hand, Tavern, ... (policy.EntityNet.forward)
+        board0 = N_MISC
+        _TRIBE.update(races=races, minion=minion, tier=tier, board=board0, shop=board0 + N_BOARD + _L["N_HAND"])
+    return _TRIBE
+
+
+def tribe_buys(cards, mask, a):
+    """Per row: the buy of the warband's main tribe to take instead of `a`, or -1. Where `a` buys an
+    off-tribe minion and a legal (affordable) minion of the tribe is in the Tavern: the one of the
+    highest Tier. The tribe: the most common type on the warband (ALL counts for every type but
+    doesn't make one). From the observation's card slots, not the game's view (a view per buy made
+    the collection 3x slower)."""
+    t = _tribe_tables()
+    board = cards[:, t["board"]:t["board"] + N_BOARD]
+    shop = cards[:, t["shop"]:t["shop"] + N_SHOP]
+    br = t["races"][board]  # (n, 7, R)
+    counts = br[:, :, :-1].sum(1)
+    tribe = counts.argmax(1)
+    has = counts.max(1) > 0
+    sr = t["races"][shop]  # (n, 8, R)
+    rows = np.arange(len(cards))
+    on = (sr[rows, :, tribe] | sr[:, :, -1]) & t["minion"][shop]
+    legal = mask[:, A_BUY:A_BUY + N_SHOP]
+    slot = a - A_BUY
+    buying = (a >= A_BUY) & (a < A_BUY + N_SHOP)
+    s = np.clip(slot, 0, N_SHOP - 1)
+    off = buying & t["minion"][shop[rows, s]] & ~on[rows, s]
+    cand = on & legal
+    score = np.where(cand, t["tier"][shop] * 100 + 1, 0)
+    best = score.argmax(1)
+    ok = has & off & cand.any(1)
+    return np.where(ok, A_BUY + best, -1)
+
+
 def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None,
             random_hero=0.0, amp=False, explore_tribe=0.0):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
@@ -192,21 +243,10 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                     for j in np.flatnonzero(pick):
                         a[j], forced[j] = A_ACTIVATE + int(np.random.choice(np.flatnonzero(acts[j]))), True
             if explore_tribe > 0:
-                from advisor.buy_audit import top_tribe
-                from advisor.tribe_value import keep_tribe
-                buying = (a >= A_BUY) & (a < A_BUY + N_SHOP) & ~forced
-                pick = buying & (np.random.random(len(own)) < explore_tribe)
-                k = len(env.controlled)
-                for j in np.flatnonzero(pick):
-                    i = int(own[j])
-                    view = json.loads(env.game(i // k).view(env.controlled[i % k]))  # (not `v`: the values)
-                    if str(view.get("phase", "")).lower() != "recruit" or view["me"]["pending"]:
-                        continue
-                    tribe = top_tribe(view["me"]["board"])
-                    b = keep_tribe(view, obs["action_mask"][i], int(a[j]), tribe) if tribe else None
-                    if b is not None:
-                        a[j], forced[j] = b, True
-                        env._tribe_forced = getattr(env, "_tribe_forced", 0) + 1
+                b = tribe_buys(obs["cards"][own], obs["action_mask"][own], a)
+                pick = (b >= 0) & ~forced & (np.random.random(len(own)) < explore_tribe)
+                a[pick], forced[pick] = b[pick], True
+                env._tribe_forced = getattr(env, "_tribe_forced", 0) + int(pick.sum())
             if random_hero > 0:
                 # A random hero instead of the network's pick: it never picked 48 of the 116
                 # (Captain Hooktusk among them), so their Hero Powers went unpractised. Forced:
