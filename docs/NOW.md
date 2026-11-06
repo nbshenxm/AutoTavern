@@ -11,7 +11,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] spec1 at 12 h (about 22:00): held-out games only, vs main1 at the same iteration (mid and engine exams, scaling share, real suite)
+- [ ] spec1 at it 2601 (queued on the cluster from 19:15; the audit by about 21:00, the gate overnight): held-out games only, vs main1 at the same iteration (mid and engine exams, scaling share, real suite)
 
 ## Later
 
