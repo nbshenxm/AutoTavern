@@ -199,11 +199,11 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                 k = len(env.controlled)
                 for j in np.flatnonzero(pick):
                     i = int(own[j])
-                    v = json.loads(env.game(i // k).view(env.controlled[i % k]))
-                    if str(v.get("phase", "")).lower() != "recruit" or v["me"]["pending"]:
+                    view = json.loads(env.game(i // k).view(env.controlled[i % k]))  # (not `v`: the values)
+                    if str(view.get("phase", "")).lower() != "recruit" or view["me"]["pending"]:
                         continue
-                    tribe = top_tribe(v["me"]["board"])
-                    b = keep_tribe(v, obs["action_mask"][i], int(a[j]), tribe) if tribe else None
+                    tribe = top_tribe(view["me"]["board"])
+                    b = keep_tribe(view, obs["action_mask"][i], int(a[j]), tribe) if tribe else None
                     if b is not None:
                         a[j], forced[j] = b, True
                         env._tribe_forced = getattr(env, "_tribe_forced", 0) + 1
