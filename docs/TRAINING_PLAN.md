@@ -141,6 +141,20 @@ the first 100 iterations (their stage rule); 12 h. **Bar, set first:** a gate pa
 iteration; or not worse with the audit's scaling share (warband 1.8x+ a round from round 8 to 12) up from
 main1's 2.6% (fresh) / 10% (your positions).
 
+**Nov 5, 23:30: the direction (your call): learn with less, not by brute force.** The day's probes agree:
+no habit of yours forced on main1 pays (Upgrade, tribe, comp starts), its value head is right about its own
+play, and the gap is the scaling it rarely reaches (1.8x+ a round in 2.6% of fresh games, which then place
+2.1). AutoTavern got there with ~60x our decisions; main1 is still climbing (-0.189 ± 0.024 at it 1400), so
+time helps, but the methods made for rare, long-delayed success come first:
+1. **sil1: self-imitation of its own high games** (`--sil-games`, GameSil): the transitions of games that
+   ended 1st or 2nd, where they beat the value, replayed every minibatch. Bar: not worse on the gate than
+   main1 at the same iteration, and the audit's scaling share up.
+2. **A reverse curriculum from your scaling games:** starts from your board a few rounds before you scaled,
+   moved earlier as the network finishes them (building, not playing a built engine: comp2's failure).
+3. **Turn search at advice time** (MCTS on the shop turn), later a teacher.
+One at a time on the cluster's GPU after wide1; main1 keeps running. Fewer probes: a diagnostic only
+where a decision waits on it.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
