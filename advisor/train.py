@@ -335,6 +335,45 @@ def advantages(seats, gamma, lam):
     return batch
 
 
+class GameSil:
+    """--sil-games: self-imitation (Oh et al. 2018) of the network's own games that ended high. The
+    transitions of games whose return is at least `min_return` (0.6: 1st or 2nd) where the game
+    turned out better than the value expected are kept (a ring of `capacity`) and replayed every
+    minibatch: -log p(a|s) x max(R - V(s), 0) with the current value, plus a small fit of V up to R
+    where it is below. The games where it scales are rare and win (Nov 5: 1.8x+ a round in 2.6% of
+    fresh games, place 2.1 against 4.2); PPO sees each once, this replays them until the value
+    expects them."""
+
+    def __init__(self, capacity, min_return):
+        self.cap, self.min_return = capacity, min_return
+        self.n = self.pos = self.added = 0
+        self.f = self.c = self.m = self.a = self.r = None
+
+    def add(self, batch):
+        rows = [b for b in batch if b[1] >= self.min_return and b[1] > b[0][5]]
+        if not rows:
+            return 0
+        if self.f is None:
+            b0 = rows[0][0]
+            self.f = np.zeros((self.cap, len(b0[0])), np.float32)
+            self.c = np.zeros((self.cap, len(b0[1])), np.int32)
+            self.m = np.zeros((self.cap, len(b0[2])), bool)
+            self.a = np.zeros(self.cap, np.int64)
+            self.r = np.zeros(self.cap, np.float32)
+        for b in rows:
+            it = b[0]
+            i = self.pos
+            self.f[i], self.c[i], self.m[i], self.a[i], self.r[i] = it[0], it[1], it[2], it[3], b[1]
+            self.pos = (self.pos + 1) % self.cap
+            self.n = min(self.n + 1, self.cap)
+        self.added += len(rows)
+        return len(rows)
+
+    def sample(self, k, rng):
+        i = rng.integers(0, self.n, min(k, self.n))
+        return self.f[i], self.c[i], self.m[i], self.a[i], self.r[i]
+
+
 CHUNK = 1024  # rows per forward pass in an update: the GPU's memory, not the step size
 
 
@@ -387,7 +426,8 @@ class TrinketPrior:
 
 def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, ent=0.01,
            amp=False, value_only=False, anchor=None, anchor_coef=0.0, search=None, search_coef=0.0,
-           prior=None, prior_coef=0.0, chunk=CHUNK, human=None, human_coef=0.0, sil=0.0):
+           prior=None, prior_coef=0.0, chunk=CHUNK, human=None, human_coef=0.0, sil=0.0,
+           games_sil=None, games_sil_coef=0.0):
     """PPO epochs over the batch. `amp`: the network's forward pass in bfloat16 on a GPU (the
     probabilities and losses stay float32). `value_only`: only the value loss (a hot-started
     policy waits until the value fits). `anchor`: a frozen network the policy is kept close to,
@@ -398,7 +438,8 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     the value expected: `sil` times -log p(action) x max(advantage, 0). PPO can't learn a forced
     step (its ratio is meaningless), so an action the network gives ~0 (an Upgrade: 0.000 in
     your round 4-9 positions, Nov 1) stays at ~0 however much it pays; this learns it where it
-    pays, and nothing where it doesn't."""
+    pays, and nothing where it doesn't. `games_sil`: a GameSil buffer, replayed `games_sil_coef`
+    times each minibatch (its own games that ended high)."""
     f = torch.from_numpy(np.stack([b[0][0] for b in batch]))
     c = torch.from_numpy(np.stack([b[0][1] for b in batch]))
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
@@ -485,6 +526,17 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                 (human_coef * ce).backward()
                 stats["human_ce"] += ce.item()
                 stats["human_acc"] += (hlog.argmax(1) == ha).float().mean().item()
+            if games_sil is not None and games_sil_coef > 0 and games_sil.n and not value_only:
+                gf, gc, gm, ga, gr = (torch.from_numpy(x).to(device) for x in games_sil.sample(chunk, rng))
+                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
+                    glog, gv = net(gf, gc, gm)
+                glog, gv = glog.float(), gv.float()
+                glp = torch.distributions.Categorical(logits=glog).log_prob(ga)
+                gap = (gr - gv).clamp(min=0)
+                gloss = -(glp * gap.detach()).mean() + 0.01 * 0.5 * gap.pow(2).mean()
+                (games_sil_coef * gloss).backward()
+                stats["games_sil"] = stats.get("games_sil", 0.0) + gloss.item()
+                stats["games_sil_gap"] = stats.get("games_sil_gap", 0.0) + gap.mean().item()
             grads = [p.grad for p in net.parameters() if p.grad is not None]
             if not all(torch.isfinite(g).all() for g in grads):
                 opt.zero_grad()  # a bad batch must not ruin the network: skip the step
@@ -838,6 +890,12 @@ def main():
                          "this probability (collect's explore_tribe; forced: --explore-sil learns it where it paid)")
     ap.add_argument("--random-hero", type=float, default=0.0, metavar="P",
                     help="at the hero offer, a random hero with this probability (forced: not learned)")
+    ap.add_argument("--sil-games", type=float, default=0.0, metavar="COEF",
+                    help="self-imitation of its own games that ended high (GameSil), this times per minibatch")
+    ap.add_argument("--sil-games-buffer", type=int, default=65536, metavar="N",
+                    help="transitions GameSil keeps (about 0.9 GB at 65,536)")
+    ap.add_argument("--sil-games-min", type=float, default=0.6, metavar="R",
+                    help="the least return of a kept game's transition (0.6: 1st or 2nd)")
     ap.add_argument("--explore-sil", type=float, default=0.0, metavar="COEF",
                     help="self-imitation of the forced steps that did better than expected (update's sil)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
@@ -903,6 +961,7 @@ def main():
     if a.resume and "opt" in ck and "adapted" not in ck:  # an adapted network's shapes changed
         opt.load_state_dict(ck["opt"])
     anchor = load(a.anchor, a.device)[0] if a.anchor else None
+    gsil = GameSil(a.sil_games_buffer, a.sil_games_min) if a.sil_games else None
     prior = TrinketPrior(a.device) if a.trinket_prior else None
     sbuf = None
     if a.search_data:
@@ -1023,6 +1082,7 @@ def main():
                 if v["me"]["alive"] and v["turn"] and v["me"]["board"]:
                     learner[v["turn"]].append(sum(m["atk"] + m["hp"] for m in v["me"]["board"]))
         batch = advantages(seats, a.gamma, a.lam)
+        sil_added = gsil.add(batch) if gsil is not None else 0
         tc = time.time()
         if a.overlap:  # the next batch, by the weights before this update
             if starts is not None:
@@ -1049,7 +1109,8 @@ def main():
         stats = update(net, opt, batch, a.device, epochs=a.epochs, minibatch=a.minibatch, ent=a.ent, amp=a.amp, value_only=warm,
                        anchor=step_anchor, anchor_coef=coef, search=sbuf, search_coef=a.search_coef,
                        prior=prior, prior_coef=a.trinket_prior, chunk=a.chunk,
-                       human=hbuf, human_coef=a.human_coef, sil=a.explore_sil)
+                       human=hbuf, human_coef=a.human_coef, sil=a.explore_sil,
+                       games_sil=gsil, games_sil_coef=a.sil_games)
         if sbuf is not None:
             stats["search_buffer"] = len(sbuf)
             if sbuf.drop_idle:
@@ -1062,6 +1123,8 @@ def main():
                "place": round(float(np.mean(placements)), 3) if placements else None,
                "collect_s": round(collect_s, 1), "update_s": round(time.time() - tc, 1),
                "decisions_per_s": round(len(batch) / max(1e-6, collect_s)), **stats}
+        if gsil is not None:
+            row["sil_games_added"], row["sil_games_buffer"] = sil_added, gsil.n
         if a.explore_tribe:
             row["tribe_forced"] = getattr(env, "_tribe_forced", 0)
             env._tribe_forced = 0
