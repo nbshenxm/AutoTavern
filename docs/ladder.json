@@ -151,11 +151,11 @@
    "verdict": "not better"
   },
   {
-   "name": "main1 22 h (it 1400), 3 seeds pooled (7,020 pairs)",
+   "name": "main1 22 h (it 1400), 3 seeds x 3 rounds (10,530 pairs)",
    "date": "2026-11-05",
    "vs": "R3",
-   "gain": -0.189,
-   "se": 0.024,
+   "gain": -0.182,
+   "se": 0.02,
    "verdict": "pass"
   }
  ]
