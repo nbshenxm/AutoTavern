@@ -50,7 +50,7 @@ head can't see what an engine is worth). Written before running; reordered only 
 | --- | --- | --- | --- | --- |
 | 1 | your round 5-8 turns as an imitation target (mid1) | the root cause: R3's own games never build engines | mid exam: engine held >= 40% (R3 29%) at +3, held-out agreement up; gate not worse | the cluster's slot after late1 (Nov 4 ~20:00), from R3 = the mainline's start; prior low after late1 (below) |
 | 2 | library seats with their players (hero, Hero Powers, trinkets in combat) | training fights as real ones | gate not worse; R3's training-lobby place no longer the easy one | in main1 since Nov 5 08:20 (the rebuilt boards.json) |
-| 3 | starts from the curated comps' mid-game boards, more of them | more games where an engine exists | mid exam engine held up; gate not worse | comp2: `--comp-starts 0.66`, cluster, Nov 5 |
+| 3 | starts from the curated comps' mid-game boards, more of them | more games where an engine exists | mid exam engine held up; gate not worse | comp2: `--comp-starts 0.66`, cluster, Nov 5: **failed** at 4 h (+0.133 ± 0.043 vs main1); scaling unchanged; stopped at it 1415 (your OK) |
 | 4 | a deeper turn search (MCTS) as a teacher, once the value head sees the mid-game | expert iteration, as the constructed advisor | search beats the network on the gate first | later |
 
 Results that are already in (Nov 4): act1 (forced Activates) and late1 (your better late turns) run

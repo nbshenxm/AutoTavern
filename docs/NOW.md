@@ -7,14 +7,13 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
-- [ ] Cluster GPU: comp2, main1 + twice the comps' midgame starts (the late gap is made in rounds 5-9), 12 h to about 00:30
+- [ ] Cluster GPU: wide1, main1 at it 1400 grown to AutoTavern's network shape (15.7M), 12 h to about 12:30; judged vs main1 at the same iteration
 - [ ] Cluster CPUs: comp2 vs main1 at iteration 1300 (round 1 of 3: +0.14 ± 0.06, worse); main1 at 24 h vs R3 from 20:00
 
 ## Next up
 
 - [ ] main1 at 24 h (about Nov 5 20:00): still climbing past -0.097? Three seeds on the cluster's CPUs
 - [ ] comp2 at 4 h (about 16:00) and at its end, against main1 at the same iteration
-- [ ] wide1 queued behind comp2 (about 00:30 to 13:00): main1 at it 1400 grown to AutoTavern's network shape (feed-forward 4 x d, 15.7M; plays exactly as main1 at the start), 12 h vs main1 at the same iteration
 
 ## Later
 
@@ -25,6 +24,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 5)
 
+- [x] comp2 (twice the comps' midgame starts): worse than main1 (+0.133 ± 0.043), scaling unchanged; stopped for wide1
 - [x] Why main1 doesn't move toward your play: one Upgrade pays it in no lobby (+0.05..+0.14), and its value head is right about it (your mid-game End Turn ends no better under its play-on). The gap is its own mid-game play: what it buys and keeps in rounds 5-9
 - [x] Audit, main1 vs R3: its gain is efficiency in R3's own style; levelling, tribe commitment and the engine unchanged (Upgrade probability 1e-6..1e-13 at your positions)
 
