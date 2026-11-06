@@ -149,6 +149,14 @@
    "gain": 0.193,
    "se": 0.032,
    "verdict": "not better"
+  },
+  {
+   "name": "main1 22 h (it 1400), 3 seeds pooled (7,020 pairs)",
+   "date": "2026-11-05",
+   "vs": "R3",
+   "gain": -0.189,
+   "se": 0.024,
+   "verdict": "pass"
   }
  ]
 }
