@@ -190,7 +190,8 @@ def champion_places(champ, champ_path, n, seed, config, states, device, threads,
     build = "-".join(str(int(Path(f).stat().st_mtime)) for f in (core, library.BOARDS, library.STARTS))
     import os
     split = os.environ.get("BG_SPLIT", "all")
-    cache = OUT / "cache" / f"{h}_{key}_{seed}_{n}_{build}{'' if split == 'all' else '_' + split}.json"
+    rounds = os.environ.get("BG_ROUNDS", "").replace(" ", "-")
+    cache = OUT / "cache" / f"{h}_{key}_{seed}_{n}_{build}{'' if split == 'all' else '_' + split}{'_r' + rounds if rounds else ''}.json"
     if cache.is_file():
         return json.loads(cache.read_text())
     places = compute() if compute else play(champ, champ, n, seed, config, states, device, threads=threads)
@@ -241,6 +242,8 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
     import os
     if os.environ.get("BG_SPLIT", "all") != "all":  # your positions: only the held-out (or trained) games
         name += "_split-" + os.environ["BG_SPLIT"]
+    if os.environ.get("BG_ROUNDS"):
+        name += "_rounds-" + os.environ["BG_ROUNDS"].replace(" ", "-")
     if not search_k and workers:
         name += f"_c{chunk}"
     pool = None

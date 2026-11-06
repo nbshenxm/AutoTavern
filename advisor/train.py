@@ -756,6 +756,9 @@ class RealStarts:
 
     def __init__(self, p, seed, path=None, log=print, comp_share=0.0, rounds=None, split=None):
         from advisor import library
+        import os
+        if rounds is None and os.environ.get("BG_ROUNDS"):  # (evaluations: BG_ROUNDS="6 19")
+            rounds = tuple(int(x) for x in os.environ["BG_ROUNDS"].split())
         self.rounds, self.split = rounds, split  # (--real-rounds LO HI, --real-split)
         self.p, self.path, self.log = p, Path(path or library.STARTS), log
         self.rng = np.random.default_rng(seed)
