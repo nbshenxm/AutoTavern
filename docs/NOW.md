@@ -24,6 +24,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 5)
 
+- [x] main1 at 22 h: -0.189 ± 0.024 vs R3 (still climbing); keeping the tribe forced on it: worse in every lobby (+0.30..+0.45); the lessons of every run written into the plan (no more variants of failed ideas)
 - [x] Buy audit: offered an on-tribe minion in rounds 7-9, main1 takes it 35% of the time (you 72%, R3 44%) and sells on-tribe ones more: it doesn't value the synergy
 - [x] comp2 (twice the comps' midgame starts): worse than main1 (+0.133 ± 0.043), scaling unchanged; stopped for wide1
 - [x] Why main1 doesn't move toward your play: one Upgrade pays it in no lobby (+0.05..+0.14), and its value head is right about it (your mid-game End Turn ends no better under its play-on). The gap is its own mid-game play: what it buys and keeps in rounds 5-9
