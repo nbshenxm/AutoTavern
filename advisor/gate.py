@@ -188,7 +188,9 @@ def champion_places(champ, champ_path, n, seed, config, states, device, threads,
     from advisor import library
     core = next(Path(taverngym.__file__).parent.glob("_core*"))  # the compiled simulator
     build = "-".join(str(int(Path(f).stat().st_mtime)) for f in (core, library.BOARDS, library.STARTS))
-    cache = OUT / "cache" / f"{h}_{key}_{seed}_{n}_{build}.json"
+    import os
+    split = os.environ.get("BG_SPLIT", "all")
+    cache = OUT / "cache" / f"{h}_{key}_{seed}_{n}_{build}{'' if split == 'all' else '_' + split}.json"
     if cache.is_file():
         return json.loads(cache.read_text())
     places = compute() if compute else play(champ, champ, n, seed, config, states, device, threads=threads)
@@ -236,6 +238,9 @@ def run(cand_path, champ_path, rounds=8, seed=SEED, fresh_games=256, device="cud
         name += f"_search{search_k}"
     if rules:
         name += "_rules-" + "-".join(rules)
+    import os
+    if os.environ.get("BG_SPLIT", "all") != "all":  # your positions: only the held-out (or trained) games
+        name += "_split-" + os.environ["BG_SPLIT"]
     if not search_k and workers:
         name += f"_c{chunk}"
     pool = None

@@ -245,7 +245,8 @@ def main():
     ap.add_argument("--funnel", action="store_true", help="a probe: the candidate's friendly targets and Magnetizations go to its engine")
     a = ap.parse_args()
     torch.set_num_threads(4)
-    decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
+    from advisor import library
+    decisions = [d for d in map(json.loads, open(a.decisions, encoding="utf-8")) if library.in_split(d["log"])]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
     pos = positions(decisions, combats)
     seeds = [11 + k for k in range(a.seeds)]

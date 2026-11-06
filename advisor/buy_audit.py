@@ -160,7 +160,8 @@ def main():
     a = ap.parse_args()
     torch.set_num_threads(4)
     net = load(a.checkpoint, "cpu")[0].eval()
-    decisions = [json.loads(l) for l in open(a.decisions, encoding="utf-8")]
+    from advisor import library
+    decisions = [d for d in map(json.loads, open(a.decisions, encoding="utf-8")) if library.in_split(d["log"])]
     combats = [json.loads(l) for l in open(a.combats, encoding="utf-8")]
     turns = {}
     for d in decisions:

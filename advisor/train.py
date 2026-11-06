@@ -754,8 +754,9 @@ class RealStarts:
     the player kept scaling (advisor.continue_test). These games put it in those midgames. Each
     keeps the new game's random state, so the same start plays out differently every time."""
 
-    def __init__(self, p, seed, path=None, log=print, comp_share=0.0):
+    def __init__(self, p, seed, path=None, log=print, comp_share=0.0, rounds=None, split=None):
         from advisor import library
+        self.rounds, self.split = rounds, split  # (--real-rounds LO HI, --real-split)
         self.p, self.path, self.log = p, Path(path or library.STARTS), log
         self.rng = np.random.default_rng(seed)
         self.version, self.states, self.real, self.seen = None, [], [], None
@@ -780,6 +781,10 @@ class RealStarts:
         states, skipped = [], 0
         for line in open(self.path, encoding="utf-8"):
             r = json.loads(line)
+            from advisor import library
+            rnd = (r["d"]["turn"] + 1) // 2
+            if not library.in_split(r["d"]["log"], self.split) or                     (self.rounds and not self.rounds[0] <= rnd <= self.rounds[1]):
+                continue
             try:
                 g, gaps = bridge.build(r["d"], r["combats"])
             except Exception:  # a position the bridge can't build: skip it
@@ -900,6 +905,10 @@ def main():
                     help="self-imitation of the forced steps that did better than expected (update's sil)")
     ap.add_argument("--real-starts", type=float, default=0.0, metavar="P",
                     help="this share of new games start from a logged round's position (RealStarts)")
+    ap.add_argument("--real-rounds", type=int, nargs=2, default=None, metavar=("LO", "HI"),
+                    help="real starts only from these rounds (the mid/late specialist: 6 19)")
+    ap.add_argument("--real-split", default=None, choices=("all", "train", "test"),
+                    help="real starts only from these of your games (library.holdout; default BG_SPLIT or all)")
     ap.add_argument("--comp-starts", type=float, default=0.0, metavar="SHARE",
                     help="with --real-starts: this share of them are curated comps' midgames")
     ap.add_argument("--trinket-prior", type=float, default=0.0, metavar="COEF",
@@ -1014,7 +1023,8 @@ def main():
         from advisor import library
         lib_eval_config = {**CONFIG, "library": library.library([5, 6, 7], strength=a.library_strength,
                                                                 comps=a.library_comps)}
-    starts = RealStarts(a.real_starts, a.seed + it0, log=log, comp_share=a.comp_starts) if a.real_starts else None
+    starts = RealStarts(a.real_starts, a.seed + it0, log=log, comp_share=a.comp_starts,
+                        rounds=a.real_rounds, split=a.real_split) if a.real_starts else None
     real_base = (None, None)  # evaluate_real of the best itself, per best and starts file
     best_h2h = ck.get("best_h2h", 4.5) if a.resume else 4.5  # place vs the best (generations)
     # The anchor fades from where it was first applied, across restarts

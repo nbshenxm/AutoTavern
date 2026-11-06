@@ -27,6 +27,21 @@ COMBATS = ROOT / "data" / "replay" / "combats.jsonl"
 DECISIONS = ROOT / "data" / "replay" / "decisions.jsonl"
 BOARDS = ROOT / "data" / "library" / "boards.json"
 STARTS = ROOT / "data" / "library" / "starts.jsonl"
+
+
+def holdout(log):
+    """Your held-out games (Nov 6): a fixed share by the log's name (crc32 % 4 == 0: 8 of 21), never
+    trained on by the mid/late specialist and the only ones it is judged on. New games fall in by
+    the same rule."""
+    import zlib
+    return zlib.crc32(log.encode()) % 4 == 0
+
+
+def in_split(log, split=None):
+    """`split` (or the BG_SPLIT environment variable, which workers inherit): all / train / test."""
+    import os
+    split = split or os.environ.get("BG_SPLIT", "all")
+    return split == "all" or holdout(log) == (split == "test")
 # Where the Power.logs are: the game's own folder and the constructed project's archive
 LOG_DIRS = [Path(r"D:\Program Files (x86)\Hearthstone\Logs"),
             Path(r"D:\GitHub\Hearthstone_AI_Advisor\data\logs")]
