@@ -168,6 +168,20 @@ would work now. A change of setup is judged by a long run (days) against main1 a
 **Next:** simulator fidelity as a training lever (the combat bias: you win +2.7 SD more of your fights than it
 predicts, rounds 1-10: split by board type); wide1 runs out; calibrated opponents only as a long run.
 
+**Nov 6, 09:30: what we optimise changes (your doubt, the evidence agrees), and the next experiment (your OK).**
+main1's gain since it 949 is 72% in rounds 1-5; its share of fresh games that scale fell 4.7% -> 1.2%; against R3
+the gain from your positions (0.09 ± 0.03) is a third of the fresh games' (~0.25); the mid and engine exams are
+flat. The full gate rewards the opening, which the advice needs least. **From now on the advisor's measures lead:**
+your positions (held out), the mid exam, the engine exam, the scaling share; the full gate only as a not-worse check.
+**spec1, the mid/late specialist:** from main1's latest checkpoint (widened if wide1 wins), every new game starts
+from one of your positions in rounds 6+ of your *training* games (`--real-starts 1.0 --real-rounds 6 19
+--real-split train --comp-starts 0`: 148 positions, 13 games); everything else main1's. At advice time main1 plays
+rounds 1-5 and the specialist from round 6 (AutoTavern's merged specialists). Judged only on the 8 held-out games
+(`BG_SPLIT=test`: 84 positions) against main1 at the same iteration. **Bar, set first:** mid exam (warband vs yours
+at +3) and engine exam better than main1's, the scaling share from your positions up, the gate's held-out real
+suite not worse. Days, checked every 12 h. If it doesn't scale either, more mid-game practice isn't the limit:
+the network's ability to learn it is.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
