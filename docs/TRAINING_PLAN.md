@@ -155,6 +155,19 @@ time helps, but the methods made for rare, long-delayed success come first:
 One at a time on the cluster's GPU after wide1; main1 keeps running. Fewer probes: a diagnostic only
 where a decision waits on it.
 
+**Nov 6, 00:30: the lessons from every run so far (your question: don't loop), and the three ideas above
+withdrawn as variants of what failed.** Gains the gate confirms came from (1) one fixed setup trained long (R1 ->
+R3 on big3's setup; main1 -0.189 ± 0.024 at it 1400), (2) the simulator made more faithful (big3's own line on
+the old rules flattened at -0.013 after 276 iterations; the same setup on the Nov 4 rules passed at -0.086 after
+115), (3) early network and observation changes. Nothing that put one part of your play into the policy ever
+did (forced rules and steps, exploration + self-imitation: big3sil, act1; imitation: human-data, late1; starts:
+comp2; lobby tweaks: big3ad/open; lr3; big3hero; search as a teacher once the network outgrew it): its style is a
+consistent whole, one habit alone is worse for it (measured Nov 5), and RL pushes it back. **Rule:** a new
+experiment is checked against this list first; a variant of a failed idea runs only with new evidence for why it
+would work now. A change of setup is judged by a long run (days) against main1 at the same iteration, not 4-12 h.
+**Next:** simulator fidelity as a training lever (the combat bias: you win +2.7 SD more of your fights than it
+predicts, rounds 1-10: split by board type); wide1 runs out; calibrated opponents only as a long run.
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |
