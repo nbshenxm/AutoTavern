@@ -151,7 +151,7 @@ class Aux(nn.Module):
 def fit_aux(net, train, test, epochs, out):
     torch.set_num_threads(16)
     model = Aux(net).train()
-    opt = torch.optim.Adam(model.parameters(), lr=1e-4)
+    opt = torch.optim.Adam(model.parameters(), lr=2e-4)
 
     def tensors(rs):
         f = torch.from_numpy(np.stack([r["obs"][0] for r in rs]))
@@ -161,6 +161,17 @@ def fit_aux(net, train, test, epochs, out):
         return f, c, m, y
 
     tr, te = tensors(train), tensors(test)
+    # Targets standardised (their mean and spread from the training games), the head's bias set to
+    # the mean: the first fit (Nov 7) started far off and hadn't converged in 4 epochs
+    ok = ~torch.isnan(tr[3])
+    mu = torch.tensor([float(tr[3][ok[:, j], j].mean()) for j in range(len(KS))])
+    sd = torch.tensor([float(tr[3][ok[:, j], j].std()) for j in range(len(KS))])
+    tr = (*tr[:3], (tr[3] - mu) / sd)
+    te_y = te[3]
+    te = (*te[:3], (te[3] - mu) / sd)
+    with torch.no_grad():
+        model.head.weight.zero_()
+        model.head.bias.zero_()
     rng = np.random.default_rng(0)
     for ep in range(epochs):
         idx = rng.permutation(len(train))
@@ -180,7 +191,7 @@ def fit_aux(net, train, test, epochs, out):
         res = {}
         for j, k in enumerate(KS):
             ok = ~torch.isnan(te[3][:, j])
-            res[f"+{k}"] = r2(p[ok, j].numpy(), te[3][ok, j].numpy())
+            res[f"+{k}"] = r2(p[ok, j].numpy(), te[3][ok, j].numpy())  # (R2 is the same standardised)
         print(f"aux epoch {ep + 1}: held-out R2 {res}", flush=True)
     torch.save(model.state_dict(), Path(out) / "aux.pt")
     return model.eval(), res

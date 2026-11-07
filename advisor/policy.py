@@ -39,7 +39,7 @@ class PolicyNet(nn.Module):
         with torch.no_grad():
             self.pi.bias[A_MOVE:] = -3.0
 
-    def forward(self, features, cards, mask):
+    def forward(self, features, cards, mask, plan=None):
         # Signed log: late-game stats run into the tens of thousands (a Tasty Lobster build's
         # minions), which raw would swamp the network
         features = torch.sign(features) * torch.log1p(features.abs())
@@ -83,6 +83,14 @@ CARD_KINDS = ["minion", "tavern_spell", "spell", "hero", "hero_power", "trinket_
               "trinket_greater", "dark_gift", "quest", "quest_reward"]
 CARD_RACES = ["BEAST", "DEMON", "DRAGON", "ELEMENTAL", "MECHANICAL", "MURLOC", "PIRATE",
               "QUILBOAR", "UNDEAD", "ABERRATION", "NAGA", "ALL"]
+# Plans (EntityNet plans=): 0 none, 1 + j the tribe CARD_RACES[j] (not ALL)
+N_PLANS = len(CARD_RACES)
+
+
+def plan_name(p):
+    return "none" if not p else CARD_RACES[p - 1].lower()
+
+
 CARD_MECH = ["BATTLECRY", "DEATHRATTLE", "START_OF_COMBAT", "END_OF_TURN", "AVENGE", "RALLY",
              "CHOOSE_ONE", "DISCOVER", "AURA", "MAGNETIC", "ACTIVATE"]
 CARD_KW = ["TAUNT", "DIVINE_SHIELD", "WINDFURY", "REBORN", "VENOMOUS", "POISONOUS", "STEALTH",
@@ -158,7 +166,8 @@ class EntityNet(nn.Module):
     choices, opponents (hero + leaderboard floats, their trinkets added to the hero card) and
     their last seen warbands."""
 
-    def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity", blind_v4=False, ffn=2):
+    def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity", blind_v4=False, ffn=2,
+                 plans=0, aux=0):
         super().__init__()
         self.config = {"arch": "entity", "card_dim": card_dim, "d": d, "layers": layers,
                        "heads": heads}
@@ -166,6 +175,21 @@ class EntityNet(nn.Module):
         # usual 4: advisor.widen grows a checkpoint to it without changing what it plays)
         if ffn != 2:
             self.config["ffn"] = ffn
+        # (Nov 7, plan1) A plan the game is committed to (0: none, 1 + j: tribe CARD_RACES[j]), an
+        # embedding added to the global token; zero at first, so every plan plays as the network
+        # it was made from. `forward(..., plan=)`; without it, plan 0
+        self.plan_emb = None
+        if plans:
+            self.config["plans"] = plans
+            self.plan_emb = nn.Embedding(plans, d)
+            nn.init.zeros_(self.plan_emb.weight)
+        # Growth heads (advisor.aux_probe): the warband's log growth 2 and 4 rounds on, from z;
+        # trained beside the value (low-noise targets of what scaling is), read by nothing else
+        self.aux = None
+        if aux:
+            self.config["aux"] = aux
+            self.aux = nn.Linear(2 * d, aux)
+        self.last_z = None
         # A control run's network (advisor.train --blind-v4): it never sees what observation
         # version 4 and the card table's text columns add, so an A/B of that information holds
         # across restarts on the new code
@@ -224,7 +248,7 @@ class EntityNet(nn.Module):
             self.at[name] = (i, i + n)
             i += n
 
-    def forward(self, features, cards, mask):
+    def forward(self, features, cards, mask, plan=None):
         if self.blind_v4 and V4_F:
             features = features.clone()
             features[:, V4_AT:V4_AT + V4_F] = 0
@@ -256,11 +280,14 @@ class EntityNet(nn.Module):
             toks.append(self.proj[name](torch.cat([e, x], dim=2)))
             empties.append((cc == 0) & (x.abs().sum(2) == 0))
         h = torch.cat(toks, dim=1) + self.pos
+        if plan is not None and self.plan_emb is not None:
+            h = torch.cat([h[:, :1] + self.plan_emb(plan)[:, None], h[:, 1:]], dim=1)
         empty = torch.cat(empties, dim=1)
         h = self.out_norm(self.encoder(h, src_key_padding_mask=empty))
         live = (~empty).float()[..., None]
         pooled = (h * live).sum(1) / live.sum(1).clamp(min=1)
         z = self.trunk(torch.cat([h[:, 0], pooled], dim=1))
+        self.last_z = z
 
         def seg(name):
             a, b_ = self.at[name]
@@ -344,7 +371,7 @@ def load(path, device="cpu"):
         state = adapt(dict(state), old)
         ck["adapted"] = old
     missing, unexpected = net.load_state_dict(state, strict=False)
-    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.", "trinket_count.")) for k in missing):
+    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.", "trinket_count.", "plan_emb.", "aux.")) for k in missing):
         raise ValueError(f"{path}: weights don't fit ({missing}, {unexpected})")
     net.eval()
     return net, ck
