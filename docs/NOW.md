@@ -11,7 +11,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] The mistake audit (cluster, tonight): every kind of plainly wasted play in R3's and main1's turns from your positions, next to your rates; the frequent ones get guardrails
+- [ ] Buy then sell in one turn (3.5% of main1 it 2601's turns): look at each; the mistake audit found no other frequent waste
 
 - [ ] spec1 at 24 h (Nov 7 morning, about it 3200; from home: scripts/spec_check.sh): it 2601 showed no change yet (gate +0.02 ± 0.07, exams level)
 
