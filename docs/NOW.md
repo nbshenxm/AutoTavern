@@ -11,6 +11,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
+- [ ] The mistake audit (cluster, tonight): every kind of plainly wasted play in R3's and main1's turns from your positions, next to your rates; the frequent ones get guardrails
+
 - [ ] spec1 at it 2601 (running on the cluster from 20:11; the audit by about 22:00, the gate overnight): held-out games only, vs main1 at the same iteration (mid and engine exams, scaling share, real suite)
 
 ## Later
@@ -21,6 +23,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] A Hero Power exam; a rating ladder and league
 
 ## Done (Nov 6)
+
+- [x] **R6 released (your OK): main1 it 1400 is the advisor's network** (-0.182 ± 0.020 vs R3); the runs keep R3 as their opponent (the advisor's file is now apart: data/models/advisor.pt on the office)
 
 - [x] Your report: the advice buffed a Tavern minion it couldn't buy (Suspicious Prisonguard on a Mechagnome Interpreter at 1 gold). The client allows Tavern targets, but the network weighs them like warband ones (41% vs 40%; main1 29%) and you never use them (0 of 11). The plan now re-plans a buff on a Tavern minion it neither buys nor freezes (from the next advisor start)
 
