@@ -205,7 +205,7 @@ probe up, the gate's real suite not worse. **Checks that the plans are real:** t
 mid-game positions grows; under a tribe plan the network buys that tribe when offered (main1 34-46%, you 72%) and
 those games scale. Days; checked every 12 h. Not a repeat of the failed list: forced tribe buys gave a network that
 didn't know the plan trajectories it couldn't learn from; here the plan is its input, its follow-through is what
-it trains, and the value picks the plan.
+it trains, and the value picks the plan. The growth heads (aux_probe, step 1) don't join it: trained on main1's games they rate your boards below a stat pile (41-43%), since those games never contain your style; re-run on plan1's committed games.
 
 ## The mainline's setup
 
