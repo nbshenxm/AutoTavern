@@ -22,6 +22,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 6)
 
+- [x] Your report: the advice buffed a Tavern minion it couldn't buy (Suspicious Prisonguard on a Mechagnome Interpreter at 1 gold). The client allows Tavern targets, but the network weighs them like warband ones (41% vs 40%; main1 29%) and you never use them (0 of 11). The plan now re-plans a buff on a Tavern minion it neither buys nor freezes (from the next advisor start)
+
 - [x] wide1 (twice the feed-forward width) vs main1 at the same iteration: **a tie** (audit -0.008 ± 0.075; gate +0.048 ± 0.035), scaling and the exams the same: capacity isn't the limit; spec1 stays narrow
 - [x] spec1 3x faster loading of your positions: 155 -> 72 s an iteration
 

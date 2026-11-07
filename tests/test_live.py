@@ -247,3 +247,15 @@ def test_a_target_that_opens_a_discover_ends_the_plan():
     assert random_outcome(target, 31, offer) == "choice"
     # answering an offer inside an offer is not a new roll
     assert random_outcome(offer, 31, {"me": {"pending": {"kind": "choose_one"}}}) is None
+
+
+def test_tavern_buff_detects_a_buffed_tavern_minion():
+    """A target step that raised a Tavern minion's stats is a Tavern buff (live.plan_turn re-plans
+    it unless the plan buys the minion or freezes the Tavern); a warband target isn't one."""
+    from advisor import live
+    shop = [{"eid": 40, "atk": 3, "hp": 1}]
+    view = {"me": {"pending": {"kind": "target", "targets": [11, 40]}, "shop": shop}}
+    buffed = {"me": {"shop": [{"eid": 40, "atk": 6, "hp": 4}]}}
+    assert live.tavern_buff(view, live.A_TARGET + 1, buffed) == 40
+    assert live.tavern_buff(view, live.A_TARGET, buffed) is None  # the warband minion
+    assert live.tavern_buff(view, live.A_TARGET + 1, {"me": {"shop": shop}}) is None  # not buffed
