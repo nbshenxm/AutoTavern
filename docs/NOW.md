@@ -11,6 +11,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
+- [ ] The disagreement audit (cluster, job 110787): at 800 of your decisions where R6 acts otherwise, both played out: the choices it gets wrong even by its own follow-through
+
 
 - [ ] spec1 at 24 h (it 3317 vs main1 it 3301, running from 11:15: the audit about 13:00, the gate about 15:00): it 2601 showed no change yet (gate +0.02 ± 0.07, exams level)
 
