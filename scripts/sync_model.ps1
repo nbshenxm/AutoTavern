@@ -1,6 +1,6 @@
-# Hourly at home (scheduled task "TavernAdvisor Model Sync"): copy the network the office
-# promoted (data/models/best.pt there, advisor.promote) into this repo's data/models when it
-# changed. The live advisor reloads the file by itself; a file copy is harmless while playing.
+# Hourly at home (scheduled task "TavernAdvisor Model Sync"): copy the advisor's network from the
+# office (data/models/advisor.pt there; not best.pt, the training runs' opponent) into this repo's
+# data/models/best.pt when it changed. The live advisor reloads the file by itself; a file copy is harmless while playing.
 # Then the progress page: the office's training logs and running jobs into data/progress, and
 # data/report.html remade (advisor.report).
 # Log: %LOCALAPPDATA%\TavernAdvisor\sync.log. Remove the task:
@@ -30,7 +30,9 @@ try {
 
 $tmp = Join-Path $models "best.pt.download"
 try {
-    & scp -q -o BatchMode=yes -o ConnectTimeout=20 "office:autotavern/data/models/best.pt" $tmp
+    # The advisor's network is data/models/advisor.pt on the office (from R6, Nov 6); best.pt there
+    # is the training runs' opponent (advisor.train Generation reloads it), kept apart
+    & scp -q -o BatchMode=yes -o ConnectTimeout=20 "office:autotavern/data/models/advisor.pt" $tmp
     if ($LASTEXITCODE -ne 0) { Log "office unreachable or no promoted network (scp exit $LASTEXITCODE)"; exit 0 }
     & scp -q -o BatchMode=yes -o ConnectTimeout=20 "office:autotavern/data/models/promotions.jsonl" (Join-Path $models "promotions.jsonl")
     $best = Join-Path $models "best.pt"
@@ -135,7 +137,9 @@ try {
                 # run (30 min: it was killed on Nov 2 and every later hour skipped). It runs on the
                 # office, detached, on the logs just parsed; a later hour collects it (top of this
                 # script; a failure is logged "fidelity FAILED", as a crash once went unnoticed)
-                & scp -q -o BatchMode=yes -o ConnectTimeout=20 (Join-Path $repo "dataeplay\decisions.jsonl") (Join-Path $repo "dataeplay\combats.jsonl") "office:autotavern/data/replay/"
+                & scp -q -o BatchMode=yes -o ConnectTimeout=20 (Join-Path $repo "data
+eplay\decisions.jsonl") (Join-Path $repo "data
+eplay\combats.jsonl") "office:autotavern/data/replay/"
                 # (setsid -f: detached for good; a plain "nohup ... &" kept the ssh call waiting)
                 & ssh -n -o BatchMode=yes -o ConnectTimeout=20 office "cd autotavern && rm -f data/replay/fidelity.exit && setsid -f bash scripts/office/fidelity.sh > /dev/null 2>&1 < /dev/null"
                 if ($LASTEXITCODE -eq 0) { Done "fidelity"; Log "fidelity started on the office" }

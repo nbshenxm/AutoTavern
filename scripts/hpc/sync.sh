@@ -10,7 +10,8 @@ ROOT=/fs1/projects/benchmarking_PIDS/HearthstoneAdvisor_BG
 OUT="${TMPDIR:-/tmp}/bg_code"
 mkdir -p "$OUT"
 git archive --format=tar HEAD > "$OUT/code.tar"
-tar --force-local -cf "$OUT/data.tar" data/meta data/library data/models data/search/human_eval data/replay/decisions.jsonl data/replay/combats.jsonl $(ls -d data/search/human_late data/search/human_late_eval data/search/human_mid data/search/human_mid_eval 2>/dev/null)
+# not data/models/best.pt: at home that is the advisor's network, on the cluster the runs' opponent
+tar --force-local --exclude=data/models/best.pt -cf "$OUT/data.tar" data/meta data/library data/models data/search/human_eval data/replay/decisions.jsonl data/replay/combats.jsonl $(ls -d data/search/human_late data/search/human_late_eval data/search/human_mid data/search/human_mid_eval 2>/dev/null)
 ssh star "mkdir -p $ROOT/repo $ROOT/wheels $ROOT/logs"
 # --stage [WHEEL]: everything to $ROOT/staging for scripts/hpc/stage_apply.sh, queued after the
 # running training (which must not change under it)

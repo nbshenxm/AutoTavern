@@ -18,6 +18,12 @@ live advisor on a recorded game: 60 decisions, median 133 ms an advice. Released
 with Freeze (your report: Suspicious Prisonguard on a Mechagnome Interpreter at 1 gold). Takes
 effect at the advisor's next start (the network itself reloads by itself).
 
+**Kept apart from training:** the advisor's network is now data/models/advisor.pt on the office
+(synced home as data/models/best.pt); the office's and the cluster's data/models/best.pt stay R3,
+the opponent main1 and spec1 train against (their setup unchanged). For a few minutes tonight the
+promotion had replaced that too: main1 trained 8 iterations (2829-2836) and spec1 about 1 against
+R6 before R3 was restored.
+
 **Known faults:** the mid-game scaling gap (your boards grow ~2x a round in rounds 8-12, the
 network's ~1.4x); other wasted plays like tonight's are being counted across your logged games
 (the mistake audit) and get guardrails next.
