@@ -357,6 +357,50 @@ def adapt(state, old, new=OBS_LAYOUT):
     return state
 
 
+class PlanPicker(nn.Module):
+    """A plan-conditioned network playing its best plan (plan1, Nov 7): at each decision from round
+    `from_round` on, the plan with the highest value among none and the tribes of the minions on the
+    warband and in the Tavern (one batched pass over the candidates), then the logits under it.
+    Stateless, as the advice is (each decision decides again). `last_plan` keeps the plans picked.
+    Opt-in: BG_PLAN_PICK=1 makes load() wrap a plan-conditioned network in it (the gate, the audits)."""
+
+    def __init__(self, net, from_round=3):
+        super().__init__()
+        self.net, self.from_round = net, from_round
+        self.config = net.config
+        self.last_plan = None
+
+    def forward(self, features, cards, mask, plan=None):
+        from advisor.train import _tribe_tables
+        if plan is not None:
+            return self.net(features, cards, mask, plan=plan)
+        t = _tribe_tables()
+        b = features.shape[0]
+        cn = cards.cpu().numpy()
+        slots = np.concatenate([cn[:, t["board"]:t["board"] + N_BOARD],
+                                cn[:, t["shop"]:t["shop"] + L["N_SHOP"]]], 1).clip(0, len(t["minion"]) - 1)
+        have = (t["races"][slots][:, :, :-1] & t["minion"][slots][:, :, None]).any(1)  # (b, tribes)
+        rnd = np.rint(features[:, 0].float().cpu().numpy() * 20)
+        have[rnd < self.from_round] = False
+        rows, plans = [np.arange(b)], [np.zeros(b, np.int64)]
+        for j in range(have.shape[1]):
+            r = np.flatnonzero(have[:, j])
+            if len(r):
+                rows.append(r)
+                plans.append(np.full(len(r), j + 1, np.int64))
+        rows, plans = np.concatenate(rows), np.concatenate(plans)
+        dev = features.device
+        idx = torch.from_numpy(rows).to(dev)
+        _, v = self.net(features[idx], cards[idx], mask[idx], plan=torch.from_numpy(plans).to(dev))
+        vp = v.float()
+        pt = torch.from_numpy(plans).to(dev)
+        best = torch.full((b,), -1e9, device=dev).scatter_reduce(0, idx, vp, reduce="amax")
+        top = vp >= best[idx]
+        best_plan = torch.zeros(b, dtype=torch.long, device=dev).scatter_(0, idx[top], pt[top])
+        self.last_plan = best_plan
+        return self.net(features, cards, mask, plan=best_plan)
+
+
 def load(path, device="cpu"):
     """A saved network on `device`, adapted when it was built for an older observation layout
     (`ck["adapted"]` then holds the layout it had; its optimizer state no longer fits)."""
@@ -374,6 +418,9 @@ def load(path, device="cpu"):
     if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.", "trinket_count.", "plan_emb.", "aux.")) for k in missing):
         raise ValueError(f"{path}: weights don't fit ({missing}, {unexpected})")
     net.eval()
+    import os
+    if os.environ.get("BG_PLAN_PICK") == "1" and getattr(net, "plan_emb", None) is not None:
+        net = PlanPicker(net).eval()
     return net, ck
 
 
