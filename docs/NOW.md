@@ -7,14 +7,13 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
-- [ ] Cluster GPU: spec1, the mid/late specialist (every game from your rounds 6+ positions, 13 training games), days; judged on your 8 held-out games; 72 s an iteration since 12:00 (155 before: faster loading of your positions)
+- [ ] Cluster GPU: **plan1**, plan-conditioned training (from main1 it 3600; a plan input: none or a tribe to commit to; the value picks the plan): the local-optimum fix. Days
 
 ## Next up
 
 - [ ] The disagreement audit (cluster, job 110787): at 800 of your decisions where R6 acts otherwise, both played out: the choices it gets wrong even by its own follow-through
 
 
-- [ ] spec1: no gain at 8 h or 24 h (gate +0.10 ± 0.07 at 24 h, exams level): keep it until the aux probe's answer, then your call
 - [ ] The long-term return plan, step 1 (aux_probe on the cluster): can the network learn to predict scaling 2-4 rounds ahead
 
 ## Later
@@ -25,6 +24,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] A Hero Power exam; a rating ladder and league
 
 ## Done (Nov 7)
+
+- [x] spec1 stopped (no gain at 8 h and 24 h); the disagreement audit: one decision at a time R6 is as good as you under its own follow-through: the gap is a local optimum (your committed style), so plan1
 
 - [x] Advice guardrails (live.Waste), from the mistake audit and your logs: no buff on a Tavern minion it then refreshes away or leaves (3-4% of turns), no buff on a minion it then sells (up to 2.4%), no Freeze undone by a Refresh; 1% of plans change, each as intended (from the advisor's next start)
 
