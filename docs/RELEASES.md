@@ -4,6 +4,24 @@ Only when a network passes the gate against the champion (from Nov 4; before, on
 [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31)).
 Newest first.
 
+## R6, Nov 6: main1 it 1400 (gate pass) + the Tavern-buff guardrail
+
+**The network:** main1 at iteration 1400, the mainline (R3's setup trained continuously since
+Nov 4 19:54). Against R3 (big3 it 510) in advisor.gate: **-0.182 ± 0.020 places** (10,530 pairs,
+3 seeds, each round passing); from your own logged positions about -0.09 ± 0.03. Most of its gain
+is in rounds 1-5; its mid-game exams (mid_exam, engine_exam) are level with R3's, so don't expect
+better scaling in the late game yet (that is spec1's job, docs/TRAINING_PLAN.md). Checked in the
+live advisor on a recorded game: 60 decisions, median 133 ms an advice. Released with your OK
+(Nov 6, 21:30) ahead of the "major breakthrough" rule: strictly better than what you had.
+
+**The advice:** a plan no longer buffs a minion in the Tavern that it then neither buys nor keeps
+with Freeze (your report: Suspicious Prisonguard on a Mechagnome Interpreter at 1 gold). Takes
+effect at the advisor's next start (the network itself reloads by itself).
+
+**Known faults:** the mid-game scaling gap (your boards grow ~2x a round in rounds 8-12, the
+network's ~1.4x); other wasted plays like tonight's are being counted across your logged games
+(the mistake audit) and get guardrails next.
+
 ## Nov 4: no release (no gate pass)
 
 **From Nov 4 a release is a network that passes the gate against the champion; nothing else is

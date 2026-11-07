@@ -854,8 +854,8 @@ def load_policy(path):
     from advisor.policy import load
     net, ck = load(path)
     ev = ck.get("gate") or ck.get("eval") or {}
-    name = f"early network, it {ck.get('iteration', '?')}"
-    if ev:
+    name = ck.get("label") or f"early network, it {ck.get('iteration', '?')}"
+    if ev and not ck.get("label"):
         name += f" (place {ev.get('mean_place')} vs bots, {ev.get('n')} games)"
     print(f"policy: {name}", flush=True)
     return net, name

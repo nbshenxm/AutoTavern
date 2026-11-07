@@ -97,3 +97,4 @@ the advice (advisor.usefulness).
 | R3 | Nov 2 | late >= 0.30, real < 2.45, Gold left <= 6 | shipped: big3 it 510 + the audited rebuild; Gold left 0.36 met, real 2.46 and late 0.20 missed |
 | R4 | Nov 3 | late >= 0.40, on-type >= 50% | shipped: R3's network on the 37.0.2 rules + the gate (R1→R3 -0.26 places; nothing since beats R3); targets missed |
 | R5 | Nov 4 | late >= 0.50; your games: 5+ played with it, measured | not released: no gate pass. From Nov 4 a release is a gate pass only (R4 and R5 shipped no new strength) |
+| R6 | Nov 6 | a gate pass vs R3 | shipped: main1 it 1400 (-0.182 ± 0.020 vs R3; your positions -0.09) + the Tavern-buff guardrail (your OK) |

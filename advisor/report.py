@@ -943,10 +943,13 @@ def render():
     if promos:
         parts.append('<div class="wrap"><table><tr><th>When</th><th>From</th><th>vs plain bots</th>'
                      '<th>vs seven copies of the one before</th></tr>' + "".join(
-                         f"<tr><td>{_when(r.get('time'))}</td><td>{_esc(r.get('candidate', '').split('/')[-2] if '/' in r.get('candidate', '') else r.get('candidate'))}"
-                         f" <small>iteration {r.get('iteration')}</small></td>"
-                         f"<td class='num'>{r['gate']['mean_place']:.2f} ± {r['gate']['se']:.2f}</td>"
-                         f"<td class='num'>{_h2h(r)}</td></tr>"
+                         (f"<tr><td>{_when(r.get('time'))}</td><td>{_esc(r.get('candidate', '').split('/')[-2] if '/' in r.get('candidate', '') else r.get('candidate'))}"
+                          f" <small>iteration {r.get('iteration')}</small></td>"
+                          f"<td class='num'>{r['gate']['mean_place']:.2f} ± {r['gate']['se']:.2f}</td>"
+                          f"<td class='num'>{_h2h(r)}</td></tr>" if r.get("gate") else
+                          # a release by hand (advisor.gate's paired verdict, not promote's gates)
+                          f"<tr><td>{_when(r.get('time'))}</td><td>{_esc(str(r.get('promoted')))}</td>"
+                          f"<td colspan='2'>{_esc(r.get('why', ''))}</td></tr>")
                          for r in reversed(promos[-8:])) + "</table></div>")
 
     parts.append("<h3>The training runs</h3>")
