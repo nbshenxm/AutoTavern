@@ -13,7 +13,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] The mistake audit (cluster, tonight): every kind of plainly wasted play in R3's and main1's turns from your positions, next to your rates; the frequent ones get guardrails
 
-- [ ] spec1 at it 2601 (running on the cluster from 20:11; the audit by about 22:00, the gate overnight): held-out games only, vs main1 at the same iteration (mid and engine exams, scaling share, real suite)
+- [ ] spec1 at 24 h (Nov 7 morning, about it 3200; from home: scripts/spec_check.sh): it 2601 showed no change yet (gate +0.02 ± 0.07, exams level)
 
 ## Later
 
