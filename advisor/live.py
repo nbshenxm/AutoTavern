@@ -43,7 +43,8 @@ OPTIONS = "GameState.DebugPrintOptions()"
 CHOICES = "GameState.DebugPrintEntityChoices()"
 MAX_PLAN = 80  # above the largest turn action cap (GAME_CONFIG), so a plan reaches End Turn
 A_MOVE = 196  # taverngym.layout(): the first move action
-A_TARGET = dict(taverngym.layout())["A_CHOOSE"]  # the first target / choice action (30)
+_L = dict(taverngym.layout())
+A_TARGET = _L["A_CHOOSE"]  # the first target / choice action (30)
 
 
 # ---------------------------------------------------------------------- following the log
@@ -290,12 +291,12 @@ def describe(view, a, locale):
 
 
 def plan_turn(g, locale, net=None, allowed=None, script=None):
-    """`_plan_once`, re-planned while the plan wastes a buff on a Tavern minion: a step that buffs a
-    minion in the Tavern ("give another minion +3/+3": the client offers the Tavern's too) that
-    the plan then neither buys nor keeps with Freeze before End Turn (the Tavern is replaced
-    next turn: the gold and the buff are lost; Nov 6, Suspicious Prisonguard on a Mechagnome
-    Interpreter at 1 gold: the network weighs the Tavern's target like a warband one, 41% vs
-    40%). The step is planned again without that target, up to 3 times."""
+    """`_plan_once`, re-planned while the plan wastes a buff (`Waste`): a buff on a minion in the
+    Tavern ("give another minion +3/+3": the client offers the Tavern's too) that the plan then
+    refreshes away or leaves in an unfrozen Tavern at End Turn (Nov 6, Suspicious Prisonguard on
+    a Mechagnome Interpreter at 1 gold: the network weighs the Tavern's target like a warband
+    one, 41% vs 40%; a Hero Power on Spark Snapper, then Refresh), or a buff on a warband
+    minion the plan then sells. The step is planned again without that target, up to 3 times."""
     forbid = {}
     for _ in range(4):
         out, rows, c, steps, wasted = _plan_once(g, locale, net, allowed, script, forbid)
@@ -306,18 +307,62 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
     return out, rows, c, steps
 
 
-def tavern_buff(view, a, after):
-    """The Tavern minion action `a` buffed (its entity id), or None."""
+def target_buff(view, a, after, zone="shop"):
+    """The minion in `zone` ("shop": the Tavern, "board": the warband) that target action `a`
+    buffed (its entity id), or None."""
     pending = view["me"].get("pending") or {}
     i = a - A_TARGET
     if pending.get("kind") != "target" or not 0 <= i < len(pending.get("targets") or []):
         return None
     eid = pending["targets"][i]
-    before = next((m for m in view["me"]["shop"] if m.get("eid") == eid), None)
-    now = next((m for m in after["me"]["shop"] if m.get("eid") == eid), None)
+    before = next((m for m in view["me"][zone] if m.get("eid") == eid), None)
+    now = next((m for m in after["me"][zone] if m.get("eid") == eid), None)
     if before is None or now is None:
         return None
     return eid if (now.get("atk") or 0) + (now.get("hp") or 0) > (before.get("atk") or 0) + (before.get("hp") or 0) else None
+
+
+def tavern_buff(view, a, after):
+    """The Tavern minion action `a` buffed (its entity id), or None."""
+    return target_buff(view, a, after, "shop")
+
+
+class Waste:
+    """A plan's buffs that come to nothing, step by step: a buff on a Tavern minion that is then
+    refreshed away, or still in an unfrozen Tavern at End Turn (not bought); a buff on a warband
+    minion that is then sold. `wasted`: [(the buff's step, entity id)]; `kinds`: "tavern" or
+    "board" for each."""
+
+    def __init__(self):
+        self.tavern, self.board, self.wasted, self.kinds = {}, {}, [], []
+
+    def _add(self, found, kind):
+        self.wasted += found
+        self.kinds += [kind] * len(found)
+
+    def step(self, i, view, a, after):
+        me = view["me"]
+        if _L["A_BUY"] <= a < _L["A_SELL"] and a - _L["A_BUY"] < len(me["shop"]):
+            self.tavern.pop(me["shop"][a - _L["A_BUY"]].get("eid"), None)
+        elif _L["A_SELL"] <= a < _L["A_ACTIVATE"] and a - _L["A_SELL"] < len(me["board"]):
+            e = me["board"][a - _L["A_SELL"]].get("eid")
+            if e in self.board:
+                self._add([(self.board.pop(e), e)], "board")
+        elif a == _L["A_REFRESH"]:  # a Refresh replaces the whole Tavern, frozen or not
+            shop = {m.get("eid") for m in me["shop"]}
+            self._add([(s, e) for e, s in self.tavern.items() if e in shop], "tavern")
+            self.tavern = {}
+        elif a == _L["A_END"]:
+            shop = {m.get("eid"): m for m in me["shop"]}
+            self._add([(s, e) for e, s in self.tavern.items()
+                       if e in shop and not (shop[e].get("frozen") or me.get("frozen"))], "tavern")
+            self.tavern = {}
+        e = target_buff(view, a, after, "shop")
+        if e is not None:
+            self.tavern[e] = i
+        e = target_buff(view, a, after, "board")
+        if e is not None:
+            self.board[e] = i
 
 
 def _plan_once(g, locale, net=None, allowed=None, script=None, forbid=None):
@@ -332,7 +377,7 @@ def _plan_once(g, locale, net=None, allowed=None, script=None, forbid=None):
     from advisor import search
     c = g.copy()
     out, rows, sold, steps = [], [], {}, []
-    buffed, wasted = [], []
+    waste = Waste()
     after = json.loads(c.view(0))
     for step in range(MAX_PLAN):
         if not c.needs_action(0):
@@ -372,12 +417,7 @@ def _plan_once(g, locale, net=None, allowed=None, script=None, forbid=None):
         c.step(0, a)
         steps.append(int(a))
         after = json.loads(c.view(0))
-        eid = tavern_buff(view, a, after)
-        if eid is not None:
-            buffed.append((step, eid))
-        if a == 0:  # End Turn: a buffed Tavern minion still there, not frozen, was for nothing
-            shop = {m.get("eid"): m for m in view["me"]["shop"]}
-            wasted = [(s, e) for s, e in buffed if e in shop and not (shop[e].get("frozen") or view["me"].get("frozen"))]
+        waste.step(step, view, a, after)
         chance = random_outcome(view, a, after) or random_cards(alt, a, after)
         if chance:
             # What comes next is the simulator's own roll (a new Tavern, offered cards), not
@@ -399,7 +439,7 @@ def _plan_once(g, locale, net=None, allowed=None, script=None, forbid=None):
             rows.append(row)
         if a == 0:
             break
-    return out, display.collapse(rows, locale), c, steps, wasted
+    return out, display.collapse(rows, locale), c, steps, waste.wasted
 
 
 def random_outcome(before, a, after):

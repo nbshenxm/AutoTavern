@@ -259,3 +259,28 @@ def test_tavern_buff_detects_a_buffed_tavern_minion():
     assert live.tavern_buff(view, live.A_TARGET + 1, buffed) == 40
     assert live.tavern_buff(view, live.A_TARGET, buffed) is None  # the warband minion
     assert live.tavern_buff(view, live.A_TARGET + 1, {"me": {"shop": shop}}) is None  # not buffed
+
+
+def test_waste_counts_a_tavern_buff_refreshed_away_and_a_buffed_minion_sold():
+    """live.Waste: a Tavern buff wasted by a Refresh (Nov 6: Hero Power on Spark Snapper, then
+    Refresh), kept by a buy; a buff on a warband minion wasted by selling it."""
+    from advisor import live
+    L = live._L
+    shop = [{"eid": 40, "atk": 3, "hp": 1}]
+    target = {"me": {"pending": {"kind": "target", "targets": [11, 40]}, "shop": shop,
+                     "board": [{"eid": 11, "atk": 2, "hp": 2}]}}
+    buffed_shop = {"me": {"shop": [{"eid": 40, "atk": 6, "hp": 4}], "board": [{"eid": 11, "atk": 2, "hp": 2}]}}
+    w = live.Waste()
+    w.step(1, target, live.A_TARGET + 1, buffed_shop)
+    w.step(2, {"me": {"shop": buffed_shop["me"]["shop"], "board": []}}, L["A_REFRESH"], buffed_shop)
+    assert w.wasted == [(1, 40)] and w.kinds == ["tavern"]
+    w = live.Waste()
+    w.step(1, target, live.A_TARGET + 1, buffed_shop)
+    w.step(2, {"me": {"shop": buffed_shop["me"]["shop"], "board": []}}, L["A_BUY"], buffed_shop)  # bought
+    w.step(3, {"me": {"shop": [], "board": []}}, L["A_REFRESH"], buffed_shop)
+    assert w.wasted == []
+    buffed_board = {"me": {"shop": shop, "board": [{"eid": 11, "atk": 5, "hp": 5}]}}
+    w = live.Waste()
+    w.step(1, target, live.A_TARGET, buffed_board)
+    w.step(2, {"me": {"shop": shop, "board": buffed_board["me"]["board"]}}, L["A_SELL"], buffed_board)
+    assert w.wasted == [(1, 11)] and w.kinds == ["board"]
