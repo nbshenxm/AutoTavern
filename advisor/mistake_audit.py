@@ -14,7 +14,10 @@ to End Turn. Counted per turn:
   lost; a bought minion can at least be sold for 1 next turn);
 - minion_in_hand: End Turn with a minion in hand and a free warband slot;
 - free_refresh_left: End Turn with a free Refresh unused and the Tavern not frozen;
-- buy_then_sell: a minion bought and sold again in the same turn.
+- buy_then_sell: a minion bought and sold again in the same turn;
+- hero_power_left / activate_left: End Turn with a Hero Power / a minion's Activate usable and
+  affordable (gold left is lost); spell_in_hand: a Tavern spell kept in hand; hand_full: the
+  hand at its limit (next turn's cards are lost).
 
 Your rate of the End Turn checks comes from your own turns' last decision, rebuilt. Each kind
 that is frequent for the network and rare for you is a guardrail candidate (live.plan_turn).
@@ -36,17 +39,26 @@ from advisor.policy import act, load
 ROOT = Path(__file__).resolve().parents[1]
 L = dict(taverngym.layout())
 KINDS = ("tavern_buff_unkept", "buff_then_sold", "freeze_then_refresh", "refresh_then_broke", "gold_left", "minion_in_hand",
-         "free_refresh_left", "buy_then_sell")
-END_KINDS = ("gold_left", "minion_in_hand", "free_refresh_left")
+         "free_refresh_left", "buy_then_sell", "hero_power_left", "activate_left", "spell_in_hand", "hand_full")
+END_KINDS = ("gold_left", "minion_in_hand", "free_refresh_left", "hero_power_left", "activate_left",
+             "spell_in_hand", "hand_full")
 
 
 def end_checks(view):
     """The End Turn checks on the view End Turn is pressed in."""
     me = view["me"]
     gold = me["gold"]
+    mask = view.get("mask") or []
+    legal = lambda a: a < len(mask) and bool(mask[a])
     minions = [m for m in me["shop"] if m.get("type", "minion") == "minion"]
     room = len(me["hand"]) < (me.get("hand_limit") or 10)
     return {
+        "hero_power_left": any(not h.get("passive") and h.get("usable") and (h.get("price") or 0) <= gold
+                               and legal(h.get("action", L["A_HERO_POWER"])) for h in me.get("hero_powers") or []),
+        "activate_left": any(m.get("activate_cost") is not None and m["activate_cost"] <= gold and legal(L["A_ACTIVATE"] + i)
+                             for i, m in enumerate(me["board"])),
+        "spell_in_hand": any(h.get("type") == "spell" for h in me["hand"]),
+        "hand_full": len(me["hand"]) >= (me.get("hand_limit") or 10),
         "gold_left": bool(room and any((m.get("price") or me["minion_price"]) <= gold for m in minions)),
         "minion_in_hand": bool(len(me["board"]) < 7 and any(h.get("type", "minion") == "minion" for h in me["hand"])),
         "free_refresh_left": bool((me.get("free_refreshes") or 0) > 0 and not me.get("frozen")

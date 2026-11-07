@@ -305,3 +305,15 @@ def test_waste_counts_a_freeze_undone_by_a_refresh():
     w.step(3, {"me": {"shop": [{"eid": 40}], "board": []}}, L["A_FREEZE"], frozen)
     w.step(4, frozen, L["A_REFRESH"], {"me": {"shop": [], "board": []}})
     assert w.wasted == [(3, None)] and w.kinds == ["freeze"]
+
+
+def test_waste_counts_a_magnetized_minion_then_sold():
+    """A Magnetic minion onto a warband minion that the plan then sells: the buff is lost."""
+    from advisor import live
+    L = live._L
+    board = [{"eid": 11, "atk": 2, "hp": 2}, {"eid": 12, "atk": 1, "hp": 1}]
+    view = {"me": {"shop": [], "board": board, "hand": [{"id": "x"}]}}
+    w = live.Waste()
+    w.step(2, view, L["A_MAGNETIZE"] + 1, view)  # hand 0 onto board 1
+    w.step(3, view, L["A_SELL"] + 1, view)
+    assert w.wasted == [(2, 12)] and w.kinds == ["board"]

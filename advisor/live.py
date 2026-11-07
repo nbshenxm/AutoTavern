@@ -332,7 +332,7 @@ def tavern_buff(view, a, after):
 class Waste:
     """A plan's buffs that come to nothing, step by step: a buff on a Tavern minion that is then
     refreshed away, or still in an unfrozen Tavern at End Turn (not bought); a buff on a warband
-    minion that is then sold; a Freeze then undone by a Refresh. `wasted`: [(the buff's step, entity id)]; `kinds`: "tavern",
+    minion (a target or a Magnetic minion) that is then sold; a Freeze then undone by a Refresh. `wasted`: [(the buff's step, entity id)]; `kinds`: "tavern",
     "board" or "freeze" for each."""
 
     def __init__(self):
@@ -351,6 +351,10 @@ class Waste:
             e = me["board"][a - _L["A_SELL"]].get("eid")
             if e in self.board:
                 self._add([(self.board.pop(e), e)], "board")
+        elif _L["A_MAGNETIZE"] <= a < _L["A_MOVE"]:  # a Magnetic minion onto a warband one: its buff
+            t = (a - _L["A_MAGNETIZE"]) % _L["N_BOARD"]
+            if t < len(me["board"]):
+                self.board[me["board"][t].get("eid")] = i
         elif a == _L["A_FREEZE"]:
             am = after["me"]
             self.freeze = i if (am.get("frozen") or any(m.get("frozen") for m in am["shop"])) else None
