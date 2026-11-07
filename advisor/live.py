@@ -317,8 +317,8 @@ def target_buff(view, a, after, zone="shop"):
     eid = pending["targets"][i]
     before = next((m for m in view["me"][zone] if m.get("eid") == eid), None)
     now = next((m for m in after["me"][zone] if m.get("eid") == eid), None)
-    if before is None or now is None:
-        return None
+    if before is None or now is None or (now.get("golden") and not before.get("golden")):
+        return None  # made Golden is not a buff to waste (yours: Greedy Conniver Golden, then sold)
     return eid if (now.get("atk") or 0) + (now.get("hp") or 0) > (before.get("atk") or 0) + (before.get("hp") or 0) else None
 
 

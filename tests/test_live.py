@@ -284,3 +284,13 @@ def test_waste_counts_a_tavern_buff_refreshed_away_and_a_buffed_minion_sold():
     w.step(1, target, live.A_TARGET, buffed_board)
     w.step(2, {"me": {"shop": shop, "board": buffed_board["me"]["board"]}}, L["A_SELL"], buffed_board)
     assert w.wasted == [(1, 11)] and w.kinds == ["board"]
+
+
+def test_made_golden_is_not_a_buff_to_waste():
+    """Making a warband minion Golden raises its stats, but selling it then is a play of yours
+    (Greedy Conniver: Golden when sold, Discover a Tier 7 minion), not a wasted buff."""
+    from advisor import live
+    view = {"me": {"pending": {"kind": "target", "targets": [11]}, "shop": [],
+                   "board": [{"eid": 11, "atk": 2, "hp": 2, "golden": False}]}}
+    after = {"me": {"shop": [], "board": [{"eid": 11, "atk": 4, "hp": 4, "golden": True}]}}
+    assert live.target_buff(view, live.A_TARGET, after, "board") is None
