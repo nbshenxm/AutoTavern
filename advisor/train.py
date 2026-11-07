@@ -179,8 +179,33 @@ def tribe_buys(cards, mask, a):
     return np.where(ok, A_BUY + best, -1)
 
 
+def plan_tribes(cards):
+    """Per row a plan (1 + the CARD_RACES index) among the tribes of the minions on the warband and
+    in the Tavern (so the lobby has it), at random; 0 where there is none."""
+    t = _tribe_tables()
+    slots = np.concatenate([cards[:, t["board"]:t["board"] + N_BOARD], cards[:, t["shop"]:t["shop"] + N_SHOP]], 1)
+    r = t["races"][slots][:, :, :-1] & t["minion"][slots][:, :, None]  # (n, slots, tribes); not ALL
+    have = r.any(1)
+    out = np.zeros(len(cards), np.int64)
+    for j in np.flatnonzero(have.any(1)):
+        out[j] = 1 + int(np.random.choice(np.flatnonzero(have[j])))
+    return out
+
+
+def plan_potential(cards, plan, beta):
+    """The shaping potential of each row's plan: `beta` x the warband's minions of the plan's tribe
+    (ALL counts) / 7; 0 without a plan. Rewarded as its change (potential-based: Ng et al. 1999,
+    summing to zero over a game, so it speeds the plan's learning without changing what is best)."""
+    t = _tribe_tables()
+    board = cards[:, t["board"]:t["board"] + N_BOARD]
+    br = t["races"][board]  # (n, 7, R)
+    j = np.clip(plan - 1, 0, br.shape[2] - 2)
+    on = (br[np.arange(len(cards))[:, None], np.arange(N_BOARD)[None, :], j[:, None]] | br[:, :, -1]) & t["minion"][board]
+    return np.where(plan > 0, beta * on.sum(1) / N_BOARD, 0.0).astype(np.float32)
+
+
 def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, starts=None, explore=None,
-            random_hero=0.0, amp=False, explore_tribe=0.0):
+            random_hero=0.0, amp=False, explore_tribe=0.0, plans=None):
     """Step the batch until `n_transitions` new transitions are stored. Returns the next obs and
     stats (finished episodes' placements of the current network's seats). `opponent_of` maps a
     slot to the frozen network playing it (a pool snapshot); those seats aren't learned from.
@@ -193,8 +218,20 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
     it where it did better than expected). The buy audit (Nov 5): offered one in rounds 7-9, main1
     takes it 35% of the time, you 72%.
     `amp`: the network's forward pass in bfloat16 (the collection waits on it: 6.7 of 9.8 s in fp32
-    on 64k decisions), its outputs back in float32 for the sampling."""
+    on 64k decisions), its outputs back in float32 for the sampling.
+    `plans` (plan1, Nov 7): {"share", "beta", "lo", "hi"}: a learner seat's game is committed, with
+    probability `share`, to a tribe from a random round in lo..hi on (the network's plan input,
+    EntityNet plans=), the tribe picked among those on its warband and in its Tavern then; the
+    plan's potential (plan_potential, `beta`) shapes its rewards. Kept per slot on `env`."""
     opponent_of = opponent_of or {}
+    P = plans
+    if P:
+        n = env.n_slots
+        if getattr(env, "_plan", None) is None or len(env._plan) != n:
+            env._plan = np.zeros(n, np.int64)
+            env._plan_want = np.random.random(n) < P["share"]
+            env._plan_round = np.random.randint(P["lo"], P["hi"] + 1, n)
+            env._phi = np.zeros(n, np.float32)
     stored, placements = 0, []
     last = getattr(env, "_last_action", None)
     if last is None or len(last) != env.n_slots:
@@ -217,9 +254,18 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
             mask[undo, A_CANCEL] = False
             obs["action_mask"][own] = mask
             m = torch.from_numpy(mask).to(device)
+            plan_t, phi = None, None
+            if P:
+                rnd = np.rint(obs["features"][own, 0] * 20).astype(np.int64)
+                new = env._plan_want[own] & (env._plan[own] == 0) & (rnd >= env._plan_round[own])
+                if new.any():
+                    env._plan[own[new]] = plan_tribes(obs["cards"][own[new]])
+                    env._plan_want[own[new]] = env._plan[own[new]] > 0  # (none to pick: no plan this game)
+                phi = plan_potential(obs["cards"][own], env._plan[own], P["beta"])
+                plan_t = torch.from_numpy(env._plan[own]).to(device)
             with torch.no_grad():
                 with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device.startswith("cuda")):
-                    logits, v = net(f, c, m)
+                    logits, v = net(f, c, m, plan=plan_t)
                 logits, v = logits.float(), v.float()
                 dist = torch.distributions.Categorical(logits=logits)
                 a = dist.sample()
@@ -257,14 +303,24 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                         a[j], forced[j] = A_CHOOSE + int(np.random.choice(legal)), True
             actions[own] = a
             for j, i in enumerate(own):
+                if P:  # the potential's change, on the transition that led here
+                    if seats[i].items:
+                        seats[i].items[-1][6] += float(phi[j] - env._phi[i])
+                    env._phi[i] = phi[j]
                 seats[i].items.append([obs["features"][i], obs["cards"][i],
                                        obs["action_mask"][i], int(a[j]), float(lp[j]),
-                                       float(v[j]), -wasted_gold(obs, i, int(a[j])), False, bool(forced[j])])
+                                       float(v[j]), -wasted_gold(obs, i, int(a[j])), False, bool(forced[j]),
+                                       int(env._plan[i]) if P else 0])
             stored += len(own)
         play_frozen(obs, ready, opponent_of, actions, device, sample=True)
         last[ready] = actions[ready]
         rew, done, info = env.step(actions)
         last[done] = -1
+        if P and done.any():  # the slot's next game: a new plan draw
+            d_ = np.flatnonzero(done)
+            env._plan[d_] = 0
+            env._plan_want[d_] = np.random.random(len(d_)) < P["share"]
+            env._plan_round[d_] = np.random.randint(P["lo"], P["hi"] + 1, len(d_))
         for i in np.flatnonzero((rew != 0) | done):
             if i in opponent_of:
                 continue
@@ -272,6 +328,9 @@ def collect(env, net, obs, seats, n_transitions, device, opponent_of=None, start
                 seats[i].items[-1][6] += float(rew[i])
                 if done[i]:
                     seats[i].items[-1][7] = True
+                    if P:  # the potential ends at 0
+                        seats[i].items[-1][6] -= float(env._phi[i])
+                        env._phi[i] = 0.0
             if done[i] and info["placement"][i]:
                 placements.append(int(info["placement"][i]))
         if starts is not None:
@@ -445,6 +504,7 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
     m = torch.from_numpy(np.stack([b[0][2] for b in batch]))
     a = torch.tensor([b[0][3] for b in batch])
     old_lp = torch.tensor([b[0][4] for b in batch])
+    plan = torch.tensor([b[0][9] if len(b[0]) > 9 else 0 for b in batch], dtype=torch.long)
     # Exploration steps (collect's `explore`): their value is learned, their action isn't
     learn = torch.tensor([not (len(b[0]) > 8 and b[0][8]) for b in batch], dtype=torch.float32)
     ret = torch.tensor([b[1] for b in batch], dtype=torch.float32)
@@ -470,7 +530,7 @@ def update(net, opt, batch, device, epochs=3, minibatch=4096, clip=0.2, vf=0.5, 
                 w = len(part) / len(idx)
                 fp, cp, mp = f[part].to(device), c[part].to(device), m[part].to(device)
                 with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and device == "cuda"):
-                    logits, v = net(fp, cp, mp)
+                    logits, v = net(fp, cp, mp, plan=plan[part].to(device))
                 logits, v = logits.float(), v.float()
                 dist = torch.distributions.Categorical(logits=logits)
                 lp = dist.log_prob(a[part].to(device))
@@ -935,6 +995,13 @@ def main():
     ap.add_argument("--explore-tribe", type=float, default=0.0, metavar="P",
                     help="a buy of an off-tribe minion becomes an on-tribe one (offered, affordable) with "
                          "this probability (collect's explore_tribe; forced: --explore-sil learns it where it paid)")
+    ap.add_argument("--plans", type=float, default=0.0, metavar="SHARE",
+                    help="plan1: the share of a learner seat's games committed to a tribe (the network "
+                         "needs a plan input: advisor.plan_init); collect's plans")
+    ap.add_argument("--plan-shaping", type=float, default=0.3, metavar="BETA",
+                    help="the plan's potential: BETA x its tribe's minions on the warband / 7 (as its change)")
+    ap.add_argument("--plan-rounds", type=int, nargs=2, default=[3, 6], metavar=("LO", "HI"),
+                    help="a plan starts at a random round in LO..HI")
     ap.add_argument("--random-hero", type=float, default=0.0, metavar="P",
                     help="at the hero offer, a random hero with this probability (forced: not learned)")
     ap.add_argument("--sil-games", type=float, default=0.0, metavar="COEF",
@@ -1055,6 +1122,12 @@ def main():
     seats = [Seat() for _ in range(env.n_slots)]
     obs = env.observe()
     pool = load_pool(out, a.device)
+    plan_cfg = None
+    if a.plans > 0:
+        if getattr(net, "plan_emb", None) is None:
+            raise SystemExit("--plans needs a plan-conditioned network (advisor.plan_init)")
+        plan_cfg = {"share": a.plans, "beta": a.plan_shaping, "lo": a.plan_rounds[0], "hi": a.plan_rounds[1]}
+        log({"plans": plan_cfg})
     gen = Generation(a.device) if a.generations else None
     # --solo: no generation opponents, but the same measures as every run (head to head with
     # the current best, from your positions, the library lobby of seats 5-7 with the best in the
@@ -1125,7 +1198,7 @@ def main():
             obs, placements, collect_s = collect_behind(None, None, env, net, obs, seats, a.transitions, a.device,
                                                         opponents, starts, explore=a.explore,
                                                         random_hero=a.random_hero, amp=a.amp_collect,
-                                                        explore_tribe=a.explore_tribe)
+                                                        explore_tribe=a.explore_tribe, plans=plan_cfg)
         for i in opponents:  # a seat that changes hands starts its trajectory anew
             seats[i].items = []
         if a.library_adaptive:  # one look at each game's seat 0, wherever it is
@@ -1146,7 +1219,7 @@ def main():
                 copied.record()
             ahead = behind.submit(collect_behind, stream, copied, env, actor, obs, seats, a.transitions, a.device,
                                   opponents, starts, explore=a.explore, random_hero=a.random_hero,
-                                  amp=a.amp_collect, explore_tribe=a.explore_tribe)
+                                  amp=a.amp_collect, explore_tribe=a.explore_tribe, plans=plan_cfg)
         net.train()
         warm = it - it0 <= a.critic_warmup
         fade = max(0, it - anchor_from) / a.anchor_iters  # from the warmup's end
@@ -1180,6 +1253,9 @@ def main():
         if a.explore_tribe:
             row["tribe_forced"] = getattr(env, "_tribe_forced", 0)
             env._tribe_forced = 0
+        if plan_cfg:  # the batch's planned share
+            pl = np.array([b[0][9] for b in batch if len(b[0]) > 9])
+            row["plan_share"] = round(float((pl > 0).mean()), 3) if len(pl) else 0.0
         if a.overlap:  # what the update waited for the batch (the rest of collect_s ran beside it)
             row["wait_s"] = round(tc - ts, 1)
         if it % a.snapshot_every == 0:
