@@ -21,6 +21,10 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league
 
+## Done (Nov 7)
+
+- [x] Advice guardrails (live.Waste), from the mistake audit and your logs: no buff on a Tavern minion it then refreshes away or leaves (3-4% of turns), no buff on a minion it then sells (up to 2.4%), no Freeze undone by a Refresh; 1% of plans change, each as intended (from the advisor's next start)
+
 ## Done (Nov 6)
 
 - [x] **R6 released (your OK): main1 it 1400 is the advisor's network** (-0.182 ± 0.020 vs R3); the runs keep R3 as their opponent (the advisor's file is now apart: data/models/advisor.pt on the office)
