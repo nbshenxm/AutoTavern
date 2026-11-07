@@ -31,7 +31,9 @@ cp "data/train/$RUN/last.pt" "$A/${RUN}_it$N.pt"
 NAME=${RUN}_it${N}_vs_main1_it$M
 echo "$(date '+%F %T') $RUN it $N against main1 it $M: $NAME"
 mkdir -p "$ROOT/gaterules/$A"
-cp "$A/${RUN}_it$N.pt" "$A/main1_it$M.pt" "$ROOT/gaterules/$A/"
+for f in "$A/${RUN}_it$N.pt" "$A/main1_it$M.pt"; do  # gaterules' archive may be the same folder (a link)
+    [ "$f" -ef "$ROOT/gaterules/$f" ] || cp "$f" "$ROOT/gaterules/$f"
+done
 cp -r advisor scripts "$ROOT/gaterules/"
 export BG_SPLIT=test BG_ROUNDS="6 19" FRESH=64
 sbatch --array=1-6%1 "$ROOT/repo/scripts/hpc/gate_vs.sh" "$A/${RUN}_it$N.pt" "$A/main1_it$M.pt" "$NAME"
