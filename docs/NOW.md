@@ -14,7 +14,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] The disagreement audit (cluster, job 110787): at 800 of your decisions where R6 acts otherwise, both played out: the choices it gets wrong even by its own follow-through
 
 
-- [ ] spec1 at 24 h (it 3317 vs main1 it 3301, running from 11:15: the audit about 13:00, the gate about 15:00): it 2601 showed no change yet (gate +0.02 ± 0.07, exams level)
+- [ ] spec1: no gain at 8 h or 24 h (gate +0.10 ± 0.07 at 24 h, exams level): keep it until the aux probe's answer, then your call
+- [ ] The long-term return plan, step 1 (aux_probe on the cluster): can the network learn to predict scaling 2-4 rounds ahead
 
 ## Later
 
