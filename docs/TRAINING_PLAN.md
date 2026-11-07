@@ -181,7 +181,31 @@ rounds 1-5 and the specialist from round 6 (AutoTavern's merged specialists). Ju
 (`BG_SPLIT=test`: 84 positions) against main1 at the same iteration. **Bar, set first:** mid exam (warband vs yours
 at +3) and engine exam better than main1's, the scaling share from your positions up, the gate's held-out real
 suite not worse. Also watched: the mid-game value probe (your rounds 5-8 End Turn rated above its own; main1 it 2200 on the held-out games: 62% of 32, +0.013 ± 0.025, so only a large change shows). Days, checked every 12 h (started Nov 6 10:00 from main1 it 2200, narrow, your OK: the GPU was idle until wide1's verdict; widened and restarted only if wide1 wins). If it doesn't scale either, more mid-game practice isn't the limit:
-the network's ability to learn it is.
+the network's ability to learn it is. **Result: no gain at 8 h or 24 h** (gate +0.103 ± 0.066 on the held-out
+games at it 3317; exams level; the value probe 61% as main1's): stopped Nov 7 at it 3431 (your OK).
+
+**Nov 7: the diagnosis, and plan1 (your OK).** One decision at a time, R6's choices are as good as yours under its
+own follow-through (disagreement audit: -0.021 ± 0.021 over 581); its value head doesn't track scaling at all (its
+correlation with the warband's growth 2-4 rounds on, in its own games: 0.07 / 0.01; aux_probe). The gap is a
+**local optimum**: your committed-engine style is many coordinated choices whose payoff comes rounds later, and
+every single step toward it from main1's tempo style is worse (each habit forced alone lost), so PPO's small
+steps never cross. AutoTavern's end-to-end PPO gets across by scale; we can't.
+
+**plan1: plan-conditioned training.** The network gets a plan input (EntityNet `plans=`: none, or a tribe the
+game commits to), zero at first so every plan plays as main1 (advisor.plan_init: 0.00 difference). In training a
+learner seat's game is committed with probability 0.5 to a tribe (among those on its warband and in its Tavern) from
+a random round in 3-6; a potential-based shaping (`--plan-shaping 0.3`: the plan tribe's minions on the warband / 7,
+rewarded as its change, zero over a game) credits each step toward it without changing what is best. So each
+committed style is practised and improved as its own mode (it needn't beat tempo while still clumsy), and the
+choice between styles is one decision with clean feedback: the value under each plan. At advice and in the gate,
+PlanPicker plays the plan with the highest value (`BG_PLAN_PICK=1`). Everything else main1's setup, from main1's
+it 3600 snapshot; judged against main1 at the same iteration. **Bar, set first:** with the picker, on your
+held-out games: the scaling share (1.8x+ a round, rounds 8-12) up, mid and engine exams better, the mid-game value
+probe up, the gate's real suite not worse. **Checks that the plans are real:** the value spread across plans in
+mid-game positions grows; under a tribe plan the network buys that tribe when offered (main1 34-46%, you 72%) and
+those games scale. Days; checked every 12 h. Not a repeat of the failed list: forced tribe buys gave a network that
+didn't know the plan trajectories it couldn't learn from; here the plan is its input, its follow-through is what
+it trains, and the value picks the plan.
 
 ## The mainline's setup
 
