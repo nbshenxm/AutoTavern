@@ -11,9 +11,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] Buy then sell in one turn (3.5% of main1 it 2601's turns): look at each; the mistake audit found no other frequent waste
 
-- [ ] spec1 at 24 h (Nov 7 morning, about it 3200; from home: scripts/spec_check.sh): it 2601 showed no change yet (gate +0.02 ± 0.07, exams level)
+- [ ] spec1 at 24 h (it 3317 vs main1 it 3301, running from 11:15: the audit about 13:00, the gate about 15:00): it 2601 showed no change yet (gate +0.02 ± 0.07, exams level)
 
 ## Later
 

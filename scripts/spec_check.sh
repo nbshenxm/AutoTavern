@@ -25,7 +25,7 @@ NAME=${RUN}_it${N}_vs_main1_it$M
 echo "$RUN it $N against main1 it $M: $NAME"
 ssh star "set -e; module load slurm/star/21.08.8 >/dev/null 2>&1
 mkdir -p $R/gaterules/data/models/archive
-cp $R/repo/data/models/archive/${RUN}_it$N.pt $R/repo/data/models/archive/main1_it$M.pt $R/gaterules/data/models/archive/
+for f in ${RUN}_it$N.pt main1_it$M.pt; do [ $R/repo/data/models/archive/\$f -ef $R/gaterules/data/models/archive/\$f ] || cp $R/repo/data/models/archive/\$f $R/gaterules/data/models/archive/; done
 cp -r $R/repo/advisor $R/repo/scripts $R/gaterules/
 export BG_SPLIT=test BG_ROUNDS='6 19' FRESH=64
 sbatch --array=1-6%1 $R/repo/scripts/hpc/gate_vs.sh data/models/archive/${RUN}_it$N.pt data/models/archive/main1_it$M.pt $NAME
