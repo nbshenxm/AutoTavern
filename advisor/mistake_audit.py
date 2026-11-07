@@ -17,7 +17,9 @@ to End Turn. Counted per turn:
 - buy_then_sell: a minion bought and sold again in the same turn;
 - hero_power_left / activate_left: End Turn with a Hero Power / a minion's Activate usable and
   affordable (gold left is lost); spell_in_hand: a Tavern spell kept in hand; hand_full: the
-  hand at its limit (next turn's cards are lost).
+  hand at its limit (next turn's cards are lost);
+- sold_strongest / sold_golden / sold_pair_piece: a sell of the warband's strongest minion, a
+  Golden one, one of a pair (a triple piece); yours from the logged state at each of your sells.
 
 Your rate of the End Turn checks comes from your own turns' last decision, rebuilt. Each kind
 that is frequent for the network and rare for you is a guardrail candidate (live.plan_turn).
@@ -39,7 +41,9 @@ from advisor.policy import act, load
 ROOT = Path(__file__).resolve().parents[1]
 L = dict(taverngym.layout())
 KINDS = ("tavern_buff_unkept", "buff_then_sold", "freeze_then_refresh", "refresh_then_broke", "gold_left", "minion_in_hand",
-         "free_refresh_left", "buy_then_sell", "hero_power_left", "activate_left", "spell_in_hand", "hand_full")
+         "free_refresh_left", "buy_then_sell", "hero_power_left", "activate_left", "spell_in_hand", "hand_full",
+         "sold_strongest", "sold_golden", "sold_pair_piece")
+SELL_KINDS = ("sold_strongest", "sold_golden", "sold_pair_piece")
 END_KINDS = ("gold_left", "minion_in_hand", "free_refresh_left", "hero_power_left", "activate_left",
              "spell_in_hand", "hand_full")
 
@@ -64,6 +68,23 @@ def end_checks(view):
         "free_refresh_left": bool((me.get("free_refreshes") or 0) > 0 and not me.get("frozen")
                                   and not any(m.get("frozen") for m in me["shop"])),
     }
+
+
+def base(card):
+    return (card or "").replace("_G", "")
+
+
+def sell_checks(board, hand, slot):
+    """What selling warband minion `slot` gives up: the strongest minion (3+ on the warband), a
+    Golden one, one of a pair (another copy on the warband or in hand: a triple piece)."""
+    m = board[slot]
+    stats = lambda x: (x.get("atk") or 0) + (x.get("hp") or 0)
+    card = m.get("id") or m.get("card")
+    others = [x for i, x in enumerate(board) if i != slot] + list(hand)
+    return {"sold_strongest": len(board) >= 3 and stats(m) >= max(stats(x) for x in board),
+            "sold_golden": bool(m.get("golden")),
+            "sold_pair_piece": not m.get("golden") and any(base(x.get("id") or x.get("card")) == base(card)
+                                                           and not x.get("golden") for x in others)}
 
 
 def cheapest(me):
@@ -92,6 +113,8 @@ def network_turn(g, net, max_steps=120):
         if L["A_SELL"] <= a < L["A_ACTIVATE"] and a - L["A_SELL"] < len(me["board"]):
             if me["board"][a - L["A_SELL"]].get("eid") in bought:
                 found["buy_then_sell"] = True
+            for k, x in sell_checks(me["board"], me["hand"], a - L["A_SELL"]).items():
+                found[k] = found[k] or x
         if a == L["A_END"] and not me.get("pending"):
             found.update(end_checks(view))
             waste.step(len(steps), view, a, view)
@@ -110,6 +133,26 @@ def network_turn(g, net, max_steps=120):
     for kind in waste.kinds:
         found[{"board": "buff_then_sold", "freeze": "freeze_then_refresh"}.get(kind, "tavern_buff_unkept")] = True
     return found, steps
+
+
+def your_sells(ds):
+    """The sell checks on your sells in a turn, from the logged state at each."""
+    found = dict.fromkeys(SELL_KINDS, False)
+    for d in ds:
+        if d["kind"] != "options":
+            continue
+        ch = d.get("chosen") or {}
+        opt = next((o for o in d["options"] if isinstance(ch, dict) and o["id"] == ch.get("option")), None)
+        if not opt or ((opt.get("entity") or {}).get("card")) != "TB_BaconShop_DragSell":
+            continue
+        t = (ch.get("target") or {}).get("eid") if isinstance(ch.get("target"), dict) else None
+        board = d["state"]["friendly"]["board"]
+        slot = next((i for i, m in enumerate(board) if m["eid"] == t), None)
+        if slot is None:
+            continue
+        for k, x in sell_checks(board, bridge.hand_cards(d["state"]["friendly"]), slot).items():
+            found[k] = found[k] or x
+    return found
 
 
 def turns(decisions):
@@ -155,6 +198,7 @@ def main():
             row["net"][p] = {"found": found, "steps": steps}
         gy, gaps = bridge.build(last, bridge.game_combats(combats, last))
         row["you"] = None if gaps else end_checks(json.loads(gy.view(0)))
+        row["you_sells"] = your_sells(ds)
         rows.append(row)
         if len(rows) % 50 == 0:
             print(len(rows), "turns", flush=True)
@@ -166,6 +210,8 @@ def main():
             for band, lo, hi in (("1-4", 1, 4), ("5-8", 5, 8), ("9+", 9, 99))}
     yours = [r["you"] for r in rows if r["you"]]
     summary["you"] = {k: round(float(np.mean([y[k] for y in yours])), 3) for k in END_KINDS} if yours else None
+    if summary["you"] is not None:
+        summary["you"].update({k: round(float(np.mean([r["you_sells"][k] for r in rows])), 3) for k in SELL_KINDS})
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps({"summary": summary, "rows": rows}), encoding="utf-8")
     print(json.dumps(summary, indent=1))
