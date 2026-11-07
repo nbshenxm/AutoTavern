@@ -296,14 +296,16 @@ def plan_turn(g, locale, net=None, allowed=None, script=None):
     refreshes away or leaves in an unfrozen Tavern at End Turn (Nov 6, Suspicious Prisonguard on
     a Mechagnome Interpreter at 1 gold: the network weighs the Tavern's target like a warband
     one, 41% vs 40%; a Hero Power on Spark Snapper, then Refresh), or a buff on a warband
-    minion the plan then sells. The step is planned again without that target, up to 3 times."""
+    minion the plan then sells, or a Freeze the plan then undoes with a Refresh (it replaces a
+    frozen Tavern too: the overlay said "Freeze, Refresh"). That step is planned again without
+    the wasted action, up to 3 times."""
     forbid = {}
     for _ in range(4):
         out, rows, c, steps, wasted = _plan_once(g, locale, net, allowed, script, forbid)
         if not wasted or net is None or script is not None:
             break
-        for step, eid in wasted:
-            forbid.setdefault(step, set()).add(eid)
+        for step, _ in wasted:
+            forbid.setdefault(step, set()).add(steps[step])
     return out, rows, c, steps
 
 
@@ -330,11 +332,12 @@ def tavern_buff(view, a, after):
 class Waste:
     """A plan's buffs that come to nothing, step by step: a buff on a Tavern minion that is then
     refreshed away, or still in an unfrozen Tavern at End Turn (not bought); a buff on a warband
-    minion that is then sold. `wasted`: [(the buff's step, entity id)]; `kinds`: "tavern" or
-    "board" for each."""
+    minion that is then sold; a Freeze then undone by a Refresh. `wasted`: [(the buff's step, entity id)]; `kinds`: "tavern",
+    "board" or "freeze" for each."""
 
     def __init__(self):
         self.tavern, self.board, self.wasted, self.kinds = {}, {}, [], []
+        self.freeze = None  # the step of a Freeze still standing
 
     def _add(self, found, kind):
         self.wasted += found
@@ -348,7 +351,13 @@ class Waste:
             e = me["board"][a - _L["A_SELL"]].get("eid")
             if e in self.board:
                 self._add([(self.board.pop(e), e)], "board")
+        elif a == _L["A_FREEZE"]:
+            am = after["me"]
+            self.freeze = i if (am.get("frozen") or any(m.get("frozen") for m in am["shop"])) else None
         elif a == _L["A_REFRESH"]:  # a Refresh replaces the whole Tavern, frozen or not
+            if self.freeze is not None:
+                self._add([(self.freeze, None)], "freeze")
+                self.freeze = None
             shop = {m.get("eid") for m in me["shop"]}
             self._add([(s, e) for e, s in self.tavern.items() if e in shop], "tavern")
             self.tavern = {}
@@ -372,8 +381,8 @@ def _plan_once(g, locale, net=None, allowed=None, script=None, forbid=None):
     `allowed` (what the client offers too). Without one, TavernGym's scripted bot. `rows` are
     the overlay's (advisor.display): a target joins the step that asked for it, and a run of
     moves is one "Arrange" step with the warband's order after it. `script`: these actions
-    instead (a plan the search chose), then the plan ends. `forbid`: {step: Tavern entity ids
-    not to target there}; also returned: the [(step, eid)] of Tavern buffs the plan wasted."""
+    instead (a plan the search chose), then the plan ends. `forbid`: {step: actions not to
+    take there}; also returned: the [(step, eid)] of the plan's wasted steps (`Waste`)."""
     from advisor import search
     c = g.copy()
     out, rows, sold, steps = [], [], {}, []
@@ -399,11 +408,8 @@ def _plan_once(g, locale, net=None, allowed=None, script=None, forbid=None):
                 mask = np.array(allowed) & (mask if mask is not None else True)
             if forbid and step in forbid:
                 mask = np.array(after["mask"], bool) if mask is None else np.array(mask, bool)
-                targets = (after["me"].get("pending") or {}).get("targets") or []
                 keep = mask.copy()
-                for i, eid in enumerate(targets):
-                    if eid in forbid[step] and A_TARGET + i < len(keep):
-                        keep[A_TARGET + i] = False
+                keep[list(forbid[step])] = False
                 if keep.any():
                     mask = keep
             a, _, _ = act(net, c, 0, mask)

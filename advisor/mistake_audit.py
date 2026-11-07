@@ -7,6 +7,7 @@ to End Turn. Counted per turn:
 - tavern_buff_unkept: a buff on a Tavern minion it then refreshes away or leaves in an unfrozen
   Tavern (not bought) (live.Waste, the advice's guardrail since Nov 6);
 - buff_then_sold: a buff on a warband minion it then sells (live.Waste);
+- freeze_then_refresh: a Freeze it undoes with a Refresh (live.Waste);
 - refresh_then_broke: a paid Refresh after which it can't afford anything in the new Tavern and
   buys nothing more (the gold for the look is all it gets);
 - gold_left: End Turn with gold for a minion in the Tavern and room in hand (unspent gold is
@@ -34,7 +35,7 @@ from advisor.policy import act, load
 
 ROOT = Path(__file__).resolve().parents[1]
 L = dict(taverngym.layout())
-KINDS = ("tavern_buff_unkept", "buff_then_sold", "refresh_then_broke", "gold_left", "minion_in_hand",
+KINDS = ("tavern_buff_unkept", "buff_then_sold", "freeze_then_refresh", "refresh_then_broke", "gold_left", "minion_in_hand",
          "free_refresh_left", "buy_then_sell")
 END_KINDS = ("gold_left", "minion_in_hand", "free_refresh_left")
 
@@ -95,7 +96,7 @@ def network_turn(g, net, max_steps=120):
             broke_after = after["me"]["gold"] if after["me"]["gold"] < cheapest(after["me"]) else None
         view = after
     for kind in waste.kinds:
-        found["buff_then_sold" if kind == "board" else "tavern_buff_unkept"] = True
+        found[{"board": "buff_then_sold", "freeze": "freeze_then_refresh"}.get(kind, "tavern_buff_unkept")] = True
     return found, steps
 
 

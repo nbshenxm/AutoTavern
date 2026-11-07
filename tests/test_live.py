@@ -294,3 +294,14 @@ def test_made_golden_is_not_a_buff_to_waste():
                    "board": [{"eid": 11, "atk": 2, "hp": 2, "golden": False}]}}
     after = {"me": {"shop": [], "board": [{"eid": 11, "atk": 4, "hp": 4, "golden": True}]}}
     assert live.target_buff(view, live.A_TARGET, after, "board") is None
+
+
+def test_waste_counts_a_freeze_undone_by_a_refresh():
+    """A Freeze then a Refresh: the Refresh replaces the frozen Tavern, the Freeze did nothing."""
+    from advisor import live
+    L = live._L
+    frozen = {"me": {"shop": [{"eid": 40, "frozen": True}], "board": [], "frozen": True}}
+    w = live.Waste()
+    w.step(3, {"me": {"shop": [{"eid": 40}], "board": []}}, L["A_FREEZE"], frozen)
+    w.step(4, frozen, L["A_REFRESH"], {"me": {"shop": [], "board": []}})
+    assert w.wasted == [(3, None)] and w.kinds == ["freeze"]
