@@ -50,12 +50,14 @@ def main():
     ap.add_argument("src")
     ap.add_argument("dst")
     ap.add_argument("--aux", type=int, default=0, help="growth heads (2: 2 and 4 rounds on)")
+    ap.add_argument("--cards", action="store_true", help="plan2: the plan marked on its tribe's cards too")
     a = ap.parse_args()
     torch.manual_seed(0)
     net, ck = load(a.src, "cpu")
-    planned = make({**net.config, "plans": N_PLANS, **({"aux": a.aux} if a.aux else {})})
+    planned = make({**net.config, "plans": N_PLANS, **({"aux": a.aux} if a.aux else {}),
+                    **({"plan_cards": True} if a.cards else {})})
     missing, unexpected = planned.load_state_dict(net.state_dict(), strict=False)
-    if unexpected or any(not k.startswith(("plan_emb.", "aux.")) for k in missing):
+    if unexpected or any(not k.startswith(("plan_emb.", "plan_card", "aux.")) for k in missing):
         raise SystemExit(f"weights don't fit: {missing} {unexpected}")
     planned.eval()
     dl, dv, n = check(net.eval(), planned)
@@ -63,7 +65,7 @@ def main():
     if dl > 1e-4 or dv > 1e-4:
         raise SystemExit("the planned network doesn't play as the source: not saved")
     extra = {k: v for k, v in ck.items() if k not in ("config", "state", "obs", "opt")}
-    save(planned, a.dst, {**extra, "adapted": "plans" + (f" + aux {a.aux}" if a.aux else ""),
+    save(planned, a.dst, {**extra, "adapted": "plans" + (" + cards" if a.cards else "") + (f" + aux {a.aux}" if a.aux else ""),
                           "source": f"{a.src} (iteration {ck.get('iteration')}), plan-conditioned"})
     print("saved", a.dst)
 

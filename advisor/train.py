@@ -1000,6 +1000,8 @@ def main():
                          "needs a plan input: advisor.plan_init); collect's plans")
     ap.add_argument("--plan-shaping", type=float, default=0.3, metavar="BETA",
                     help="the plan's potential: BETA x its tribe's minions on the warband / 7 (as its change)")
+    ap.add_argument("--plan-lr-mult", type=float, default=1.0, metavar="X",
+                    help="plan2: the plan's parameters (plan_emb, plan_card) learn at X times --lr")
     ap.add_argument("--plan-rounds", type=int, nargs=2, default=[3, 6], metavar=("LO", "HI"),
                     help="a plan starts at a random round in LO..HI")
     ap.add_argument("--random-hero", type=float, default=0.0, metavar="P",
@@ -1075,7 +1077,13 @@ def main():
         it0, best = ck.get("iteration", 0), ck.get("best", 9.0)
     else:
         net, it0, best = make({"arch": a.arch}).to(a.device), 0, 9.0
-    opt = torch.optim.Adam(net.parameters(), lr=a.lr)
+    plan_params = [p_ for n_, p_ in net.named_parameters() if n_.startswith(("plan_emb.", "plan_card"))]
+    if plan_params and a.plan_lr_mult != 1.0:  # plan2: the plan's parameters learn faster
+        ids = {id(p_) for p_ in plan_params}
+        opt = torch.optim.Adam([{"params": [p_ for p_ in net.parameters() if id(p_) not in ids]},
+                                {"params": plan_params, "lr": a.lr * a.plan_lr_mult}], lr=a.lr)
+    else:
+        opt = torch.optim.Adam(net.parameters(), lr=a.lr)
     if a.resume and "opt" in ck and "adapted" not in ck:  # an adapted network's shapes changed
         opt.load_state_dict(ck["opt"])
     anchor = load(a.anchor, a.device)[0] if a.anchor else None

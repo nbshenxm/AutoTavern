@@ -167,7 +167,7 @@ class EntityNet(nn.Module):
     their last seen warbands."""
 
     def __init__(self, card_dim=64, d=128, layers=3, heads=4, arch="entity", blind_v4=False, ffn=2,
-                 plans=0, aux=0):
+                 plans=0, aux=0, plan_cards=False):
         super().__init__()
         self.config = {"arch": "entity", "card_dim": card_dim, "d": d, "layers": layers,
                        "heads": heads}
@@ -183,6 +183,22 @@ class EntityNet(nn.Module):
             self.config["plans"] = plans
             self.plan_emb = nn.Embedding(plans, d)
             nn.init.zeros_(self.plan_emb.weight)
+        # (Nov 8, plan2) The plan on the cards: a vector added to each warband, hand, Tavern and
+        # choice token that is a minion of the plan's tribe (ALL counts), zero at first. plan1's
+        # global embedding alone didn't reach the buys (planned seats followed their plan 11.8%,
+        # unplanned 12.8%); here the buy and sell heads see which cards are on plan directly
+        self.plan_card = None
+        if plans and plan_cards:
+            self.config["plan_cards"] = True
+            self.plan_card = nn.Parameter(torch.zeros(d))
+            from advisor.train import _tribe_tables
+            t = _tribe_tables()
+            races = np.zeros((N_CARDS + 1, t["races"].shape[1]), bool)
+            minion = np.zeros(N_CARDS + 1, bool)
+            k = min(len(races), len(t["races"]))
+            races[:k], minion[:k] = t["races"][:k], t["minion"][:k]
+            self.register_buffer("card_races", torch.from_numpy(races), persistent=False)
+            self.register_buffer("card_minion", torch.from_numpy(minion), persistent=False)
         # Growth heads (advisor.aux_probe): the warband's log growth 2 and 4 rounds on, from z;
         # trained beside the value (low-noise targets of what scaling is), read by nothing else
         self.aux = None
@@ -282,6 +298,17 @@ class EntityNet(nn.Module):
         h = torch.cat(toks, dim=1) + self.pos
         if plan is not None and self.plan_emb is not None:
             h = torch.cat([h[:, :1] + self.plan_emb(plan)[:, None], h[:, 1:]], dim=1)
+        if plan is not None and self.plan_card is not None:
+            j = (plan - 1).clamp(min=0)
+            on = []
+            for name in ("board", "hand", "shop", "choice"):  # contiguous tokens, in this order
+                cc = spans[name][1]
+                r = self.card_races[cc]  # (b, n, R)
+                hit = r.gather(2, j[:, None, None].expand(-1, cc.shape[1], 1)).squeeze(2) | r[:, :, -1]
+                on.append(hit & self.card_minion[cc] & (plan > 0)[:, None])
+            on = torch.cat(on, dim=1).to(h.dtype)[..., None]
+            a0, a1 = self.at["board"][0], self.at["choice"][1]
+            h = torch.cat([h[:, :a0], h[:, a0:a1] + on * self.plan_card.to(h.dtype), h[:, a1:]], dim=1)
         empty = torch.cat(empties, dim=1)
         h = self.out_norm(self.encoder(h, src_key_padding_mask=empty))
         live = (~empty).float()[..., None]
@@ -422,7 +449,7 @@ def load(path, device="cpu"):
         state = adapt(dict(state), old)
         ck["adapted"] = old
     missing, unexpected = net.load_state_dict(state, strict=False)
-    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.", "trinket_count.", "plan_emb.", "aux.")) for k in missing):
+    if unexpected or any(not k.startswith(("card_proj.", "opp_trinket.", "trinket_count.", "plan_emb.", "plan_card", "aux.")) for k in missing):
         raise ValueError(f"{path}: weights don't fit ({missing}, {unexpected})")
     net.eval()
     import os
