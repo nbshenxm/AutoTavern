@@ -362,11 +362,17 @@ class PlanPicker(nn.Module):
     `from_round` on, the plan with the highest value among none and the tribes of the minions on the
     warband and in the Tavern (one batched pass over the candidates), then the logits under it.
     Stateless, as the advice is (each decision decides again). `last_plan` keeps the plans picked.
-    Opt-in: BG_PLAN_PICK=1 makes load() wrap a plan-conditioned network in it (the gate, the audits)."""
+    Opt-in: BG_PLAN_PICK=1 makes load() wrap a plan-conditioned network in it (the gate, the audits).
+    The values compared are V(s, c) + Phi_c(s): training's shaping is potential-based, so the value
+    it learns under plan c is the return less the plan's potential now (Nov 8 fix; without it the
+    picker is biased against the tribes already on the warband). `beta`: training's --plan-shaping
+    (BG_PLAN_BETA, 0.3 by default)."""
 
-    def __init__(self, net, from_round=3):
+    def __init__(self, net, from_round=3, beta=None):
         super().__init__()
+        import os
         self.net, self.from_round = net, from_round
+        self.beta = float(os.environ.get("BG_PLAN_BETA", 0.3)) if beta is None else beta
         self.config = net.config
         self.last_plan = None
 
@@ -392,7 +398,8 @@ class PlanPicker(nn.Module):
         dev = features.device
         idx = torch.from_numpy(rows).to(dev)
         _, v = self.net(features[idx], cards[idx], mask[idx], plan=torch.from_numpy(plans).to(dev))
-        vp = v.float()
+        from advisor.train import plan_potential
+        vp = v.float() + torch.from_numpy(plan_potential(cn[rows], plans, self.beta)).to(dev)
         pt = torch.from_numpy(plans).to(dev)
         best = torch.full((b,), -1e9, device=dev).scatter_reduce(0, idx, vp, reduce="amax")
         top = vp >= best[idx]
