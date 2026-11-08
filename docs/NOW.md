@@ -24,7 +24,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Done (Nov 8)
 
 - [x] The Freeze test (partial, 387 frozen turns): R6's Freeze habit neither pays nor costs (+0.10 ± 0.09 places): no Freeze guardrail
-- [x] plan1 at 1,000 iterations: **the plans weren't followed** (11.8% vs 12.8% unplanned), level with main1 (audit -0.18 ± 0.12, gate +0.07 ± 0.07): stopped for plan2 (your OK)
+- [x] plan1 at 1,000 iterations: **the plans weren't followed** (11.8% vs 12.8% unplanned), level with main1 on your positions (audit -0.18 ± 0.12, gate -0.00 ± 0.08), worse on the library (+0.19 ± 0.07): stopped for plan2 (your OK)
 - [x] Plan picker fix: it compares each plan's value plus its potential (the shaping makes the learned value the return less it); advisor.plan_check written
 
 ## Done (Nov 7)
