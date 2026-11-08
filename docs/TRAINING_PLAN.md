@@ -207,6 +207,19 @@ those games scale. Days; checked every 12 h. Not a repeat of the failed list: fo
 didn't know the plan trajectories it couldn't learn from; here the plan is its input, its follow-through is what
 it trains, and the value picks the plan. The growth heads (aux_probe, step 1) don't join it: trained on main1's games they rate your boards below a stat pile (41-43%), since those games never contain your style; re-run on plan1's committed games.
 
+**Nov 8: plan1 at it 4599 (1,000 iterations), and plan2 (your OK).** The plans weren't real: in self-play
+(advisor.plan_check) seats under a tribe plan bought that tribe when offered 11.8% of the time, seats with the same
+draw unused 12.8% (main1 8%), and they scaled less (growth r8-12 1.24 vs 1.29) and placed worse (4.60 vs 4.40). The
+shaping leaked into a general habit instead (more buys of present tribes, Freeze 5.4% -> 1.8% of decisions). With the
+picker, level with main1 (audit -0.18 ± 0.12, gate +0.07 ± 0.07). The cause: a single zero-init vector on the
+global token, at lr 1e-5, is too weak a handle on which card to buy. **plan2** keeps plan1's design and adds
+(1) the plan on the cards: a zero-init vector added to every warband, hand, Tavern and choice token that is a minion
+of the plan's tribe (EntityNet `plan_cards`, advisor.plan_init `--cards`), so the buy and sell heads see what is on
+plan; (2) `--plan-lr-mult 30` for the plan's parameters only. From main1 it 3600 again (plays exactly as main1 at
+first), judged against main1 at the same iteration. **Bar at 12 h:** planned seats follow their plan clearly more
+than unplanned ones (plan_check), else the plan line stops; then the same bar as plan1. The PlanPicker compares
+V(s, c) + Phi_c(s) (the shaping makes the learned value the return less the plan's potential: fixed Nov 8).
+
 ## The mainline's setup
 
 | From | Setup | Checkpoint |

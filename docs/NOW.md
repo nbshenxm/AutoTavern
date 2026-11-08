@@ -7,11 +7,11 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
-- [ ] Cluster GPU: **plan1**, plan-conditioned training (from main1 it 3600; a plan input: none or a tribe to commit to; the value picks the plan): the local-optimum fix. Days
+- [ ] Cluster GPU: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (from main1 it 3600): the local-optimum fix. First check in 12 h: are the plans followed
 
 ## Next up
 
-- [ ] plan1's first check (it 4599, about 1,000 iterations, vs main1 it 4600; cluster, running): the gate and audit on your held-out games with the plan picker, and whether the plans are real (followed, scaling, values differ)
+- [ ] plan2's 12 h check (plan_check: planned seats must follow their plan clearly more than unplanned ones; then the gate and audit vs main1)
 - [ ] Re-run aux_probe on plan1's committed games (if the plans are real)
 
 ## Later
@@ -24,6 +24,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Done (Nov 8)
 
 - [x] The Freeze test (partial, 387 frozen turns): R6's Freeze habit neither pays nor costs (+0.10 ± 0.09 places): no Freeze guardrail
+- [x] plan1 at 1,000 iterations: **the plans weren't followed** (11.8% vs 12.8% unplanned), level with main1 (audit -0.18 ± 0.12, gate +0.07 ± 0.07): stopped for plan2 (your OK)
 - [x] Plan picker fix: it compares each plan's value plus its potential (the shaping makes the learned value the return less it); advisor.plan_check written
 
 ## Done (Nov 7)
