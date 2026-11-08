@@ -11,10 +11,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] The disagreement audit (cluster, job 110787): at 800 of your decisions where R6 acts otherwise, both played out: the choices it gets wrong even by its own follow-through
-
-
-- [ ] The long-term return plan, step 1 (aux_probe on the cluster): can the network learn to predict scaling 2-4 rounds ahead
+- [ ] plan1's first check (it 4599, about 1,000 iterations, vs main1 it 4600; cluster, running): the gate and audit on your held-out games with the plan picker, and whether the plans are real (followed, scaling, values differ)
+- [ ] Re-run aux_probe on plan1's committed games (if the plans are real)
 
 ## Later
 
@@ -22,6 +20,11 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration); Freeze toggles are 6% of mid/late decisions (15-20% of turns hit the cap of 10; the advice has had none since Oct 31)
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league
+
+## Done (Nov 8)
+
+- [x] The Freeze test (partial, 387 frozen turns): R6's Freeze habit neither pays nor costs (+0.10 ± 0.09 places): no Freeze guardrail
+- [x] Plan picker fix: it compares each plan's value plus its potential (the shaping makes the learned value the return less it); advisor.plan_check written
 
 ## Done (Nov 7)
 
