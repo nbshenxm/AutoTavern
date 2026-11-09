@@ -7,12 +7,12 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
-- [ ] Office: the R7 check of main1 it 5200 vs R6 (gate, then audit and exams), rerun on clean data: the first gate (-0.201 ± 0.041) ran with an empty warband curve
+- [ ] Office: the rest of the R7 audit (habits, buys, value probe), after **the clean gate passed: main1 it 5200 vs R6 -0.194 ± 0.033** and the audit -0.200 ± 0.076 (gain in rounds 6-9)
 - [ ] main1 paused at it 5833 (your OK): its snapshots cover plan2's comparisons
 
 ## Next up
 
-- [ ] If the check holds: R7 (main1 it 5200) to the advisor, with your OK
+- [ ] R7 (main1 it 5200) to the advisor, with your OK, once the audit's last steps are in
 - [ ] plan2 vs main1 at the same iteration: gate and audit with the picker (office)
 
 ## Later
