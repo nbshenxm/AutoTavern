@@ -6,13 +6,14 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Running
 
-- [ ] Office: main1, the mainline (the model; experiments branch from it); at 12 h **better than R3 by 0.097 ± 0.020** places (3 seeds, z 4.8)
-- [ ] Cluster GPU: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (from main1 it 3600): the local-optimum fix. First check in 12 h: are the plans followed
+- [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
+- [ ] Office: a gate of main1 at its end (it 5200; -0.333 ± 0.040 vs R3) against R6, the advisor's network (-0.182 vs R3)
+- [ ] main1 paused at it 5833 (your OK): its snapshots cover plan2's comparisons
 
 ## Next up
 
-- [ ] plan2's check tomorrow morning, on the office (the cluster is for big GPU work only from Nov 8; plan_check: planned seats must follow their plan clearly more than unplanned ones; then the gate and audit vs main1)
-- [ ] Re-run aux_probe on plan1's committed games (if the plans are real)
+- [ ] If main1 it 5200 beats R6 clearly: the full check (audit, exams, real suite) for R7
+- [ ] plan2 vs main1 at the same iteration: gate and audit with the picker (office)
 
 ## Later
 
