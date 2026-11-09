@@ -12,10 +12,10 @@ check() {
     local tag=$1
     cp data/train/$RUN/last.pt data/models/archive/${RUN}_${tag}.tmp && mv data/models/archive/${RUN}_${tag}.tmp data/models/archive/${RUN}_${tag}.pt
     say "gate ${RUN}_${tag}"
-    nice -n 10 $PY -X utf8 -m advisor.gate --rounds 4 --fresh-games 128 --no-recheck --threads 6 \
+    taskset -c "${BG_CPUS:-0-11}" nice -n 10 $PY -X utf8 -m advisor.gate --rounds 4 --fresh-games 128 --no-recheck --threads 6 \
         data/models/archive/${RUN}_${tag}.pt data/models/best.pt > data/gate/${RUN}_${tag}_vs_r3.log 2>&1
     say "gate ${RUN}_${tag}: $(tail -1 data/gate/${RUN}_${tag}_vs_r3.log | cut -c1-240)"
-    PYTHONUTF8=1 nice -n 15 $PY -X utf8 -m advisor.engine_exam data/models/archive/${RUN}_${tag}.pt --against data/models/best.pt \
+    PYTHONUTF8=1 taskset -c "${BG_CPUS:-0-11}" nice -n 15 $PY -X utf8 -m advisor.engine_exam data/models/archive/${RUN}_${tag}.pt --against data/models/best.pt \
         --out data/replay/engine_exam_${RUN}_${tag}.json > data/replay/engine_exam_${RUN}_${tag}.out 2>&1
     say "engine exam ${RUN}_${tag}: $(grep paired data/replay/engine_exam_${RUN}_${tag}.out)"
 }
