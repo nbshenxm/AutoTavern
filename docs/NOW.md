@@ -11,7 +11,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Next up
 
-- [ ] plan2's 12 h check (plan_check: planned seats must follow their plan clearly more than unplanned ones; then the gate and audit vs main1)
+- [ ] plan2's check tomorrow morning, on the office (the cluster is for big GPU work only from Nov 8; plan_check: planned seats must follow their plan clearly more than unplanned ones; then the gate and audit vs main1)
 - [ ] Re-run aux_probe on plan1's committed games (if the plans are real)
 
 ## Later
