@@ -266,6 +266,9 @@ def main():
     ap.add_argument("--real", type=int, help="at most this many of the real starts (a smoke test)")
     ap.add_argument("--report", help="only the tables, from this audit's folder")
     a = ap.parse_args()
+    from advisor import meta
+    if not meta.warband_curve():  # (Nov 9) the library's boards would stay unscaled
+        raise SystemExit(f"{meta.TOP_HEROES.name} has no warband curve: the library suite needs it")
     if a.report:
         report(a.report)
         return

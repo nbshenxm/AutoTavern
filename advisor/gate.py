@@ -319,6 +319,9 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED,
                     help="the first round's seed (another seed: new pairs, to pool with a finished gate)")
     a = ap.parse_args()
+    from advisor import meta
+    if not meta.warband_curve():  # (Nov 9) the library's boards would stay unscaled
+        raise SystemExit(f"{meta.TOP_HEROES.name} has no warband curve: the library suite needs it")
     torch.set_num_threads(a.threads)
     log = lambda r: print(json.dumps(r), flush=True)
     rules = tuple(r for r in a.rules.split(",") if r)

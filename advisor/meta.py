@@ -41,8 +41,16 @@ _DBF = {c["dbf"]: c for c in json.loads(CARDS.read_text(encoding="utf-8"))["card
 _NORMAL = {c["id"]: (c["normal"] or c["id"]) for c in _DBF.values()}
 
 
-def _download(url, path, force=False):
-    """`url`'s JSON into `path` when missing or older than a day; the last copy when offline.
+def has_warbands(data):
+    """A hero stats file with per-turn warband stats (Nov 9: Firestone's top-1% file came without
+    them, an empty curve: the library's boards unscaled and no comp starts, on the office runs)."""
+    return any(w.get("averageStats") is not None for h in data.get("heroStats") or []
+               for w in h.get("warbandStats") or [])
+
+
+def _download(url, path, force=False, ok=None):
+    """`url`'s JSON into `path` when missing or older than a day; the last copy when offline, or
+    when `ok(data)` rejects the new one (its file is then left as it was, retried next time).
     Returns `path`, or None when there is none."""
     if path.exists() and not force and time.time() - path.stat().st_mtime < MAX_AGE:
         return path
@@ -55,6 +63,9 @@ def _download(url, path, force=False):
         if raw[:2] == b"\x1f\x8b":  # gzip magic: the trinket stats come compressed
             raw = gzip.decompress(raw)
         data = json.loads(raw.decode("utf-8"))
+        if ok is not None and path.exists() and not ok(data):
+            print(f"{path.name}: the new copy is incomplete; keeping the last one", flush=True)
+            return path
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         tmp.replace(path)
@@ -66,8 +77,8 @@ def _download(url, path, force=False):
 def fetch(force=False):
     """The comp guides and the trinket stats, downloaded when missing or older than a day."""
     _download(TRINKET_URL, TRINKETS, force)
-    _download(HERO_URL, HEROES, force)
-    _download(TOP_HERO_URL, TOP_HEROES, force)
+    _download(HERO_URL, HEROES, force, ok=has_warbands)
+    _download(TOP_HERO_URL, TOP_HEROES, force, ok=has_warbands)
     _download(TAVERN_LINK_URL, TAVERN_LINK, force)
     return _download(URL, GUIDES, force)
 

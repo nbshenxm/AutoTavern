@@ -1045,6 +1045,10 @@ def main():
     cap_gpu_memory(a.device, a.gpu_memory)
     from advisor import meta
     meta.fetch()  # the public data the card table (built with each network) and the prior read
+    if (a.library or a.comp_starts) and not meta.warband_curve():
+        # (Nov 9) without the top 1%'s curve the library's boards stay unscaled and the comp
+        # starts are none: a different, easier training game that nothing would report
+        raise SystemExit(f"{meta.TOP_HEROES.name} has no warband curve: the library and comp starts need it")
     if a.evaluate:
         net, ck = load(a.evaluate, a.device)
         # Seeds apart from the training gate's, so a promotion is judged on unseen games
