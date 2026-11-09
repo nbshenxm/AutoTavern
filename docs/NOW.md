@@ -7,12 +7,12 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
-- [ ] Office: a gate of main1 at its end (it 5200; -0.333 ± 0.040 vs R3) against R6, the advisor's network (-0.182 vs R3)
+- [ ] Office: **main1 it 5200 beats R6 by -0.201 ± 0.041** (gate pass): the complete check for R7 is running (audit, exams, habits; about 12 h)
 - [ ] main1 paused at it 5833 (your OK): its snapshots cover plan2's comparisons
 
 ## Next up
 
-- [ ] If main1 it 5200 beats R6 clearly: the full check (audit, exams, real suite) for R7
+- [ ] If the check holds: R7 (main1 it 5200) to the advisor, with your OK
 - [ ] plan2 vs main1 at the same iteration: gate and audit with the picker (office)
 
 ## Later
