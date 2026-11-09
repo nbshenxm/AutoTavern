@@ -7,7 +7,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
-- [ ] Office: **main1 it 5200 beats R6 by -0.201 ± 0.041** (gate pass): the complete check for R7 is running (audit, exams, habits; about 12 h)
+- [ ] Office: the R7 check of main1 it 5200 vs R6 (gate, then audit and exams), rerun on clean data: the first gate (-0.201 ± 0.041) ran with an empty warband curve
 - [ ] main1 paused at it 5833 (your OK): its snapshots cover plan2's comparisons
 
 ## Next up
@@ -21,6 +21,11 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration); Freeze toggles are 6% of mid/late decisions (15-20% of turns hit the cap of 10; the advice has had none since Oct 31)
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league
+
+## Done (Nov 9)
+
+- [x] Data bug found and fixed: since Nov 8 20:20 the office's top-1% hero stats had no warband curve (a bad Firestone download), so the library opponents weren't scaled and there were no comp starts (training place 4.5 -> 3.2). The download now keeps the last good copy; training and gates refuse to run without the curve. main1's last 633 iterations (5200-5833) were trained on it
+- [x] plan2 at 850 iterations: **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, place no worse); moved to the office (main1 paused, your OK)
 
 ## Done (Nov 8)
 
