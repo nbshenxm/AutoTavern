@@ -7,13 +7,13 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
-- [ ] Office: the rest of the R7 audit (habits, buys, value probe), after **the clean gate passed: main1 it 5200 vs R6 -0.194 ± 0.033** and the audit -0.200 ± 0.076 (gain in rounds 6-9)
+- [ ] Office: **plan2 it 5000 vs main1 it 5001** with the plan picker: gate, then audit and exams (CPUs 0-11, low priority)
 - [ ] main1 paused at it 5833 (your OK): its snapshots cover plan2's comparisons
 
 ## Next up
 
-- [ ] R7 (main1 it 5200) to the advisor, with your OK, once the audit's last steps are in
-- [ ] plan2 vs main1 at the same iteration: gate and audit with the picker (office)
+- [ ] **R7 (main1 it 5200) to the advisor, with your OK**: it beats R6 on every suite; it presses Freeze 6-8 times a turn from round 7 (R6 1-3, you 0.1), which the advice now cancels out
+- [ ] main1's resume point: it 5200 (the last clean iteration) rather than 5833, with your OK
 
 ## Later
 
@@ -23,6 +23,8 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] A Hero Power exam; a rating ladder and league
 
 ## Done (Nov 9)
+
+- [x] **R7 check complete: main1 it 5200 beats R6** (gate -0.194 ± 0.033 on clean data, audit -0.200 ± 0.076, mostly made in rounds 6-9). It buys on-tribe less (22% vs R6 36%, you 58%) and its value no longer prefers your play (43% vs R6 70%); the advice's plan shows Freeze toggles across other steps as one Freeze or none
 
 - [x] Data bug found and fixed: since Nov 8 20:20 the office's top-1% hero stats had no warband curve (a bad Firestone download), so the library opponents weren't scaled and there were no comp starts (training place 4.5 -> 3.2). The download now keeps the last good copy; training and gates refuse to run without the curve. main1's last 633 iterations (5200-5833) were trained on it
 - [x] plan2 at 850 iterations: **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, place no worse); moved to the office (main1 paused, your OK)

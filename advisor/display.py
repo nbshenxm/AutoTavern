@@ -252,6 +252,18 @@ def collapse(rows, locale):
         elif count > 1:
             r["verb"] += f" ×{count}"
         final.append(r)
+    # Freeze presses toggle even with other steps between them (Freeze, Buy, Freeze: nothing is
+    # frozen). Between two Refreshes only their parity matters: an even count shows none, an odd
+    # one shows the last (Nov 9: main1 it 5200 presses Freeze 6-8 times a turn from round 7)
+    freeze, refresh = t(locale, "freeze"), t(locale, "refresh")
+    keep, seg = set(range(len(final))), []
+    for i, r in enumerate(final + [{"verb": refresh}]):
+        if r["verb"] == freeze:
+            seg.append(i)
+        elif r["verb"].startswith(refresh):
+            keep -= set(seg if len(seg) % 2 == 0 else seg[:-1])
+            seg = []
+    final = [r for i, r in enumerate(final) if i in keep]
     for n, r in enumerate(final, 1):
         r["n"] = n
     return final

@@ -317,3 +317,19 @@ def test_waste_counts_a_magnetized_minion_then_sold():
     w.step(2, view, L["A_MAGNETIZE"] + 1, view)  # hand 0 onto board 1
     w.step(3, view, L["A_SELL"] + 1, view)
     assert w.wasted == [(2, 12)] and w.kinds == ["board"]
+
+
+def test_collapse_cancels_freeze_toggles_across_other_steps():
+    """Freeze, Buy, Freeze freezes nothing; Freeze, Buy, Freeze, Play, Freeze shows one Freeze
+    (the last); a Refresh starts a new count."""
+    from advisor import display
+    loc = "enUS"
+    v = lambda k: display.t(loc, k)
+    row = lambda verb, card=None: {"verb": verb, "badge": "", "badge_kind": "", "card_id": card, "name": card}
+    verbs = lambda rows: [(r["verb"], r["card_id"]) for r in rows]
+    fz, buy = row(v("freeze")), row("Buy", "BG_A")
+    assert verbs(display.collapse([fz, buy, fz, row(v("end"))], loc)) == [("Buy", "BG_A"), (v("end"), None)]
+    got = verbs(display.collapse([fz, buy, fz, row("Play", "BG_B"), fz], loc))
+    assert got == [("Buy", "BG_A"), ("Play", "BG_B"), (v("freeze"), None)]
+    got = verbs(display.collapse([fz, buy, row(v("refresh")), row("Buy", "BG_C"), fz], loc))
+    assert got == [(v("freeze"), None), ("Buy", "BG_A"), (v("refresh"), None), ("Buy", "BG_C"), (v("freeze"), None)]
