@@ -24,6 +24,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 10)
 
+- [x] Office split from plan2's end (Nov 12 20:00, your choice): BG on CPUs 0-7, the constructed track on 8-23 (scripts/office/bg_cpus.sh switches by itself)
 - [x] plan2 it 5000 vs main1 it 5001: **level overall** (gate -0.056 ± 0.046), **better against the library's real warbands** (-0.185 ± 0.062), level on your positions (-0.007 ± 0.069); on-tribe buys on your positions not visibly moved. plan2 runs on to its end
 
 ## Done (Nov 9)
