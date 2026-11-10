@@ -8,12 +8,11 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 - [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
 - [ ] Office: **plan2 it 5000 vs main1 it 5001** with the plan picker: gate, then audit and exams (CPUs 0-11, low priority)
-- [ ] main1 paused at it 5833 (your OK): its snapshots cover plan2's comparisons
+- [ ] main1 paused (your OK): to resume from it 5200, the last clean iteration (your OK)
 
 ## Next up
 
-- [ ] **R7 (main1 it 5200) to the advisor, with your OK**: it beats R6 on every suite; it presses Freeze 6-8 times a turn from round 7 (R6 1-3, you 0.1), which the advice now cancels out
-- [ ] main1's resume point: it 5200 (the last clean iteration) rather than 5833, with your OK
+- [ ] main1 resumes from it 5200 once plan2 is judged (set up: its last.pt is the it 5200 snapshot; iterations 5201-5833 moved to data/train/main1/badcurve_5201_5833)
 
 ## Later
 
@@ -24,6 +23,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 9)
 
+- [x] **R7 released (your OK): main1 it 5200 is the advisor's network** (-0.194 ± 0.033 vs R6); the overlay picks the file up by itself, the Freeze fix at the advisor's next start
 - [x] **R7 check complete: main1 it 5200 beats R6** (gate -0.194 ± 0.033 on clean data, audit -0.200 ± 0.076, mostly made in rounds 6-9). It buys on-tribe less (22% vs R6 36%, you 58%) and its value no longer prefers your play (43% vs R6 70%); the advice's plan shows Freeze toggles across other steps as one Freeze or none
 
 - [x] Data bug found and fixed: since Nov 8 20:20 the office's top-1% hero stats had no warband curve (a bad Firestone download), so the library opponents weren't scaled and there were no comp starts (training place 4.5 -> 3.2). The download now keeps the last good copy; training and gates refuse to run without the curve. main1's last 633 iterations (5200-5833) were trained on it

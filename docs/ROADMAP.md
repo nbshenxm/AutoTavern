@@ -98,3 +98,4 @@ the advice (advisor.usefulness).
 | R4 | Nov 3 | late >= 0.40, on-type >= 50% | shipped: R3's network on the 37.0.2 rules + the gate (R1→R3 -0.26 places; nothing since beats R3); targets missed |
 | R5 | Nov 4 | late >= 0.50; your games: 5+ played with it, measured | not released: no gate pass. From Nov 4 a release is a gate pass only (R4 and R5 shipped no new strength) |
 | R6 | Nov 6 | a gate pass vs R3 | shipped: main1 it 1400 (-0.182 ± 0.020 vs R3; your positions -0.09) + the Tavern-buff guardrail (your OK) |
+| R7 | Nov 9 | a gate pass vs R6 + the complete check | shipped: main1 it 5200 (-0.194 ± 0.033 vs R6; your positions -0.148 ± 0.048; audit -0.200 ± 0.076, made in rounds 6-9) + Freeze toggles cancelled in the shown plan (your OK). Buys on-tribe less than R6 (22% vs 36%; you 58%) |
