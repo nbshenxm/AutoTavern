@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The audit after a gate verdict (advisor.post_audit and its exams) on the office machine: the
-# cluster's scripts/hpc/post_audit.sh, sized for BG's office share (CPUs 0-11, beside a training
+# cluster's scripts/hpc/post_audit.sh, sized for BG's office share (bg_cpus.sh: CPUs 0-11, 0-7 from Nov 12 20:00; beside a training
 # run, at nice 15; Nov 9: the cluster is for big GPU work only). Each step is skipped once its
 # output exists, so a rerun resumes. From a checkout that nothing trains from (~/at_check):
 #
@@ -10,9 +10,10 @@
 set -eo pipefail
 CAND=$1 CTRL=$2 NAME=$3
 PY=${PY:-$HOME/anaconda3/envs/taverngym/bin/python}
+. "$(dirname "${BASH_SOURCE[0]}")/bg_cpus.sh"
 D="data/audit/$NAME"
 mkdir -p "$D"
-run() { taskset -c "${BG_CPUS:-0-11}" nice -n 15 env PYTHONUTF8=1 OMP_NUM_THREADS=1 "$PY" -X utf8 -m "$@"; }
+run() { taskset -c "$BG_CPUS" nice -n 15 env PYTHONUTF8=1 OMP_NUM_THREADS=1 "$PY" -X utf8 -m "$@"; }
 say() { echo "$(date '+%F %T') $*" >> "$D/log.txt"; }
 say "audit $NAME: $CAND against $CTRL"
 [ -f "$D/report.md" ] || run advisor.post_audit "$CAND" "$CTRL" --name "$NAME" --fresh "${FRESH:-128}" \
