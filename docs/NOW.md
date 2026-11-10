@@ -7,11 +7,12 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 ## Running
 
 - [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
-- [ ] Office: **plan2 it 5000 vs main1 it 5001** with the plan picker: gate, then audit and exams (CPUs 0-11, low priority)
+- [ ] Office: plan_check of plan2 at it 5000 (do the plans hold 550 iterations on?)
 - [ ] main1 paused (your OK): to resume from it 5200, the last clean iteration (your OK)
 
 ## Next up
 
+- [ ] plan2 at its end (Nov 12) vs R7: gate and audit with the picker
 - [ ] main1 resumes from it 5200 once plan2 is judged (set up: its last.pt is the it 5200 snapshot; iterations 5201-5833 moved to data/train/main1/badcurve_5201_5833)
 
 ## Later
@@ -20,6 +21,10 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 - [ ] Training speed: observe only the slots that act (about 4 s of a 72 s iteration); Freeze toggles are 6% of mid/late decisions (15-20% of turns hit the cap of 10; the advice has had none since Oct 31)
 - [ ] Bob's Buddy disagreements: 8 combat Hero Powers and 2 trinkets (none in your logs)
 - [ ] A Hero Power exam; a rating ladder and league
+
+## Done (Nov 10)
+
+- [x] plan2 it 5000 vs main1 it 5001: **level overall** (gate -0.056 ± 0.046), **better against the library's real warbands** (-0.185 ± 0.062), level on your positions (-0.007 ± 0.069); on-tribe buys on your positions not visibly moved. plan2 runs on to its end
 
 ## Done (Nov 9)
 
