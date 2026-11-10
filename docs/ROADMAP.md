@@ -68,7 +68,7 @@ built. M6 runs at every patch.
 | M2 | done: the whole lobby is built from the log, its minion types inferred from what the Tavern shows; the player's legal actions match the client's in 95.8% of 2,603 logged decisions ([REPLAY.md](REPLAY.md#live-bridge)) |
 | M3 | done: advice at every recruit decision, Discover (minions, Tavern spells, Dark Discovery), trinket offer and hero offer; the trained network with plan search and an Arrange step, about 0.1-1.3 s |
 | M4 | done: in use in the user's games (constructed-advisor rows with card tiles, middle of the screen, Ctrl+Shift+B flags bad advice); the network synced hourly |
-| M5 | in progress ([TRAINING.md](TRAINING.md)): 1.49 against the bots; generations against the frozen best with promotions hourly; hot start, real-warband opponents, search-guided training (the current best), a larger network being distilled. The gap: late-game scaling against real lobbies (the progress page's strength curve) |
+| M5 | in progress ([TRAINING.md](TRAINING.md)): 1.49 against the bots; generations against the frozen best with promotions hourly; hot start, real-warband opponents, search-guided training (the current best), a larger network being distilled. The gap: late-game scaling against real lobbies (the progress page's strength curve) | **Paused Nov 10** (the user's decision; [NOW.md](NOW.md)): R7 ships, the gains shrink and the commitment gap widens; a restart needs a human-level strength measure or a new idea for the gap |
 | M6 | first patch done: 37.0.2 (Nov 3) through `tools/patch_overlay.py`, the scripts, 861 + 114 tests, the replay unchanged on the old logs ([patches/37.0.2_simulator.md](patches/37.0.2_simulator.md)) |
 
 ## Releases (from 2026-10-31)

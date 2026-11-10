@@ -4,16 +4,15 @@ Short and current: the progress page shows the first three "Next up" items at th
 MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); training:
 [TRAINING_PLAN.md](TRAINING_PLAN.md); simulator: [AUDIT.md](AUDIT.md).
 
+**Paused (Nov 10, your decision).** The advisor stays on R7 (main1 it 5200); no BG job runs on the office, which is the constructed track's for now. Why: main1's gains in the simulator are shrinking (R3->R6 took 1,400 iterations for -0.18 places, R6->R7 3,800 for -0.19), they are measured only against our own networks and bots, and the known gap to master play (tribe commitment in the mid-game) is widening (on-tribe buys R6 36%, R7 22%, you 58%); every experiment aimed at it failed, plan2's plan effect faded by it 5000. A restart needs a new way to measure strength against human-level play or a new idea for the commitment gap, not more of the same training.
+
 ## Running
 
-- [ ] Office: **plan2**, plan-conditioned training with the plan marked on its tribe's cards (moved from the cluster at it 4498): at it 4450 **the plans became real** (planned seats build their tribe: 2.06 vs 1.47 minions at round 8, and place no worse)
-- [ ] Office: plan_check of plan2 at it 5000 (do the plans hold 550 iterations on?)
-- [ ] main1 paused (your OK): to resume from it 5200, the last clean iteration (your OK)
+- (none) The office supervisor cron stays, with no active runs in data/overnight.conf; the home hourly sync keeps the progress page
 
-## Next up
+## To restart
 
-- [ ] plan2 at its end (Nov 12) vs R7: gate and audit with the picker
-- [ ] main1 resumes from it 5200 once plan2 is judged (set up: its last.pt is the it 5200 snapshot; iterations 5201-5833 moved to data/train/main1/badcurve_5201_5833)
+- [ ] Saved: main1 data/train/main1/last.pt = it 5200 (with the optimizer; 5201-5833 in badcurve_5201_5833), plan2 data/models/archive/plan2_pause_it5553.pt; R6 and R7 in data/models/archive. Before starting anything on the office, message the constructed session and agree on CPUs (scripts/office/bg_cpus.sh)
 
 ## Later
 
@@ -24,6 +23,7 @@ MMR (master play). Releases: [ROADMAP.md](ROADMAP.md#releases-from-2026-10-31); 
 
 ## Done (Nov 10)
 
+- [x] **Project paused** (your decision): plan2 stopped at it 5553 after its plan_check at it 5000 (the plan effect faded: plan minions at round 8 +0.11 ± 0.17, was +0.58; planned seats place worse); main1 stays at it 5200; the office handed to the constructed track
 - [x] Office split from plan2's end (Nov 12 20:00, your choice): BG on CPUs 0-7, the constructed track on 8-23 (scripts/office/bg_cpus.sh switches by itself)
 - [x] plan2 it 5000 vs main1 it 5001: **level overall** (gate -0.056 ± 0.046), **better against the library's real warbands** (-0.185 ± 0.062), level on your positions (-0.007 ± 0.069); on-tribe buys on your positions not visibly moved. plan2 runs on to its end
 
